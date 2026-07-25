@@ -5,7 +5,13 @@
  * class map so a new variant lands in both places.
  */
 import type { ToastVariant } from '@/types/components/ui';
-import { CheckCircle2, CircleX, Info, TriangleAlert, type LucideIcon } from 'lucide-react';
+import {
+    CheckCircle2,
+    CircleX,
+    Info,
+    TriangleAlert,
+    type LucideIcon,
+} from 'lucide-react';
 
 /**
  * @constant

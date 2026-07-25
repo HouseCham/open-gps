@@ -1,8 +1,4 @@
-import {
-    useEffect,
-    type PropsWithChildren,
-    type ReactNode,
-} from 'react';
+import { useEffect, type PropsWithChildren, type ReactNode } from 'react';
 //-- Hooks
 import { useAuth } from '@/lib/hooks/useAuth';
 //-- Utils

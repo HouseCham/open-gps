@@ -1,4 +1,4 @@
-import type { LoginFormStrings, SignupFormStrings } from "@/types/components";
+import type { LoginFormStrings, SignupFormStrings } from '@/types/components';
 import type { Translation } from '@/i18n';
 
 /**
@@ -39,7 +39,9 @@ export function parseLoginStrings(auth: Translation['auth']): LoginFormStrings {
  * @param {Translation['auth']} auth - The translation object.
  * @returns {SignupFormStrings} The parsed signup strings.
  */
-export function parseSignUpStrings(auth: Translation['auth']): SignupFormStrings {
+export function parseSignUpStrings(
+    auth: Translation['auth']
+): SignupFormStrings {
     return {
         email: auth.email,
         emailPlaceholder: auth.emailPlaceholder,
@@ -85,5 +87,5 @@ export function parseSignUpStrings(auth: Translation['auth']): SignupFormStrings
         apiInspectorTitle: auth.apiInspectorTitle,
         apiInspectorCookieNote: auth.apiInspectorCookieNote,
         autoSignInNote: auth.autoSignInNote,
-    }
+    };
 }

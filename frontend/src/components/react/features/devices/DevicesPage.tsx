@@ -94,7 +94,7 @@ export function DevicesPage({
     useEffect(() => {
         void getAllDevices();
     }, []);
-    
+
     /**
      * Options for the status dropdown.
      * @type {Record<string, string>}
@@ -129,7 +129,7 @@ export function DevicesPage({
      * Filter the devices based on the query, status filter, vehicle filter, and sort key.
      * @returns {DeviceWithAccess[]} The filtered devices.
      */
-     const filtered: DeviceWithAccess[] = ((): DeviceWithAccess[] => {
+    const filtered: DeviceWithAccess[] = ((): DeviceWithAccess[] => {
         const q = query.trim().toLowerCase();
         let list = devices.filter(d => {
             if (
@@ -213,7 +213,7 @@ export function DevicesPage({
      * Handle the editing of a device.
      * @param {string} id - The ID of the device to edit.
      * @param {object} data - The data for the edited device.
-     * @returns {Promise<void>} A promise that resolves when the device is edited. 
+     * @returns {Promise<void>} A promise that resolves when the device is edited.
      */
     const handleSave = async (
         id: string,
@@ -351,7 +351,7 @@ export function DevicesPage({
                     onClose={() => setAddOpen(false)}
                     onCreate={handleCreate}
                     t={t}
-                />    
+                />
             </Suspense>
 
             <Suspense fallback={null}>

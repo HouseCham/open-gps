@@ -17,11 +17,7 @@ import type {
 //-- Constants
 import { REDIRECT_AFTER_AUTH, REDIRECT_AFTER_SIGNOUT } from '@/constants/auth';
 //-- Utils
-import {
-    clearUser,
-    setAuthLoading,
-    setUser,
-} from '@/lib/stores/auth';
+import { clearUser, setAuthLoading, setUser } from '@/lib/stores/auth';
 import { handleApiError, withApiErrorToast } from '@/lib/api/api-utils';
 import { apiClient, authClient } from '@/lib/api/client';
 import { redirectTo } from '@/lib';
@@ -44,10 +40,13 @@ interface useAuthService {
     signOut: () => Promise<void>;
     fetchMe: (showToast?: boolean) => Promise<AuthUser | null>;
     fetchRole: () => Promise<UserRole | null>;
-    fetchOAuthAuthorizeUrl: (provider: OAuthProvider, callbackUrl: string) => Promise<string>;
+    fetchOAuthAuthorizeUrl: (
+        provider: OAuthProvider,
+        callbackUrl: string
+    ) => Promise<string>;
     getSession: (showToast?: boolean) => Promise<AuthUser | null>;
     signInOAuth: (provider: OAuthProvider) => Promise<void>;
-};
+}
 
 /**
  * Hooks for Authula authentication API calls.
@@ -77,16 +76,14 @@ export const useAuthService = (): useAuthService => {
                     title: 'Error',
                     message: 'sign-in returned an empty response',
                 });
-                handleApiError(
-                    new Error('sign-in returned an empty response')
-                );
-            };
+                handleApiError(new Error('sign-in returned an empty response'));
+            }
             setUser(data.user);
             redirectTo(REDIRECT_AFTER_AUTH);
         } finally {
             setIsLoading(false);
         }
-    };
+    }
     /**
      * Calls POST /email-password/sign-up on the Authula backend and
      * returns the resulting session.
@@ -108,7 +105,7 @@ export const useAuthService = (): useAuthService => {
                     variant: 'error',
                     title: 'Error',
                     message: 'sign-up returned an empty response',
-                })
+                });
                 handleApiError(new Error('sign-up returned an empty response'));
             }
             setUser(data.user);
@@ -116,7 +113,7 @@ export const useAuthService = (): useAuthService => {
         } finally {
             setAuthLoading(false);
         }
-    };
+    }
     /**
      * Signs out the user by calling POST /sign-out on the Authula backend.
      * @returns {Promise<void>}
@@ -150,7 +147,9 @@ export const useAuthService = (): useAuthService => {
      * @param {boolean | undefined} showToast - Whether to show a toast on error.
      * @returns {Promise<AuthUser | null>} The authenticated user, or null.
      */
-    async function fetchMe(showToast: boolean = true): Promise<AuthUser | null> {
+    async function fetchMe(
+        showToast: boolean = true
+    ): Promise<AuthUser | null> {
         try {
             const { data } = await withApiErrorToast(() =>
                 authClient<MeResponse | null>('/me', { method: 'GET' })
@@ -161,7 +160,7 @@ export const useAuthService = (): useAuthService => {
                         variant: 'error',
                         title: 'Error',
                         message: 'me returned an empty response',
-                    });    
+                    });
                 }
                 handleApiError(new Error('me returned an empty response'));
             }
@@ -178,30 +177,35 @@ export const useAuthService = (): useAuthService => {
      */
     async function fetchRole(): Promise<UserRole | null> {
         try {
-            const { data } = await apiClient<Envelope<ProfileResponse['user']> | null>('/users/me', { method: 'GET' });
+            const { data } = await apiClient<Envelope<
+                ProfileResponse['user']
+            > | null>('/users/me', { method: 'GET' });
             const role = data?.data?.role;
             if (!data || !role) {
                 toastBus.push({
                     variant: 'error',
                     title: 'Error',
                     message: 'me returned an empty response',
-                })
+                });
                 handleApiError(new Error('me returned an empty response'));
-            };
+            }
             return role;
         } catch (_err) {
             // No toast here: the only caller is getSession on app load,
             // where a failed role fetch is the same as "no session".
             return null;
-        };
-    };
+        }
+    }
     /**
      * Asks Authula for the provider's authorization URL. The backend
      * @param {OAuthProvider} provider - The provider identifier (e.g. "google").
      * @param {string} callbackUrl - Absolute URL the backend should redirect to after the callback.
      * @returns {Promise<string>} The authorization URL to send the browser to.
      */
-    async function fetchOAuthAuthorizeUrl(provider: OAuthProvider, callbackUrl: string): Promise<string> {
+    async function fetchOAuthAuthorizeUrl(
+        provider: OAuthProvider,
+        callbackUrl: string
+    ): Promise<string> {
         try {
             const { data } = await withApiErrorToast(() =>
                 authClient<OAuthAuthorizeResponse | null>(
@@ -215,8 +219,10 @@ export const useAuthService = (): useAuthService => {
                     title: 'Error',
                     message: 'oauth authorize returned an empty response',
                 });
-                handleApiError(new Error('oauth authorize returned an empty response'));
-            };
+                handleApiError(
+                    new Error('oauth authorize returned an empty response')
+                );
+            }
             return data.authUrl;
         } catch (_err) {
             // withApiErrorToast already pushed a toast; the caller falls
@@ -229,7 +235,9 @@ export const useAuthService = (): useAuthService => {
      * @param {boolean | undefined} showToast - Whether to show a toast on error.
      * @returns {Promise<AuthUser | null>} The authenticated user, or null.
      */
-    async function getSession(showToast: boolean = true): Promise<AuthUser | null> {
+    async function getSession(
+        showToast: boolean = true
+    ): Promise<AuthUser | null> {
         setAuthLoading(true);
         try {
             const user = await fetchMe(showToast);
@@ -287,6 +295,6 @@ export const useAuthService = (): useAuthService => {
         fetchRole,
         fetchOAuthAuthorizeUrl,
         getSession,
-        signInOAuth
+        signInOAuth,
     };
-}
+};

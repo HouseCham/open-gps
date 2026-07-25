@@ -14,12 +14,7 @@ import { MOBILE_BREAKPOINT } from '@/constants/layout';
 //-- Utils
 import { getInitials } from '@/lib';
 //-- Icons
-import {
-    Bell,
-    Globe,
-    Menu,
-    Settings as SettingsIcon,
-} from 'lucide-react';
+import { Bell, Globe, Menu, Settings as SettingsIcon } from 'lucide-react';
 //-- Components
 import { ProfileDropdown } from './ProfileDropdown';
 import { NotificationsDropdown } from './NotificationDropdown';
@@ -40,10 +35,7 @@ export interface TopbarProps {
  * @param {TopbarProps} props - The props for the component.
  * @returns {JSX.Element} The rendered component.
  */
-export function Topbar({
-    locale,
-    layout,
-}: TopbarProps): JSX.Element {
+export function Topbar({ locale, layout }: TopbarProps): JSX.Element {
     const sidebarOpen = useStore($sidebarOpen);
     const user = useStore($user);
     const [theme, setTheme] = useTheme();

@@ -1,12 +1,5 @@
 import { act, render } from '@testing-library/react';
-import {
-    afterEach,
-    beforeEach,
-    describe,
-    expect,
-    it,
-    vi,
-} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     TOAST_DEFAULT_DURATION_MS,
     TOAST_ERROR_DURATION_MS,
@@ -27,7 +20,9 @@ afterEach(() => {
 describe('<ToastProvider />', () => {
     it('renders no rows when the queue is empty', () => {
         const { container } = render(<ToastProvider />);
-        expect(container.querySelector('.gp-toast-stack')?.children).toHaveLength(0);
+        expect(
+            container.querySelector('.gp-toast-stack')?.children
+        ).toHaveLength(0);
     });
 
     it('renders a row for each toast in the queue', () => {
@@ -59,7 +54,7 @@ describe('<ToastProvider />', () => {
         expect($toasts.get()).toHaveLength(1);
         act(() => {
             vi.advanceTimersByTime(
-                TOAST_ERROR_DURATION_MS - TOAST_DEFAULT_DURATION_MS,
+                TOAST_ERROR_DURATION_MS - TOAST_DEFAULT_DURATION_MS
             );
         });
         expect($toasts.get()).toHaveLength(0);

@@ -1,4 +1,4 @@
-import type { JSX } from "react/jsx-runtime";
+import type { JSX } from 'react/jsx-runtime';
 
 /**
  * Props for the Chip component
@@ -13,11 +13,11 @@ interface ChipProps {
     count: number | null;
     active: boolean;
     onClick: () => void;
-};
+}
 
 /**
  * Chip — clickable label with optional count badge.
- * @param {ChipProps} props 
+ * @param {ChipProps} props
  * @returns {JSX.Element}
  */
 export function Chip({

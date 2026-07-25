@@ -76,8 +76,8 @@ export function DeviceDetailPage({
 }: DeviceDetailPageProps): JSX.Element {
     const {
         device,
-         isLoading: deviceLoading,
-         error: deviceError,
+        isLoading: deviceLoading,
+        error: deviceError,
         getDeviceById,
         grantAccess,
         revokeAccess,
@@ -151,7 +151,7 @@ export function DeviceDetailPage({
      * Handle the editing of a device.
      * @param {string} id - The ID of the device to edit.
      * @param {object} data - The data for the edited device.
-     * @returns {Promise<void>} A promise that resolves when the device is edited. 
+     * @returns {Promise<void>} A promise that resolves when the device is edited.
      */
     const handleEdit = async (
         id: string,

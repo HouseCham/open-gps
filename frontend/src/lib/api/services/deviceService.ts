@@ -31,9 +31,9 @@ import { apiClient } from '@/lib/api/client';
  * @method revokeAccess - Revokes a user's access to the device.
  */
 interface IDeviceService {
-     isLoading: boolean;
-     error: ApiError | null;
-     devices: DeviceWithAccess[];
+    isLoading: boolean;
+    error: ApiError | null;
+    devices: DeviceWithAccess[];
     device: DeviceDetail | null;
     getAllDevices: (page?: number, pageSize?: number) => Promise<void>;
     getDeviceById: (id: string) => Promise<void>;
@@ -48,8 +48,8 @@ interface IDeviceService {
  * The HTTP client used to interact with the devices API.
  */
 export const useDeviceService = (): IDeviceService => {
-     const [isLoading, setIsLoading] = useState<boolean>(false);
-     const [error, setError] = useState<ApiError | null>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [error, setError] = useState<ApiError | null>(null);
     const [devices, setDevices] = useState<DeviceWithAccess[]>([]);
     const [device, setDevice] = useState<DeviceDetail | null>(null);
 
@@ -57,10 +57,10 @@ export const useDeviceService = (): IDeviceService => {
      * Resets the state of the service to its initial values.
      * @returns {void}
      */
-     function resetState(): void {
-         setIsLoading(false);
-         setError(null);
-     }
+    function resetState(): void {
+        setIsLoading(false);
+        setError(null);
+    }
 
     /**
      * Retrieves a paginated list of devices for the authenticated user.
@@ -291,10 +291,10 @@ export const useDeviceService = (): IDeviceService => {
         }
     }
 
-     return {
-         isLoading,
-         error,
-         devices,
+    return {
+        isLoading,
+        error,
+        devices,
         device,
         //-- actions
         getAllDevices,
