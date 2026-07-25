@@ -1,4 +1,8 @@
-import type { LoginFormStrings, SignupFormStrings } from '@/types/components';
+import type {
+    ChangePasswordStrings,
+    LoginFormStrings,
+    SignupFormStrings,
+} from '@/types/components';
 import type { Translation } from '@/i18n';
 
 /**
@@ -87,5 +91,42 @@ export function parseSignUpStrings(
         apiInspectorTitle: auth.apiInspectorTitle,
         apiInspectorCookieNote: auth.apiInspectorCookieNote,
         autoSignInNote: auth.autoSignInNote,
+    };
+}
+/**
+ * Parse the change-password strings from the translation object.
+ * @param {Translation['auth']} auth - The translation object.
+ * @returns {ChangePasswordStrings} The parsed change-password strings.
+ */
+export function parseChangePasswordStrings(
+    auth: Translation['auth']
+): ChangePasswordStrings {
+    return {
+        title: auth.changePassword.title,
+        subtitle: auth.changePassword.subtitle,
+        description: auth.changePassword.description,
+        currentPassword: auth.changePassword.currentPassword,
+        currentPlaceholder: auth.changePassword.currentPlaceholder,
+        newPassword: auth.password,
+        newPlaceholder: auth.changePassword.newPlaceholder,
+        confirmPassword: auth.confirmPassword,
+        confirmPlaceholder: auth.changePassword.confirmPlaceholder,
+        submit: auth.changePassword.submit,
+        submitting: auth.changePassword.submitting,
+        errorWrongPassword: auth.changePassword.errorWrongPassword,
+        errorWeakPassword: auth.changePassword.errorWeakPassword,
+        errorGeneric: auth.changePassword.errorGeneric,
+        passwordsDoNotMatch: auth.passwordsDoNotMatch,
+        pickStrongerPassword: auth.pickStrongerPassword,
+        passwordRequired: auth.passwordRequired,
+        showPassword: auth.showPassword,
+        hidePassword: auth.hidePassword,
+        strengthLabel: auth.strengthLabel,
+        strengthTooShort: auth.strengthTooShort,
+        strengthWeak: auth.strengthWeak,
+        strengthFair: auth.strengthFair,
+        strengthGood: auth.strengthGood,
+        strengthStrong: auth.strengthStrong,
+        passwordHelp: auth.passwordHelp,
     };
 }

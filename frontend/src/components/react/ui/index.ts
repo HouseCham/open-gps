@@ -16,3 +16,4 @@ export * from './Modal';
 export * from './Chip';
 export * from './toast';
 export * from './ToastProvider';
+export * from './LanguageToggle';

@@ -200,6 +200,25 @@ export const es: Translation = {
             'No pudimos crear tu cuenta. Es posible que ese correo ya esté registrado.',
         autoSignInNote:
             'Auto-login: la respuesta establece la cookie de sesión y devuelve 200 con el perfil del usuario.',
+
+        // ChangePasswordModal
+        changePassword: {
+            title: 'Establece una nueva contraseña',
+            subtitle: 'Debes cambiar tu contraseña antes de continuar.',
+            description:
+                'Tu cuenta fue creada con una contraseña temporal. Elige una nueva para terminar de iniciar sesión.',
+            currentPassword: 'Contraseña actual',
+            currentPlaceholder: 'Contraseña temporal de tu administrador',
+            newPlaceholder: 'Elige una nueva contraseña',
+            confirmPlaceholder: 'Escribe la nueva contraseña otra vez',
+            submit: 'Actualizar contraseña',
+            submitting: 'Actualizando…',
+            errorWrongPassword: 'Esa contraseña es incorrecta.',
+            errorWeakPassword:
+                'Esa contraseña es demasiado corta o débil. Usa 8+ caracteres con mayúsculas y minúsculas y un número o símbolo.',
+            errorGeneric:
+                'No pudimos actualizar tu contraseña. Inténtalo de nuevo.',
+        },
     },
     profile: {
         title: 'Mi perfil',

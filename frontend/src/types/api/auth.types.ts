@@ -114,8 +114,8 @@ export interface SignOutResponse {
  * @property {AuthUser | null} user - The currently authenticated user, or `null` when signed out.
  * @property {boolean} isAuthenticated - `true` when `user` is not `null`.
  * @property {boolean} isAuthLoading - `true` while a sign-in / sign-up / sign-out / session refresh is in flight.
- * @property {UserRole | null} role - The authenticated user's role. `null` until `authService.fetchRole()` settles — use {@link isRoleLoaded} to disambiguate "not yet fetched" from "fetched and got nothing".
- * @property {boolean} isRoleLoaded - `true` once the role fetch has resolved (success or failure). Only meaningful when `isAuthenticated` is `true`.
+ * @property {UserRole | null} role - The authenticated user's role. `null` until `authService.fetchProfile()` settles — use {@link isRoleLoaded} to disambiguate "not yet fetched" from "fetched and got nothing".
+ * @property {boolean} isRoleLoaded - `true` once the profile fetch has resolved (success or failure). Only meaningful when `isAuthenticated` is `true`.
  * @property {(credentials: SignInCredentials) => Promise<void>} signIn - Sign in with email + password. Throws on invalid credentials.
  * @property {(credentials: SignUpCredentials) => Promise<void>} signUp - Register a new account. Throws on validation failure.
  * @property {(provider: OAuthProvider) => Promise<void>} signInOAuth - Begin the OAuth2 sign-in flow for the given provider. The browser is redirected away.
