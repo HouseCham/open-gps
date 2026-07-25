@@ -1,12 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/auth/client', () => ({
+vi.mock('@/lib/api/client', () => ({
     authClient: vi.fn(),
     apiClient: vi.fn(),
 }));
 
-import * as clientMod from '@/lib/auth/client';
+import * as clientMod from '@/lib/api/client';
 import { $toasts } from '@/lib/stores/toast.store';
 import type {
     CreatedUser,

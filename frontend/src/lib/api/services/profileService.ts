@@ -9,7 +9,7 @@ import type {
 //-- Utils
 import { isApiError, toApiError } from '@/lib/api/api-utils';
 //-- Http Client
-import { apiClient } from '@/lib/auth/client';
+import { apiClient } from '@/lib/api/client';
 
 /**
  * The interface for the profile service.

@@ -13,6 +13,7 @@ import {
     OnlyAdminRoute,
     ProtectedRoute,
 } from '@/components/react/auth';
+import { ToastProvider } from '@/components/react/ui';
 /**
  * @interface Props
  * @property {Language} [locale='en'] - Current locale code.
@@ -60,14 +61,25 @@ const currentPath = Astro.url.pathname;
         </script>
     </head>
     <body>
-        <AuthProvider client:load>
+        <ToastProvider client:idle />
+        <AuthProvider client:idle>
             <ProtectedRoute client:load>
-                {onlyAdmin ? (
-                    <OnlyAdminRoute client:load locale={locale}>
+                {
+                    onlyAdmin ? (
+                        <OnlyAdminRoute client:load locale={locale}>
+                            <AppShell
+                                locale={locale}
+                                class={className}
+                                nav={t.nav}
+                                layout={t.layout}
+                                currentPath={currentPath}
+                            >
+                                <slot />
+                            </AppShell>
+                        </OnlyAdminRoute>
+                    ) : (
                         <AppShell
                             locale={locale}
-                            pageLabel={pageLabel}
-                            pageEyebrow={pageEyebrow}
                             class={className}
                             nav={t.nav}
                             layout={t.layout}
@@ -75,20 +87,8 @@ const currentPath = Astro.url.pathname;
                         >
                             <slot />
                         </AppShell>
-                    </OnlyAdminRoute>
-                ) : (
-                    <AppShell
-                        locale={locale}
-                        pageLabel={pageLabel}
-                        pageEyebrow={pageEyebrow}
-                        class={className}
-                        nav={t.nav}
-                        layout={t.layout}
-                        currentPath={currentPath}
-                    >
-                        <slot />
-                    </AppShell>
-                )}
+                    )
+                }
             </ProtectedRoute>
         </AuthProvider>
     </body>

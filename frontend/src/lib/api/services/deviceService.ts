@@ -1,7 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 //-- Types
 import type {
-    ApiError,
     CreateDeviceDto,
     Device,
     DeviceDetail,
@@ -14,13 +13,12 @@ import type {
 import { handleApiError, withApiErrorToast } from '@/lib/api/api-utils';
 import { toastBus } from '@/lib/stores/toast.store';
 //-- Http Client
-import { apiClient } from '@/lib/auth/client';
+import { apiClient } from '@/lib/api/client';
 
 /**
  * The interface for the device service.
  * @interface IDeviceService
  * @property {boolean} isLoading - Whether the service is currently loading data.
- * @property {ApiError | null} error - The error that occurred, if any.
  * @property {DeviceWithAccess[]} devices - The list of devices the authenticated user has access to.
  * @property {DeviceDetail | null} device - The single device retrieved by ID (if any), including its user-access list.
  * @method getAllDevices - Retrieves a paginated list of devices for the authenticated user.
@@ -33,7 +31,6 @@ import { apiClient } from '@/lib/auth/client';
  */
 interface IDeviceService {
     isLoading: boolean;
-    error: ApiError | null;
     devices: DeviceWithAccess[];
     device: DeviceDetail | null;
     getAllDevices: (page?: number, pageSize?: number) => Promise<void>;
@@ -50,7 +47,6 @@ interface IDeviceService {
  */
 export const useDeviceService = (): IDeviceService => {
     const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [error, setError] = useState<ApiError | null>(null);
     const [devices, setDevices] = useState<DeviceWithAccess[]>([]);
     const [device, setDevice] = useState<DeviceDetail | null>(null);
 
@@ -60,7 +56,6 @@ export const useDeviceService = (): IDeviceService => {
      */
     function resetState(): void {
         setIsLoading(false);
-        setError(null);
     }
 
     /**
@@ -105,7 +100,7 @@ export const useDeviceService = (): IDeviceService => {
      * @param {string} id - The ID of the device to retrieve.
      * @returns {Promise<void>} Resolves when the device is fetched and state is updated.
      */
-    const getDeviceById = useCallback(async (id: string): Promise<void> => {
+    async function getDeviceById(id: string): Promise<void> {
         resetState();
         setIsLoading(true);
         setDevice(null);
@@ -125,11 +120,11 @@ export const useDeviceService = (): IDeviceService => {
                     new Error('get device returned a null response')
                 );
             }
-            setDevice(response!.data);
+            setDevice(response.data);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }
 
     /**
      * Creates a new device and grants the authenticated user owner access to it.
@@ -247,7 +242,6 @@ export const useDeviceService = (): IDeviceService => {
         userId: string
     ): Promise<void> {
         setIsLoading(true);
-        setError(null);
         try {
             await withApiErrorToast(() =>
                 apiClient<Envelope<unknown> | null>(
@@ -277,7 +271,6 @@ export const useDeviceService = (): IDeviceService => {
         userId: string
     ): Promise<void> {
         setIsLoading(true);
-        setError(null);
         try {
             await withApiErrorToast(() =>
                 apiClient<Envelope<null> | null>(
@@ -296,7 +289,6 @@ export const useDeviceService = (): IDeviceService => {
 
     return {
         isLoading,
-        error,
         devices,
         device,
         //-- actions

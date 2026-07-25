@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/react';
 import { $toasts, toastBus } from '@/lib/stores/toast.store';
-import type { ToastHandle } from '@/types/components';
+import type { ToastHandle } from '@/types/components/ui';
 
 /**
  * Read the current toast stack and expose the bus actions. Components

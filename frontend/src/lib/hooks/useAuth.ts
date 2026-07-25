@@ -10,7 +10,7 @@ import {
 //-- types
 import type { UseAuthResult } from '@/types/api';
 //-- services
-import { authService } from '@/lib/auth/service';
+import { useAuthService } from '@/lib/api/services';
 /**
  * React hook for reading and acting on the auth state.
  *
@@ -23,6 +23,7 @@ import { authService } from '@/lib/auth/service';
  * @returns {UseAuthResult} The current auth snapshot and actions.
  */
 export function useAuth(): UseAuthResult {
+    const { signIn, signUp, signInOAuth, signOut } = useAuthService();
     const user = useStore($user);
     const isAuthenticated = useStore($isAuthenticated);
     const isAuthLoading = useStore($isAuthLoading);
@@ -35,9 +36,9 @@ export function useAuth(): UseAuthResult {
         isAuthLoading,
         role,
         isRoleLoaded,
-        signIn: authService.signIn,
-        signUp: authService.signUp,
-        signInOAuth: authService.signInOAuth,
-        signOut: authService.signOut,
+        signIn: signIn,
+        signUp: signUp,
+        signInOAuth: signInOAuth,
+        signOut: signOut,
     };
 }

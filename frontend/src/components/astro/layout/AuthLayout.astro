@@ -10,6 +10,7 @@ import {
     AuthProvider,
     PublicOnlyRoute
 } from '@/components/react/auth';
+import { ToastProvider } from '@/components/react/ui';
 import { ThemeToggle } from '@/components/react/ui/ThemeToggle';
 
 /**
@@ -57,13 +58,17 @@ const classes = ['auth-layout', className].filter(Boolean).join(' ');
         </script>
     </head>
     <body>
-        <AuthProvider client:load>
+        <ToastProvider client:idle />
+        <AuthProvider
+            client:idle
+            showToast={false}
+        >
             <PublicOnlyRoute client:load isLoginPage={isLoginPage}>
                 <div class={classes}>
                     <div class="auth-split">
                         <aside class="auth-brand">
                             <div class="brand-controls">
-                                <ThemeToggle client:load />
+                                <ThemeToggle client:idle />
                             </div>
 
                             <div class="mark">
@@ -76,7 +81,7 @@ const classes = ['auth-layout', className].filter(Boolean).join(' ');
                                 <div class="tagline">
                                     {t.auth.tagline}<span class="accent">{t.auth.taglineAccent}</span>
                                 </div>
-                                <div class="sub" style="margin-top:10px">
+                                <div class="sub">
                                     {t.auth.brandSubtitle}
                                 </div>
                             </div>
@@ -184,11 +189,15 @@ const classes = ['auth-layout', className].filter(Boolean).join(' ');
 
     .auth-layout .brand-controls {
         position: absolute;
-        top: 12px;
-        right: 16px;
+        top: var(--s-3);
+        right: var(--s-4);
     }
 
-    @media (max-width: 920px) {
+    .auth-layout .sub {
+        margin-top: 0.625rem;
+    }
+
+    @media (max-width: var(--bp-tablet)) {
         .auth-layout > .auth-split {
             min-height: auto;
         }

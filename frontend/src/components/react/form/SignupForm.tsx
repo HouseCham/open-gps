@@ -6,7 +6,7 @@ import { AlertCircle, ArrowRight, Info, Mail, User } from 'lucide-react';
 //-- API
 import { isApiError } from '@/lib/api/api-utils';
 //-- Services
-import { authService } from '@/lib/auth/service';
+import { useAuthService } from '@/lib/api/services';
 //-- Components
 import { Alert } from '@/components/react/ui/Alert';
 import { Badge } from '@/components/react/ui/Badge';
@@ -79,12 +79,12 @@ export function SignupForm({
     strings,
     firstUser,
 }: SignupFormProps): JSX.Element {
+    const { isLoading, signUp } = useAuthService();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [pw, setPw] = useState('');
     const [pw2, setPw2] = useState('');
     const [terms, setTerms] = useState(false);
-    const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
 
     const mismatch = !!pw2 && pw !== pw2;
@@ -108,9 +108,8 @@ export function SignupForm({
             setErr(strings.pickStrongerPassword);
             return;
         }
-        setLoading(true);
         try {
-            await authService.signUp({
+            await signUp({
                 email: email.trim(),
                 password: pw,
                 name: name.trim(),
@@ -120,7 +119,6 @@ export function SignupForm({
                 ? error
                 : { status: 0, message: strings.signupFailed };
             setErr(apiError.message);
-            setLoading(false);
         }
     }
 
@@ -253,15 +251,16 @@ export function SignupForm({
                 <Button
                     type="submit"
                     variant="primary"
-                    loading={loading}
+                    loading={isLoading}
+                    disabled={isLoading}
                     iconRight={
-                        loading ? undefined : (
+                        isLoading ? undefined : (
                             <ArrowRight size={14} strokeWidth={1.6} />
                         )
                     }
                     className="btn-block"
                 >
-                    {loading ? strings.creatingAccount : strings.signup}
+                    {isLoading ? strings.creatingAccount : strings.signup}
                 </Button>
 
                 <OrDivider label={strings.orDivider} />

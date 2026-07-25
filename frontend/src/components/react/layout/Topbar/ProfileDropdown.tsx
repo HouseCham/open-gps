@@ -4,9 +4,7 @@ import type { Translation } from '@/i18n';
 import type { AuthUser } from '@/types/api';
 //-- Icons
 import {
-    Bell,
     HelpCircle,
-    Key,
     LogOut,
     Moon,
     Shield,
@@ -19,6 +17,7 @@ import { MenuItem } from './MenuItem';
 //-- Utils
 import { getInitials, useClickOutside } from '@/lib';
 import { redirectTo } from '@/lib/router-utils';
+import { REPOSITORY_URL } from '@/constants';
 
 /**
  * Properties for the profile dropdown component.
@@ -103,18 +102,18 @@ export function ProfileDropdown({
 
             {/* Settings */}
             <div className="chrome-menu-section">
+                {/* User settings */}
                 <MenuItem
                     icon={UserIcon}
                     label={layout.accountSettings}
                     onClick={() => redirectTo('/profile')}
                 />
+                {/* Help & docs */}
                 <MenuItem
-                    icon={Bell}
-                    label={layout.notificationsMenu}
-                    shortcut="⌘N"
+                    icon={HelpCircle}
+                    label={layout.helpDocs}
+                    href={REPOSITORY_URL}
                 />
-                <MenuItem icon={Key} label={layout.apiTokens} />
-                <MenuItem icon={HelpCircle} label={layout.helpDocs} />
             </div>
             <div className="chrome-menu-divider" />
             <div className="chrome-menu-section">

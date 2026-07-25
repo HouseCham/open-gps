@@ -7,7 +7,7 @@ import {
 import { useAuth } from '@/lib/hooks/useAuth';
 //-- Utils
 import { redirectTo } from '@/lib';
-import { isSuperAdmin } from '@/lib/auth/role-utils';
+import { isSuperAdmin } from '@/lib/role-utils';
 //-- Constants
 import { DENIED_ROUTE_STORAGE_KEY } from '@/constants/auth';
 //-- Types

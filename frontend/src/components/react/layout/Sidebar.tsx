@@ -12,7 +12,7 @@ import type { Language } from '@/types';
 import { SHELL_NAV_ITEMS, SIDEBAR_ICONS } from '@/constants/layout';
 //-- Utils
 import { getInitials } from '@/lib';
-import { isSuperAdmin } from '@/lib/auth/role-utils';
+import { isSuperAdmin } from '@/lib/role-utils';
 import { redirectTo } from '@/lib/router-utils';
 //-- Components
 import { Button } from '@/components/react/ui/button';

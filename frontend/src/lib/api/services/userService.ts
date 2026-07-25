@@ -19,7 +19,7 @@ import {
 } from '@/lib/api/api-utils';
 import { toastBus } from '@/lib/stores/toast.store';
 //-- Http Client
-import { apiClient } from '@/lib/auth/client';
+import { apiClient } from '@/lib/api/client';
 /**
  * The interface for the user service.
  * @interface IUserService

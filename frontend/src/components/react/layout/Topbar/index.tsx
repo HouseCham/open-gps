@@ -18,7 +18,6 @@ import {
     Bell,
     Globe,
     Menu,
-    Search as SearchIcon,
     Settings as SettingsIcon,
 } from 'lucide-react';
 //-- Components
@@ -30,19 +29,11 @@ import { ThemeGlyph } from './ThemeGlyph';
  * Props for the Topbar component.
  * @interface TopbarProps
  * @property {Language} locale - The current locale.
- * @property {string} pageLabel - The label of the current page.
- * @property {string} [pageEyebrow] - Optional eyebrow text for the current page.
  * @property {Translation['layout']} layout - The layout strings.
- * @property {string} [searchValue] - The current search value.
- * @property {(value: string) => void} [onSearchChange] - Called on each keystroke.
  */
 export interface TopbarProps {
     locale: Language;
-    pageLabel: string;
-    pageEyebrow?: string;
     layout: Translation['layout'];
-    searchValue?: string;
-    onSearchChange?: (value: string) => void;
 }
 /**
  * The Topbar component.
@@ -51,11 +42,7 @@ export interface TopbarProps {
  */
 export function Topbar({
     locale,
-    pageLabel,
-    pageEyebrow,
     layout,
-    onSearchChange,
-    searchValue,
 }: TopbarProps): JSX.Element {
     const sidebarOpen = useStore($sidebarOpen);
     const user = useStore($user);
@@ -106,28 +93,9 @@ export function Topbar({
                     <Menu size={16} strokeWidth={1.6} />
                 </button>
             )}
-            {/* Searchbar */}
-            <div className="gp-topbar-meta">
-                {pageEyebrow && (
-                    <span className="gp-topbar-eyebrow">{pageEyebrow}</span>
-                )}
-                <span className="gp-topbar-title">{pageLabel}</span>
-            </div>
-            <label className="chrome-topbar-search">
-                <span aria-hidden="true">
-                    <SearchIcon size={14} strokeWidth={1.6} />
-                </span>
-                <input
-                    ref={searchRef}
-                    type="text"
-                    placeholder={layout.searchPlaceholder}
-                    value={searchValue ?? ''}
-                    onChange={e => onSearchChange?.(e.target.value)}
-                />
-                <kbd>⌘K</kbd>
-            </label>
-            {/*  */}
+            {/* Actions */}
             <div className="gp-topbar-actions">
+                {/* Theme toggle */}
                 <button
                     type="button"
                     className="chrome-icon-btn"
@@ -145,7 +113,9 @@ export function Topbar({
                 >
                     <ThemeGlyph theme={theme} />
                 </button>
+                {/* Language toggle */}
                 <LanguageToggle locale={locale} />
+                {/* Notifications */}
                 <div className="chrome-pop">
                     <button
                         type="button"
@@ -166,6 +136,7 @@ export function Topbar({
                         />
                     )}
                 </div>
+                {/* Settings */}
                 <button
                     type="button"
                     className="chrome-icon-btn"
@@ -174,6 +145,7 @@ export function Topbar({
                 >
                     <SettingsIcon size={16} strokeWidth={1.6} />
                 </button>
+                {/* Profile */}
                 <div className="chrome-pop">
                     <button
                         type="button"

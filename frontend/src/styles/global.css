@@ -85,6 +85,7 @@
     /* Layout */
     --sidebar-w: 248px;
     --topbar-h: 56px;
+    --bp-tablet: 920px;
 
     color-scheme: light;
 }

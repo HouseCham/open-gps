@@ -9,6 +9,8 @@ import { Button } from '@/components/react/ui/button';
  * @property {string} [shortcut] - Optional shortcut text.
  * @property {boolean} [danger] - Optional danger flag.
  * @property {() => void} [onClick] - Optional click handler.
+ * @property {string} [href] - When provided, renders as an `<a>` instead of a button.
+ * @property {boolean} [external] - When true, opens the link in a new tab. Auto-detected for `http(s)` hrefs.
  */
 interface MenuItemProps {
     icon: LucideIcon;
@@ -16,6 +18,8 @@ interface MenuItemProps {
     shortcut?: string;
     danger?: boolean;
     onClick?: () => void;
+    href?: string;
+    external?: boolean;
 }
 /**
  * Menu item component.
@@ -28,18 +32,44 @@ export function MenuItem({
     shortcut,
     danger,
     onClick,
+    href,
+    external,
 }: MenuItemProps): JSX.Element {
+    const className = `chrome-menu-item${danger ? ' is-danger' : ''}`;
+    const iconEl = <Icon size={15} strokeWidth={1.6} className="glyph" />;
+    const content = (
+        <>
+            <span>{label}</span>
+            {shortcut && <span className="shortcut">{shortcut}</span>}
+        </>
+    );
+
+    if (href) {
+        const isExternal = external ?? /^https?:\/\//i.test(href);
+        return (
+            <a
+                href={href}
+                className={`btn btn-ghost btn-sm ${className}`}
+                {...(isExternal
+                    ? { target: '_blank', rel: 'noopener noreferrer' }
+                    : {})}
+            >
+                {iconEl}
+                {content}
+            </a>
+        );
+    }
+
     return (
         <Button
             type="button"
             variant="ghost"
             size="sm"
-            className={`chrome-menu-item${danger ? ' is-danger' : ''}`}
-            icon={<Icon size={15} strokeWidth={1.6} className="glyph" />}
+            className={className}
+            icon={iconEl}
             onClick={onClick}
         >
-            <span>{label}</span>
-            {shortcut && <span className="shortcut">{shortcut}</span>}
+            {content}
         </Button>
     );
 }

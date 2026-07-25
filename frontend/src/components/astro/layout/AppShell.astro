@@ -8,8 +8,6 @@ import type { Language } from '@/types';
 /**
  * @interface Props
  * @property {Language} locale - Current locale code.
- * @property {string} pageLabel - Page title.
- * @property {string | undefined} [pageEyebrow] - Page eyebrow.
  * @property {string | undefined} [class] - Extra classes.
  * @property {Translation['nav']} nav - Navigation items.
  * @property {Translation['layout']} layout - Layout items.
@@ -17,8 +15,6 @@ import type { Language } from '@/types';
  */
 interface Props {
     locale: Language;
-    pageLabel: string;
-    pageEyebrow?: string;
     class?: string;
     nav: Translation['nav'];
     layout: Translation['layout'];
@@ -27,8 +23,6 @@ interface Props {
 
 const {
     locale,
-    pageLabel,
-    pageEyebrow,
     class: className,
     nav,
     layout,
@@ -49,8 +43,6 @@ const classes = ['gp-app', className].filter(Boolean).join(' ');
         <Topbar
             client:load
             locale={locale}
-            pageLabel={pageLabel}
-            pageEyebrow={pageEyebrow}
             layout={layout}
         />
         <div class="gp-content">

@@ -4,10 +4,11 @@ import type { GetStaticPaths } from 'astro';
 import { getTranslation } from '@/i18n';
 //-- Types
 import type { Language } from '@/types';
-import type { LoginFormStrings } from '@/types/components';
 //-- Components
 import AuthLayout from '@/components/astro/layout/AuthLayout.astro';
 import { LoginForm } from '@/components/react/form';
+//-- Utils
+import { parseLoginStrings } from '@/lib';
 /**
  * @type {GetStaticPaths}
  */
@@ -17,33 +18,7 @@ export const getStaticPaths = (() => {
 
 const locale = Astro.params.lan as Language;
 const translation = getTranslation(locale);
-
-const loginStrings: LoginFormStrings = {
-    email: translation.auth.email,
-    emailPlaceholder: translation.auth.emailPlaceholder,
-    password: translation.auth.password,
-    passwordPlaceholder: translation.auth.passwordPlaceholder,
-    loggingIn: translation.auth.loggingIn,
-    login: translation.auth.login,
-    emailRequired: translation.auth.emailRequired,
-    emailInvalid: translation.auth.emailInvalid,
-    passwordRequired: translation.auth.passwordRequired,
-    loginTitle: translation.auth.loginTitle,
-    loginSubtitle: translation.auth.loginSubtitle,
-    signInWithGoogle: translation.auth.signInWithGoogle,
-    orContinueWith: translation.auth.orContinueWith,
-    rememberDevice: translation.auth.rememberDevice,
-    forgotPassword: translation.auth.forgotPassword,
-    noAccount: translation.auth.noAccount,
-    createOne: translation.auth.createOne,
-    firstAdminBadge: translation.auth.firstAdminBadge,
-    loginFailed: translation.auth.loginFailed,
-    showPassword: translation.auth.showPassword,
-    hidePassword: translation.auth.hidePassword,
-    emailPasswordRequired: translation.auth.emailPasswordRequired,
-    apiInspectorTitle: translation.auth.apiInspectorTitle,
-    apiInspectorCookieNote: translation.auth.apiInspectorCookieNote,
-};
+const loginStrings = parseLoginStrings(translation.auth);
 ---
 
 <AuthLayout isLoginPage title={`${translation.auth.loginTitle} · Open GPS`}>

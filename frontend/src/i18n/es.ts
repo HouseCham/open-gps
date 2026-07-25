@@ -26,7 +26,6 @@ export const es: Translation = {
         themeDark: 'Oscuro',
         accountSettings: 'Ajustes de cuenta',
         notificationsMenu: 'Notificaciones',
-        apiTokens: 'Tokens de API',
         helpDocs: 'Ayuda y docs',
         signOut: 'Cerrar sesión',
         openMenu: 'Abrir menú',

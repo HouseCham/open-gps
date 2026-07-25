@@ -4,10 +4,11 @@ import type { GetStaticPaths } from 'astro';
 import { getTranslation } from '@/i18n';
 //-- types
 import type { Language } from '@/types';
-import type { SignupFormStrings } from '@/types/components';
 //-- Components
 import AuthLayout from '@/components/astro/layout/AuthLayout.astro';
 import { SignupForm } from '@/components/react/form';
+//-- Utils
+import { parseSignUpStrings } from '@/lib';
 
 /**
  * @type {GetStaticPaths}
@@ -18,53 +19,7 @@ export const getStaticPaths = (() => {
 
 const locale = Astro.params.lan as Language;
 const translation = getTranslation(locale);
-
-const signupStrings: SignupFormStrings = {
-    email: translation.auth.email,
-    emailPlaceholder: translation.auth.emailPlaceholder,
-    password: translation.auth.password,
-    passwordPlaceholder: translation.auth.passwordPlaceholder,
-    name: translation.auth.name,
-    namePlaceholder: translation.auth.namePlaceholder,
-    signingUp: translation.auth.signingUp,
-    signup: translation.auth.signup,
-    haveAccount: translation.auth.haveAccount,
-    loginLink: translation.auth.login,
-    emailRequired: translation.auth.emailRequired,
-    emailInvalid: translation.auth.emailInvalid,
-    passwordRequired: translation.auth.passwordRequired,
-    passwordMin: translation.auth.passwordMin,
-    nameRequired: translation.auth.nameRequired,
-    signupTitle: translation.auth.signupTitle,
-    signupSubtitle: translation.auth.signupSubtitle,
-    strengthLabel: translation.auth.strengthLabel,
-    strengthTooShort: translation.auth.strengthTooShort,
-    strengthWeak: translation.auth.strengthWeak,
-    strengthFair: translation.auth.strengthFair,
-    strengthGood: translation.auth.strengthGood,
-    strengthStrong: translation.auth.strengthStrong,
-    nameHelp: translation.auth.nameHelp,
-    passwordHelp: translation.auth.passwordHelp,
-    confirmPassword: translation.auth.confirmPassword,
-    passwordsDoNotMatch: translation.auth.passwordsDoNotMatch,
-    termsAgree: translation.auth.termsAgree,
-    termsLabel: translation.auth.termsLabel,
-    privacyLabel: translation.auth.privacyLabel,
-    creatingAccount: translation.auth.creatingAccount,
-    orDivider: translation.auth.orDivider,
-    continueWithGoogle: translation.auth.continueWithGoogle,
-    firstAdminWelcome: translation.auth.firstAdminWelcome,
-    createAccountBadge: translation.auth.createAccountBadge,
-    emailPasswordRequired: translation.auth.emailPasswordRequired,
-    acceptTerms: translation.auth.acceptTerms,
-    pickStrongerPassword: translation.auth.pickStrongerPassword,
-    signupFailed: translation.auth.signupFailed,
-    showPassword: translation.auth.showPassword,
-    hidePassword: translation.auth.hidePassword,
-    apiInspectorTitle: translation.auth.apiInspectorTitle,
-    apiInspectorCookieNote: translation.auth.apiInspectorCookieNote,
-    autoSignInNote: translation.auth.autoSignInNote,
-};
+const signupStrings = parseSignUpStrings(translation.auth);
 ---
 
 <AuthLayout title={`${translation.auth.signupTitle} · Open GPS`}>

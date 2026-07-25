@@ -1,14 +1,14 @@
 import '@/styles/components/form/login-form.css';
-
 import { useState } from 'react';
+//-- Types
+import type { LoginFormStrings } from '@/types/components';
 import type { ChangeEvent, JSX } from 'react';
-import { AlertCircle, ArrowRight, Mail } from 'lucide-react';
-//-- API
+//-- Utils
 import { isApiError } from '@/lib/api/api-utils';
 //-- Services
-import { authService } from '@/lib/auth/service';
+import { useAuthService } from '@/lib/api/services';
 //-- Components
-import { Alert } from '@/components/react/ui/Alert';
+import { Alert} from '@/components/react/ui/Alert';
 import { Badge } from '@/components/react/ui/Badge';
 import { Button } from '@/components/react/ui/button';
 import { Checkbox, Field, Input } from '@/components/react/form/ui';
@@ -18,8 +18,8 @@ import {
     OrDivider,
     PasswordField,
 } from '@/components/react/form/shared';
-//-- Types
-import type { LoginFormStrings } from '@/types/components';
+//-- Icons
+import { AlertCircle, ArrowRight, Mail } from 'lucide-react';
 
 /**
  * Props for the LoginForm component.
@@ -27,7 +27,7 @@ import type { LoginFormStrings } from '@/types/components';
  * @prop {LoginFormStrings} strings - i18n strings.
  * @prop {boolean} [firstUser] - Renders the "first admin" badge when true.
  */
-export interface LoginFormProps {
+interface LoginFormProps {
     strings: LoginFormStrings;
     firstUser?: boolean;
 }
@@ -38,12 +38,17 @@ export interface LoginFormProps {
  * @returns {JSX.Element}
  */
 export function LoginForm({ strings, firstUser }: LoginFormProps): JSX.Element {
+    const { isLoading, signIn } = useAuthService();
     const [email, setEmail] = useState(firstUser ? 'admin@open-gps.local' : '');
     const [password, setPassword] = useState('');
     const [remember, setRemember] = useState(true);
-    const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
 
+    /**
+     * Handles form submission.
+     * @param {React.FormEvent<HTMLFormElement>} e
+     * @returns {Promise<void>}
+     */
     async function handleSubmit(
         e: React.FormEvent<HTMLFormElement>
     ): Promise<void> {
@@ -53,15 +58,13 @@ export function LoginForm({ strings, firstUser }: LoginFormProps): JSX.Element {
             setErr(strings.emailPasswordRequired);
             return;
         }
-        setLoading(true);
         try {
-            await authService.signIn({ email: email.trim(), password });
+            await signIn({ email: email.trim(), password });
         } catch (error) {
             const apiError = isApiError(error)
                 ? error
                 : { status: 0, message: strings.loginFailed };
             setErr(apiError.message);
-            setLoading(false);
         }
     }
 
@@ -134,22 +137,25 @@ export function LoginForm({ strings, firstUser }: LoginFormProps): JSX.Element {
                 <Button
                     type="submit"
                     variant="primary"
-                    loading={loading}
+                    loading={isLoading}
+                    disabled={isLoading}
                     iconRight={
-                        loading ? undefined : (
+                        isLoading ? undefined : (
                             <ArrowRight size={14} strokeWidth={1.6} />
                         )
                     }
                     className="btn-block"
                 >
-                    {loading ? strings.loggingIn : strings.login}
+                    {isLoading ? strings.loggingIn : strings.login}
                 </Button>
 
                 <OrDivider label={strings.orContinueWith} />
 
                 <button
+                    disabled
                     type="button"
                     className="btn btn-google btn-block"
+                    aria-label={strings.signInWithGoogle}
                     onClick={() => {
                         window.location.assign(
                             '/api/auth/oauth2/authorize/google'

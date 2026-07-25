@@ -32,3 +32,29 @@ export interface ToastHandle {
     dismiss: (id: string) => void;
     clear: () => void;
 }
+
+/**
+ * Props for the {@link Toast} component. Mirrors the gallery markup:
+ * a single toast rendered in tone, with optional body copy, action,
+ * and dismiss control.
+ * @interface ToastProps
+ * @prop {ToastItem} toast - Toast payload from the bus.
+ * @prop {(id: string) => void} onDismiss - Dismiss handler keyed by id.
+ */
+export interface ToastProps {
+    toast: ToastItem;
+    onDismiss: (id: string) => void;
+}
+
+/**
+ * Props for the {@link ToastStack} component. The provider reads
+ * from the bus and passes the snapshot down; the stack itself is a
+ * pure presentational wrapper.
+ * @interface ToastStackProps
+ * @prop {ToastItem[]} toasts - Snapshot of the toast queue.
+ * @prop {(id: string) => void} onDismiss - Dismiss handler keyed by id.
+ */
+export interface ToastStackProps {
+    toasts: ToastItem[];
+    onDismiss: (id: string) => void;
+}
