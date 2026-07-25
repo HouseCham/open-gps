@@ -24,7 +24,6 @@ export const en = {
         themeDark: 'Dark',
         accountSettings: 'Account settings',
         notificationsMenu: 'Notifications',
-        apiTokens: 'API tokens',
         helpDocs: 'Help & docs',
         signOut: 'Sign out',
         openMenu: 'Open menu',
