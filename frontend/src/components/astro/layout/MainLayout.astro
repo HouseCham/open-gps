@@ -19,7 +19,6 @@ import { ToastProvider } from '@/components/react/ui';
  * @property {Language} [locale='en'] - Current locale code.
  * @property {string | undefined} [title] - Page title.
  * @property {string} pageLabel - Page title.
- * @property {string | undefined} [pageEyebrow] - Page eyebrow.
  * @property {string | undefined} [class] - Extra classes.
  * @property {boolean} [onlyAdmin] - Marks the page as admin-only.
  */
@@ -27,7 +26,6 @@ interface Props {
     locale?: Language;
     title?: string;
     pageLabel: string;
-    pageEyebrow?: string;
     class?: string;
     onlyAdmin?: boolean;
 }
@@ -36,7 +34,6 @@ const {
     locale = 'en',
     title = 'Open GPS',
     pageLabel,
-    pageEyebrow,
     class: className,
     onlyAdmin = false,
 } = Astro.props;
