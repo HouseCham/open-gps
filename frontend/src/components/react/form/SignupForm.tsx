@@ -1,4 +1,5 @@
 import '@/styles/components/form/signup-form.css';
+import '@/styles/components/form/password-strength.css';
 
 import { useState } from 'react';
 import type { ChangeEvent, FormEvent, JSX } from 'react';
@@ -17,6 +18,8 @@ import {
     GoogleLogo,
     OrDivider,
     PasswordField,
+    PasswordStrength,
+    strengthScore,
 } from '@/components/react/form/shared';
 //-- Types
 import type { SignupFormStrings } from '@/types/components';
@@ -30,44 +33,6 @@ import type { SignupFormStrings } from '@/types/components';
 export interface SignupFormProps {
     strings: SignupFormStrings;
     firstUser?: boolean;
-}
-
-function strengthScore(pw: string): number {
-    if (!pw) return 0;
-    let s = 0;
-    if (pw.length >= 8) s++;
-    if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) s++;
-    if (/\d/.test(pw) && /[^\w]/.test(pw)) s++;
-    if (pw.length >= 12) s++;
-    return Math.min(s, 4);
-}
-
-function PasswordStrength({
-    value,
-    strengthLabel,
-    labels,
-}: {
-    value: string;
-    strengthLabel: string;
-    labels: [string, string, string, string, string];
-}): JSX.Element {
-    const lvl = strengthScore(value);
-    return (
-        <div className="pw-strength" data-level={lvl} aria-live="polite">
-            <div className="bars">
-                <span className="bar" />
-                <span className="bar" />
-                <span className="bar" />
-                <span className="bar" />
-            </div>
-            <div className="legend">
-                <span className="mono">{strengthLabel}</span>
-                <span className="label" data-active="true">
-                    {labels[lvl]}
-                </span>
-            </div>
-        </div>
-    );
 }
 
 /**

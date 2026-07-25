@@ -13,15 +13,20 @@ import { redirectTo } from '@/lib';
 import { bootstrapService } from '@/lib/api/services';
 //-- Types
 import type { BootstrapStatus } from '@/types/api';
+import type { Language } from '@/types';
 //-- Components
+import { ChangePasswordGate } from './ChangePasswordGate';
 import { RouteFallback } from './RouteFallback';
 
 /**
  * @interface ProtectedRouteProps
- * @property {ReactNode} children - The protected tree. Rendered only when the user is authenticated.
+ * @property {ReactNode} children - The protected tree. Rendered only when the user is authenticated and (if applicable) past the change-password gate.
+ * @property {Language} [locale='en'] - Locale used to fetch the
+ *   change-password gate's i18n strings.
  * @property {ReactNode} [fallback] - Optional custom loading UI. Defaults to `<RouteFallback />`.
  */
 interface ProtectedRouteProps extends PropsWithChildren {
+    locale?: Language;
     fallback?: ReactNode;
 }
 
@@ -33,6 +38,7 @@ interface ProtectedRouteProps extends PropsWithChildren {
  */
 export function ProtectedRoute({
     children,
+    locale = 'en',
     fallback,
 }: ProtectedRouteProps): React.JSX.Element {
     const { isAuthenticated, isAuthLoading } = useAuth();
@@ -45,7 +51,10 @@ export function ProtectedRoute({
         bootstrapService
             .getStatus()
             .then(status => setBootstrapStatus(status))
-            .catch(() => setBootstrapStatus({ needsSetup: false }));
+            .catch(error => {
+                console.error('Bootstrap status failed', error);
+                setBootstrapStatus({ needsSetup: false });
+            });
     }, [isAuthLoading, isAuthenticated, bootstrapStatus]);
 
     useEffect(() => {
@@ -66,5 +75,9 @@ export function ProtectedRoute({
         return <></>;
     }
 
-    return <>{children}</>;
+    return (
+        <ChangePasswordGate locale={locale} fallback={fallback}>
+            {children}
+        </ChangePasswordGate>
+    );
 }
