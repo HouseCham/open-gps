@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { client } from '../client';
+import { apiClient } from '../client';
 import { BootstrapService } from './bootstrap.service';
 
 describe('BootstrapService.getStatus', () => {
@@ -7,7 +7,7 @@ describe('BootstrapService.getStatus', () => {
         const http = vi.fn().mockResolvedValue({
             data: { status_code: 200, message: 'OK', data: true },
         });
-        const svc = new BootstrapService(http as unknown as typeof client);
+        const svc = new BootstrapService(http as unknown as typeof apiClient);
 
         await expect(svc.getStatus()).resolves.toEqual({ needsSetup: true });
         expect(http).toHaveBeenCalledWith(
@@ -20,14 +20,14 @@ describe('BootstrapService.getStatus', () => {
         const http = vi.fn().mockResolvedValue({
             data: { status_code: 200, message: 'OK', data: false },
         });
-        const svc = new BootstrapService(http as unknown as typeof client);
+        const svc = new BootstrapService(http as unknown as typeof apiClient);
 
         await expect(svc.getStatus()).resolves.toEqual({ needsSetup: false });
     });
 
     it('normalizes a thrown Error into a typed ApiError via handleApiError', async () => {
         const http = vi.fn().mockRejectedValue(new Error('boom'));
-        const svc = new BootstrapService(http as unknown as typeof client);
+        const svc = new BootstrapService(http as unknown as typeof apiClient);
 
         await expect(svc.getStatus()).rejects.toEqual({
             status: 0,

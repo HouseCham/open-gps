@@ -6,7 +6,7 @@
  * @returns {string} The rendered number with unit.
  */
 export function renderNumberWithUnit(
-    value: number | null,
+    value: number | null | undefined,
     unit: string,
     digits = 0
 ): string {

@@ -76,8 +76,8 @@ export function DeviceDetailPage({
 }: DeviceDetailPageProps): JSX.Element {
     const {
         device,
-        isLoading: deviceLoading,
-        error: deviceError,
+         isLoading: deviceLoading,
+         error: deviceError,
         getDeviceById,
         grantAccess,
         revokeAccess,

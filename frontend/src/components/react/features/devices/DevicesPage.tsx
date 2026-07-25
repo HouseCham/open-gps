@@ -129,7 +129,7 @@ export function DevicesPage({
      * Filter the devices based on the query, status filter, vehicle filter, and sort key.
      * @returns {DeviceWithAccess[]} The filtered devices.
      */
-    const filtered = (() => {
+     const filtered: DeviceWithAccess[] = ((): DeviceWithAccess[] => {
         const q = query.trim().toLowerCase();
         let list = devices.filter(d => {
             if (

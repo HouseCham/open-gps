@@ -2,7 +2,7 @@ import '@/styles/components/form/login-form.css';
 import { useState } from 'react';
 //-- Types
 import type { LoginFormStrings } from '@/types/components';
-import type { ChangeEvent, JSX } from 'react';
+import type { ChangeEvent, FormEvent, JSX } from 'react';
 //-- Utils
 import { isApiError } from '@/lib/api/api-utils';
 //-- Services
@@ -27,7 +27,7 @@ import { AlertCircle, ArrowRight, Mail } from 'lucide-react';
  * @prop {LoginFormStrings} strings - i18n strings.
  * @prop {boolean} [firstUser] - Renders the "first admin" badge when true.
  */
-interface LoginFormProps {
+export interface LoginFormProps {
     strings: LoginFormStrings;
     firstUser?: boolean;
 }
@@ -50,7 +50,7 @@ export function LoginForm({ strings, firstUser }: LoginFormProps): JSX.Element {
      * @returns {Promise<void>}
      */
     async function handleSubmit(
-        e: React.FormEvent<HTMLFormElement>
+        e: FormEvent<HTMLFormElement>
     ): Promise<void> {
         e.preventDefault();
         setErr(null);

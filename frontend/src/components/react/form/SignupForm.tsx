@@ -1,7 +1,7 @@
 import '@/styles/components/form/signup-form.css';
 
 import { useState } from 'react';
-import type { ChangeEvent, JSX } from 'react';
+import type { ChangeEvent, FormEvent, JSX } from 'react';
 import { AlertCircle, ArrowRight, Info, Mail, User } from 'lucide-react';
 //-- API
 import { isApiError } from '@/lib/api/api-utils';
@@ -89,7 +89,7 @@ export function SignupForm({
 
     const mismatch = !!pw2 && pw !== pw2;
 
-    async function submit(e: React.FormEvent<HTMLFormElement>): Promise<void> {
+    async function submit(e: FormEvent<HTMLFormElement>): Promise<void> {
         e.preventDefault();
         setErr(null);
         if (!email || !pw) {
