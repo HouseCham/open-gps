@@ -69,8 +69,6 @@ const currentPath = Astro.url.pathname;
                         <OnlyAdminRoute client:load locale={locale}>
                             <AppShell
                                 locale={locale}
-                                pageLabel={pageLabel}
-                                pageEyebrow={pageEyebrow}
                                 class={className}
                                 nav={t.nav}
                                 layout={t.layout}
@@ -82,8 +80,6 @@ const currentPath = Astro.url.pathname;
                     ) : (
                         <AppShell
                             locale={locale}
-                            pageLabel={pageLabel}
-                            pageEyebrow={pageEyebrow}
                             class={className}
                             nav={t.nav}
                             layout={t.layout}
