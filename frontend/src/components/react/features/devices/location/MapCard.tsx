@@ -18,15 +18,7 @@ import { MapPin, RefreshCw } from 'lucide-react';
 //-- Utils
 import { useEffect, useRef } from 'react';
 import { formatRelativeTime } from '@/lib';
-import { MAP_STYLE_URL } from '@/constants/components/map';
-
-const FALLBACK_CENTER = { latitude: 19.4326, longitude: -99.1332 };
-const FALLBACK_ZOOM = 4;
-const DEVICE_ZOOM = 15;
-const EASE_TO_DURATION_MS = 1200;
-const REFRESH_ICON_SIZE = 13;
-const COORDINATE_DECIMALS = 4;
-const EMPTY_STATE_ICON_SIZE = 26;
+import { MAP_COORDINATE_DECIMALS, MAP_DEVICE_ZOOM, MAP_EASE_TO_DURATION_MS, MAP_EMPTY_STATE_ICON_SIZE, MAP_FALLBACK_CENTER, MAP_FALLBACK_ZOOM, MAP_REFRESH_ICON_SIZE, MAP_STYLE_URL } from '@/constants/components';
 
 /**
  * Props for the MapCard component
@@ -60,7 +52,7 @@ export function MapCard({
     const hasLocation = location !== null;
     const center = hasLocation
         ? { latitude: location.latitude, longitude: location.longitude }
-        : FALLBACK_CENTER;
+        : MAP_FALLBACK_CENTER;
     const mapRef = useRef<MapRef | null>(null);
 
     // ponytail: initialViewState only applies on first mount; the device
@@ -69,14 +61,16 @@ export function MapCard({
         if (!hasLocation) return;
         mapRef.current?.easeTo({
             center: [location.longitude, location.latitude],
-            zoom: DEVICE_ZOOM,
-            duration: EASE_TO_DURATION_MS,
+            zoom: MAP_DEVICE_ZOOM,
+            duration: MAP_EASE_TO_DURATION_MS,
         });
     }, [hasLocation, location?.latitude, location?.longitude]);
 
     return (
         <div className="dd-card">
+            {/* Card header */}
             <div className="dd-card-head">
+                {/* Title */}
                 <div>
                     <h3>{t.liveGps}</h3>
                     <div className="dd-card-sub">
@@ -85,12 +79,13 @@ export function MapCard({
                             : t.noLocation}
                     </div>
                 </div>
+                {/* Refresh button */}
                 <Button
                     type="button"
                     variant="secondary"
                     size="sm"
                     loading={loading}
-                    icon={<RefreshCw size={REFRESH_ICON_SIZE} />}
+                    icon={<RefreshCw size={MAP_REFRESH_ICON_SIZE} />}
                     onClick={onRefresh}
                 >
                     {t.refresh}
@@ -102,7 +97,7 @@ export function MapCard({
                     mapStyle={MAP_STYLE_URL}
                     initialViewState={{
                         ...center,
-                        zoom: hasLocation ? DEVICE_ZOOM : FALLBACK_ZOOM,
+                        zoom: hasLocation ? MAP_DEVICE_ZOOM : MAP_FALLBACK_ZOOM,
                         pitch: 0,
                         bearing: 0,
                     }}
@@ -137,14 +132,14 @@ export function MapCard({
                             {t.liveTracking}
                         </div>
                         <div className="dd-map-coords">
-                            {location.latitude.toFixed(COORDINATE_DECIMALS)}°,{' '}
-                            {location.longitude.toFixed(COORDINATE_DECIMALS)}°
+                            {location.latitude.toFixed(MAP_COORDINATE_DECIMALS)}°,{' '}
+                            {location.longitude.toFixed(MAP_COORDINATE_DECIMALS)}°
                         </div>
                     </>
                 )}
                 {!hasLocation && (
                     <div className="dd-map-empty">
-                        <MapPin size={EMPTY_STATE_ICON_SIZE} />
+                        <MapPin size={MAP_EMPTY_STATE_ICON_SIZE} />
                         <span>{t.noLocation}</span>
                     </div>
                 )}

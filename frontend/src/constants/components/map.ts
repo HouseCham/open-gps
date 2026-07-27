@@ -102,3 +102,38 @@ export const MAP_ONLINE_THRESHOLD_MS = 60 * 1000;
  * @description Stroke color for the route polyline drawn on the live device map.
  */
 export const MAP_ROUTE_LINE_COLOR = '#1a73e8';
+/**
+ * @constant {number}
+ * @description Default center and zoom for the map
+ */
+export const MAP_FALLBACK_CENTER = { latitude: 19.4326, longitude: -99.1332 };
+/**
+ * @constant {number}
+ * @description Default zoom for the map
+ */
+export const MAP_FALLBACK_ZOOM = 4;
+/**
+ * @constant {number}
+ * @description Default zoom for the map
+ */
+export const MAP_DEVICE_ZOOM = 15;
+/**
+ * @constant {number}
+ * @description Default duration for the map animation
+ */
+export const MAP_EASE_TO_DURATION_MS = 1200;
+/**
+ * @constant {number}
+ * @description Default size for the map refresh icon
+ */
+export const MAP_REFRESH_ICON_SIZE = 13;
+/**
+ * @constant {number}
+ * @description Default decimal precision for map coordinates
+ */
+export const MAP_COORDINATE_DECIMALS = 4;
+/**
+ * @constant {number}
+ * @description Default size for the map empty state icon
+ */
+export const MAP_EMPTY_STATE_ICON_SIZE = 26;

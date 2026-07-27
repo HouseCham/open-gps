@@ -214,6 +214,7 @@ export function DeviceDetailPage({
 
     return (
         <div className="device-detail">
+            {/* Top Section */}
             <Breadcrumbs
                 items={[
                     { label: t.detail.workspace, href: `/${locale}/` },
@@ -242,6 +243,7 @@ export function DeviceDetailPage({
                     retryLabel={t.detail.retry}
                 />
             )}
+            {/* KPI Cards */}
             <KpiStrip
                 device={device}
                 location={latest}
@@ -249,6 +251,8 @@ export function DeviceDetailPage({
                 locale={locale}
                 translations={t}
             />
+
+            {/* GPS Telemetry Section */}
             <section className="dd-section">
                 <div className="dd-section-head">
                     <div>
@@ -273,6 +277,8 @@ export function DeviceDetailPage({
                     />
                 </div>
             </section>
+
+            {/* Device Information Section */}
             <section className="dd-section">
                 <div className="dd-section-head">
                     <div>
@@ -286,6 +292,8 @@ export function DeviceDetailPage({
                     translations={t}
                 />
             </section>
+
+            {/* Device/Users Access Section */}
             <section className="dd-section">
                 <div className="dd-section-head">
                     <div>

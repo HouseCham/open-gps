@@ -81,15 +81,18 @@ export function TelemetryCard({
 
     return (
         <div className="dd-card">
+            {/* Card header */}
             <div className="dd-card-head">
                 <div>
                     <h3>{t.telemetry.title}</h3>
                     <div className="dd-card-sub">{t.telemetry.subtitle}</div>
                 </div>
             </div>
+            {/* Card body */}
             <div className="dd-card-body">
                 {location ? (
                     <>
+                        {/* Coordinates */}
                         <div className="dd-coordinates">
                             <Crosshair size={15} />
                             <span>
@@ -101,6 +104,7 @@ export function TelemetryCard({
                                 {location.longitude.toFixed(6)}
                             </span>
                         </div>
+                        {/* Telemetry grid */}
                         <div className="dd-telemetry-grid">
                             {items.map(item => (
                                 <div
@@ -117,6 +121,7 @@ export function TelemetryCard({
                                 </div>
                             ))}
                         </div>
+                        {/* Live mode location entries */}
                     </>
                 ) : (
                     <div className="dd-card-empty">
