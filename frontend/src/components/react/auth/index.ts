@@ -4,3 +4,4 @@ export * from './PublicOnlyRoute';
 export * from './FirstRunGate';
 export * from './ProtectedRoute';
 export * from './OnlyAdminRoute';
+export * from './ChangePasswordGate';

@@ -3,7 +3,7 @@ import type {
     UserEmailFilter,
     UserSortKey,
     UserFilterCounts,
-} from '@/components/react/users';
+} from '@/types/api';
 import type { Translation } from '@/i18n';
 import type { User } from '@/types/api';
 import type { DataTableColumn } from '@/types/components/ui';

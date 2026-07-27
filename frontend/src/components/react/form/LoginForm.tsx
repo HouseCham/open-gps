@@ -2,13 +2,13 @@ import '@/styles/components/form/login-form.css';
 import { useState } from 'react';
 //-- Types
 import type { LoginFormStrings } from '@/types/components';
-import type { ChangeEvent, JSX } from 'react';
+import type { ChangeEvent, FormEvent, JSX } from 'react';
 //-- Utils
 import { isApiError } from '@/lib/api/api-utils';
 //-- Services
 import { useAuthService } from '@/lib/api/services';
 //-- Components
-import { Alert} from '@/components/react/ui/Alert';
+import { Alert } from '@/components/react/ui/Alert';
 import { Badge } from '@/components/react/ui/Badge';
 import { Button } from '@/components/react/ui/button';
 import { Checkbox, Field, Input } from '@/components/react/form/ui';
@@ -27,7 +27,7 @@ import { AlertCircle, ArrowRight, Mail } from 'lucide-react';
  * @prop {LoginFormStrings} strings - i18n strings.
  * @prop {boolean} [firstUser] - Renders the "first admin" badge when true.
  */
-interface LoginFormProps {
+export interface LoginFormProps {
     strings: LoginFormStrings;
     firstUser?: boolean;
 }
@@ -49,9 +49,7 @@ export function LoginForm({ strings, firstUser }: LoginFormProps): JSX.Element {
      * @param {React.FormEvent<HTMLFormElement>} e
      * @returns {Promise<void>}
      */
-    async function handleSubmit(
-        e: React.FormEvent<HTMLFormElement>
-    ): Promise<void> {
+    async function handleSubmit(e: FormEvent<HTMLFormElement>): Promise<void> {
         e.preventDefault();
         setErr(null);
         if (!email || !password) {

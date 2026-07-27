@@ -47,7 +47,7 @@ export function ToastProvider(): JSX.Element {
                 t.id,
                 setTimeout(() => {
                     toastBus.dismiss(t.id);
-                }, delay),
+                }, delay)
             );
         }
         return (): void => {

@@ -1,9 +1,11 @@
 import '@/styles/components/form/signup-form.css';
+import '@/styles/components/form/password-strength.css';
 
 import { useState } from 'react';
-import type { ChangeEvent, JSX } from 'react';
-import { AlertCircle, ArrowRight, Info, Mail, User } from 'lucide-react';
-//-- API
+//-- Types
+import type { SignupFormStrings } from '@/types/components';
+import type { ChangeEvent, FormEvent, JSX } from 'react';
+//-- Utils
 import { isApiError } from '@/lib/api/api-utils';
 //-- Services
 import { useAuthService } from '@/lib/api/services';
@@ -17,9 +19,11 @@ import {
     GoogleLogo,
     OrDivider,
     PasswordField,
+    PasswordStrength,
+    strengthScore,
 } from '@/components/react/form/shared';
-//-- Types
-import type { SignupFormStrings } from '@/types/components';
+//-- Icons
+import { AlertCircle, ArrowRight, Info, Mail, User } from 'lucide-react';
 
 /**
  * Props for the SignupForm component.
@@ -30,44 +34,6 @@ import type { SignupFormStrings } from '@/types/components';
 export interface SignupFormProps {
     strings: SignupFormStrings;
     firstUser?: boolean;
-}
-
-function strengthScore(pw: string): number {
-    if (!pw) return 0;
-    let s = 0;
-    if (pw.length >= 8) s++;
-    if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) s++;
-    if (/\d/.test(pw) && /[^\w]/.test(pw)) s++;
-    if (pw.length >= 12) s++;
-    return Math.min(s, 4);
-}
-
-function PasswordStrength({
-    value,
-    strengthLabel,
-    labels,
-}: {
-    value: string;
-    strengthLabel: string;
-    labels: [string, string, string, string, string];
-}): JSX.Element {
-    const lvl = strengthScore(value);
-    return (
-        <div className="pw-strength" data-level={lvl} aria-live="polite">
-            <div className="bars">
-                <span className="bar" />
-                <span className="bar" />
-                <span className="bar" />
-                <span className="bar" />
-            </div>
-            <div className="legend">
-                <span className="mono">{strengthLabel}</span>
-                <span className="label" data-active="true">
-                    {labels[lvl]}
-                </span>
-            </div>
-        </div>
-    );
 }
 
 /**
@@ -89,7 +55,7 @@ export function SignupForm({
 
     const mismatch = !!pw2 && pw !== pw2;
 
-    async function submit(e: React.FormEvent<HTMLFormElement>): Promise<void> {
+    async function submit(e: FormEvent<HTMLFormElement>): Promise<void> {
         e.preventDefault();
         setErr(null);
         if (!email || !pw) {

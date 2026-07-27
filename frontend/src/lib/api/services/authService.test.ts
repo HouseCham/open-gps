@@ -13,29 +13,55 @@ vi.mock('@/lib', async importOriginal => {
 
 import * as clientMod from '@/lib/api/client';
 import * as libMod from '@/lib';
-import { $isAuthLoading, $user } from '@/lib/stores/auth';
+import {
+    $isAuthLoading,
+    $isRoleLoaded,
+    $mustChangePassword,
+    $profile,
+    $user,
+} from '@/lib/stores/auth';
 import { $toasts } from '@/lib/stores/toast.store';
 import type {
     AuthSession,
     AuthUser,
+    ChangePasswordResponse,
+    Envelope,
     MeResponse,
     OAuthAuthorizeResponse,
+    User,
 } from '@/types/api';
 import { useAuthService } from './authService';
 
 const authClient = vi.mocked(clientMod.authClient);
+const apiClient = vi.mocked(clientMod.apiClient);
 const redirectTo = vi.mocked(libMod.redirectTo);
 
 const user: AuthUser = { id: 'u-1', email: 'a@b.com', name: 'A B' };
 const session: AuthSession = { user };
 
+const fullUser: User = {
+    id: 'u-1',
+    email: 'a@b.com',
+    email_verified: true,
+    image: null,
+    name: 'A B',
+    lastname: '',
+    role: 'user',
+    must_change_password: false,
+    created_at: '2026-01-01T00:00:00Z',
+};
+
 let svc: ReturnType<typeof useAuthService>;
 
 beforeEach(() => {
     $user.set(null);
+    $profile.set(null);
     $isAuthLoading.set(false);
+    $isRoleLoaded.set(false);
+    $mustChangePassword.set(false);
     $toasts.set([]);
     authClient.mockReset();
+    apiClient.mockReset();
     redirectTo.mockReset();
     svc = renderHook(() => useAuthService()).result.current;
 });
@@ -215,5 +241,155 @@ describe('useAuthService.getSession', () => {
         expect(result).toBeNull();
         expect($user.get()).toBeNull();
         expect($isAuthLoading.get()).toBe(false);
+    });
+});
+
+describe('useAuthService.fetchProfile', () => {
+    it('populates $profile from the /users/me envelope and flips $isRoleLoaded', async () => {
+        const body: Envelope<User> = {
+            status_code: 200,
+            message: 'ok',
+            data: fullUser,
+        };
+        apiClient.mockResolvedValue({ data: body });
+
+        const result = await svc.fetchProfile();
+
+        expect(result).toEqual(fullUser);
+        expect($profile.get()).toEqual(fullUser);
+        expect($isRoleLoaded.get()).toBe(true);
+        expect(apiClient).toHaveBeenCalledWith(
+            '/users/me',
+            expect.objectContaining({ method: 'GET' })
+        );
+    });
+
+    it('returns null and still flips $isRoleLoaded on an empty response', async () => {
+        apiClient.mockResolvedValue({ data: null });
+
+        const result = await svc.fetchProfile();
+
+        expect(result).toBeNull();
+        expect($profile.get()).toBeNull();
+        expect($isRoleLoaded.get()).toBe(true);
+    });
+
+    it('returns null and still flips $isRoleLoaded when the network throws', async () => {
+        apiClient.mockRejectedValue(new Error('network'));
+
+        const result = await svc.fetchProfile();
+
+        expect(result).toBeNull();
+        expect($profile.get()).toBeNull();
+        expect($isRoleLoaded.get()).toBe(true);
+    });
+
+    it('flips $mustChangePassword on a 403 must_change_password from the middleware', async () => {
+        // better-fetch does NOT throw on 4xx by default — it returns
+        // `{ data: null, error: { ...body, status, statusText } }`.
+        // The middleware's status code lives on `error.status` and
+        // the JSON body is spread into `error` by better-fetch.
+        apiClient.mockResolvedValue({
+            data: null,
+            error: {
+                status: 403,
+                statusText: 'Forbidden',
+                status_code: 403,
+                message: 'must_change_password',
+            },
+        });
+
+        const result = await svc.fetchProfile();
+
+        expect(result).toBeNull();
+        expect($profile.get()).toBeNull();
+        expect($mustChangePassword.get()).toBe(true);
+        expect($isRoleLoaded.get()).toBe(true);
+        // No toast on the expected code path — the gate renders the modal.
+        expect($toasts.get()).toEqual([]);
+    });
+
+    it('does NOT flip $mustChangePassword on an unrelated 403', async () => {
+        apiClient.mockResolvedValue({
+            data: null,
+            error: {
+                status: 403,
+                statusText: 'Forbidden',
+                status_code: 403,
+                message: 'some other reason',
+            },
+        });
+
+        await svc.fetchProfile();
+
+        expect($mustChangePassword.get()).toBe(false);
+        expect($isRoleLoaded.get()).toBe(true);
+    });
+
+    it('resets $mustChangePassword on a subsequent successful fetch', async () => {
+        $mustChangePassword.set(true);
+        const body: Envelope<User> = {
+            status_code: 200,
+            message: 'ok',
+            data: { ...fullUser, must_change_password: false },
+        };
+        apiClient.mockResolvedValue({ data: body });
+
+        const result = await svc.fetchProfile();
+
+        expect(result?.must_change_password).toBe(false);
+        expect($mustChangePassword.get()).toBe(false);
+    });
+});
+
+describe('useAuthService.changePassword', () => {
+    it('POSTs the payload, then re-fetches the profile so the gate can drop', async () => {
+        const updated: User = { ...fullUser, must_change_password: false };
+        const body: Envelope<ChangePasswordResponse['data']> = {
+            status_code: 200,
+            message: 'password changed',
+            data: false,
+        };
+        apiClient.mockResolvedValueOnce({ data: body }).mockResolvedValueOnce({
+            data: {
+                status_code: 200,
+                message: 'ok',
+                data: updated,
+            },
+        });
+
+        await svc.changePassword({
+            old_password: 'temp',
+            new_password: 'newStrong1!',
+        });
+
+        expect(apiClient).toHaveBeenNthCalledWith(
+            1,
+            '/auth/change-password',
+            expect.objectContaining({
+                method: 'POST',
+                body: { old_password: 'temp', new_password: 'newStrong1!' },
+            })
+        );
+        expect(apiClient).toHaveBeenNthCalledWith(
+            2,
+            '/users/me',
+            expect.objectContaining({ method: 'GET' })
+        );
+        expect($profile.get()).toEqual(updated);
+    });
+
+    it('surfaces a 400 error verbatim and leaves $profile untouched', async () => {
+        $profile.set({ ...fullUser, must_change_password: true });
+        apiClient.mockRejectedValueOnce(new Error('password is too short'));
+
+        await expect(
+            svc.changePassword({ old_password: 'x', new_password: 'y' })
+        ).rejects.toEqual({
+            status: 0,
+            message: 'password is too short',
+        });
+        // The gate keeps showing the modal because we never re-fetched.
+        expect($profile.get()?.must_change_password).toBe(true);
     });
 });

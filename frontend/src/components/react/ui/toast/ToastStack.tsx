@@ -14,7 +14,10 @@ import { Toast } from '@/components/react/ui/toast/Toast';
  * @param {ToastStackProps} props - Snapshot of toasts + dismiss handler.
  * @returns {JSX.Element}
  */
-export function ToastStack({ toasts, onDismiss }: ToastStackProps): JSX.Element {
+export function ToastStack({
+    toasts,
+    onDismiss,
+}: ToastStackProps): JSX.Element {
     return (
         <div className="gp-toast-stack" aria-live="polite" aria-atomic="false">
             {toasts.map(t => (

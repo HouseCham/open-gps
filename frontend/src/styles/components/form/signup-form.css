@@ -71,3 +71,7 @@
     color: var(--gp-text-mute);
     font-weight: 500;
 }
+
+.form-spacer {
+    margin: 20px 0;
+}

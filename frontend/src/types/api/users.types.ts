@@ -13,6 +13,36 @@ export interface User {
     created_at: string;
 }
 
+/**
+ * Payload sent to POST /api/v1/auth/change-password. The endpoint
+ * verifies `old_password` against Authula's credential store, hashes
+ * the new one, writes it back, and clears the local
+ * `must_change_password` flag in one shot. See
+ * `backend/docs/api/Authentication.md` for details.
+ * @interface ChangePasswordDto
+ * @property {string} old_password - The user's current password.
+ * @property {string} new_password - The replacement password (≥ 8 chars, server-enforced).
+ */
+export interface ChangePasswordDto {
+    old_password: string;
+    new_password: string;
+}
+
+/**
+ * Envelope returned by POST /api/v1/auth/change-password. The `data`
+ * field is the new value of the user's `must_change_password` flag —
+ * always `false` on a successful change.
+ * @interface ChangePasswordResponse
+ * @property {number} status_code - The HTTP status code echoed back.
+ * @property {string} message - Human-readable confirmation.
+ * @property {boolean} data - The new value of `must_change_password`.
+ */
+export interface ChangePasswordResponse {
+    status_code: number;
+    message: string;
+    data: boolean;
+}
+
 export interface UserWithDevices extends User {
     devices: Array<{
         id: string;

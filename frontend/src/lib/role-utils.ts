@@ -10,8 +10,6 @@ import type { UserRole } from '@/types/api';
  *   out) returns `false` — failing closed.
  * @returns {boolean} `true` for super admins.
  */
-export function isSuperAdmin(
-    role: UserRole | null | undefined
-): boolean {
+export function isSuperAdmin(role: UserRole | null | undefined): boolean {
     return role === 'super_admin';
 }

@@ -109,7 +109,7 @@ export function DeviceDetailPage({
             getDeviceById(deviceId),
             getLatestLocation(deviceId),
         ]);
-    }, [deviceId, getDeviceById, getLatestLocation]);
+    }, [deviceId]);
 
     const status = device ? deriveDeviceStatus(device.last_seen_at, t) : null;
     /**
@@ -151,7 +151,7 @@ export function DeviceDetailPage({
      * Handle the editing of a device.
      * @param {string} id - The ID of the device to edit.
      * @param {object} data - The data for the edited device.
-     * @returns {Promise<void>} A promise that resolves when the device is edited. 
+     * @returns {Promise<void>} A promise that resolves when the device is edited.
      */
     const handleEdit = async (
         id: string,

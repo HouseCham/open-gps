@@ -1,7 +1,12 @@
 //-- Types
 import type { ChangeEvent, JSX } from 'react';
 import type { Translation } from '@/i18n';
-import type { UserEmailFilter, UserFilterCounts, UserRoleFilter, UserSortKey } from '@/types/api';
+import type {
+    UserEmailFilter,
+    UserFilterCounts,
+    UserRoleFilter,
+    UserSortKey,
+} from '@/types/api';
 //-- Constants
 import { USER_SORT_OPTIONS } from '@/constants';
 //-- Icons
@@ -153,4 +158,4 @@ export function UserFilterBar({
             </div>
         </div>
     );
-};
+}

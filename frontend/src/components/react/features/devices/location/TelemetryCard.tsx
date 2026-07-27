@@ -26,8 +26,7 @@ interface TelemetryCardProps {
 /**
  * Shows telemetry information for a device.
  * @param {LocationPoint | null} location - Location details.
- * @param {Language} locale - Locale.
- * @param {Translation['device']} translations - Translations.
+ * @param props - Component props.
  * @returns {JSX.Element} - The rendered component.
  */
 export function TelemetryCard({

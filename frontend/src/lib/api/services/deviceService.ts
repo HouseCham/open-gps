@@ -7,6 +7,7 @@ import type {
     DeviceListResponse,
     DeviceWithAccess,
     Envelope,
+    ApiError,
     UpdateDeviceDto,
 } from '@/types/api';
 //-- Utils
@@ -31,6 +32,7 @@ import { apiClient } from '@/lib/api/client';
  */
 interface IDeviceService {
     isLoading: boolean;
+    error: ApiError | null;
     devices: DeviceWithAccess[];
     device: DeviceDetail | null;
     getAllDevices: (page?: number, pageSize?: number) => Promise<void>;
@@ -47,6 +49,7 @@ interface IDeviceService {
  */
 export const useDeviceService = (): IDeviceService => {
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [error, setError] = useState<ApiError | null>(null);
     const [devices, setDevices] = useState<DeviceWithAccess[]>([]);
     const [device, setDevice] = useState<DeviceDetail | null>(null);
 
@@ -56,6 +59,7 @@ export const useDeviceService = (): IDeviceService => {
      */
     function resetState(): void {
         setIsLoading(false);
+        setError(null);
     }
 
     /**
@@ -289,6 +293,7 @@ export const useDeviceService = (): IDeviceService => {
 
     return {
         isLoading,
+        error,
         devices,
         device,
         //-- actions

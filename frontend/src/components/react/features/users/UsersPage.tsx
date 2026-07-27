@@ -22,7 +22,7 @@ import type {
     UserFilterCounts,
     UserRoleFilter,
     UserSortKey,
-} from './UserFilterBar';
+} from '@/types/api';
 //-- Services
 import { useUserService } from '@/lib/api/services/userService';
 //-- Stores

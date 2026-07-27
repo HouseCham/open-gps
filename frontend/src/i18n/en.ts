@@ -195,6 +195,24 @@ export const en = {
             "We couldn't create your account right now. That email might already be registered.",
         autoSignInNote:
             'Auto-signin: the response sets the session cookie and returns 200 with the user profile.',
+
+        // ChangePasswordModal
+        changePassword: {
+            title: 'Set a new password',
+            subtitle: 'You must change your password before continuing.',
+            description:
+                'Your account was created with a temporary password. Choose a new one to finish signing in.',
+            currentPassword: 'Current password',
+            currentPlaceholder: 'Temporary password from your admin',
+            newPlaceholder: 'Choose a new password',
+            confirmPlaceholder: 'Type the new password again',
+            submit: 'Update password',
+            submitting: 'Updating…',
+            errorWrongPassword: 'That password is incorrect.',
+            errorWeakPassword:
+                'That password is too short or too weak. Use 8+ characters with mixed case and a number or symbol.',
+            errorGeneric: "We couldn't update your password. Try again.",
+        },
     },
     profile: {
         title: 'My profile',

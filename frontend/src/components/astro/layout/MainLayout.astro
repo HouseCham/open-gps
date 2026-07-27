@@ -2,6 +2,7 @@
 import '@/styles/global.css';
 import '@/styles/sidebar.css';
 import '@/styles/topbar.css';
+import '@/styles/layout/main-layout.css';
 //-- i18n
 import { getTranslation } from '@/i18n';
 //-- Types
@@ -10,6 +11,7 @@ import type { Language } from '@/types';
 import AppShell from '@/components/astro/layout/AppShell.astro';
 import {
     AuthProvider,
+    ChangePasswordGate,
     OnlyAdminRoute,
     ProtectedRoute,
 } from '@/components/react/auth';
@@ -19,7 +21,6 @@ import { ToastProvider } from '@/components/react/ui';
  * @property {Language} [locale='en'] - Current locale code.
  * @property {string | undefined} [title] - Page title.
  * @property {string} pageLabel - Page title.
- * @property {string | undefined} [pageEyebrow] - Page eyebrow.
  * @property {string | undefined} [class] - Extra classes.
  * @property {boolean} [onlyAdmin] - Marks the page as admin-only.
  */
@@ -27,7 +28,6 @@ interface Props {
     locale?: Language;
     title?: string;
     pageLabel: string;
-    pageEyebrow?: string;
     class?: string;
     onlyAdmin?: boolean;
 }
@@ -36,7 +36,6 @@ const {
     locale = 'en',
     title = 'Open GPS',
     pageLabel,
-    pageEyebrow,
     class: className,
     onlyAdmin = false,
 } = Astro.props;
@@ -89,6 +88,7 @@ const currentPath = Astro.url.pathname;
                         </AppShell>
                     )
                 }
+                <ChangePasswordGate client:idle locale={locale} />
             </ProtectedRoute>
         </AuthProvider>
     </body>
