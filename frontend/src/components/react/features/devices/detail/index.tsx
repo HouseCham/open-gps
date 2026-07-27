@@ -109,7 +109,7 @@ export function DeviceDetailPage({
             getDeviceById(deviceId),
             getLatestLocation(deviceId),
         ]);
-    }, [deviceId, getDeviceById, getLatestLocation]);
+    }, [deviceId]);
 
     const status = device ? deriveDeviceStatus(device.last_seen_at, t) : null;
     /**
