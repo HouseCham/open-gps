@@ -7,6 +7,7 @@ import type {
     DeviceAccessListItem,
     DeviceDetail,
     DeviceVehicleType,
+    LocationPoint,
 } from '@/types/api';
 import type { Language } from '@/types';
 import type { Translation } from '@/i18n';
@@ -14,6 +15,8 @@ import type { Translation } from '@/i18n';
 import { deriveDeviceStatus } from '@/lib/device-utils';
 import { useDeviceService } from '@/lib/api/services/deviceService';
 import { useLocationService } from '@/lib/api/services/locationService';
+import { toastBus } from '@/lib/stores/toast.store';
+import { LIVE_POLL_INTERVAL_MS } from '@/constants/components';
 import { redirectTo } from '@/lib';
 //-- Components
 import { Breadcrumbs, EmptyState } from '@/components/react/ui';
@@ -96,6 +99,8 @@ export function DeviceDetailPage({
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [revokeTarget, setRevokeTarget] =
         useState<DeviceAccessListItem | null>(null);
+    const [liveMode, setLiveMode] = useState(false);
+    const [liveEntries, setLiveEntries] = useState<LocationPoint[]>([]);
 
     useEffect(() => {
         setDeviceId(
@@ -109,7 +114,46 @@ export function DeviceDetailPage({
             getDeviceById(deviceId),
             getLatestLocation(deviceId),
         ]);
+        setLiveMode(false);
+        setLiveEntries([]);
     }, [deviceId]);
+
+    useEffect(() => {
+        if (!liveMode) {
+            setLiveEntries([]);
+            return;
+        }
+        if (!latest) return;
+        setLiveEntries(prev => [latest, ...prev]);
+    }, [latest, liveMode]);
+
+    useEffect(() => {
+        if (!liveMode || !deviceId) return;
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const poll = async (): Promise<void> => {
+            if (cancelled) return;
+            await getLatestLocation(deviceId);
+            if (cancelled) return;
+            timer = setTimeout(poll, LIVE_POLL_INTERVAL_MS);
+        };
+        void poll();
+        return (): void => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, [liveMode, deviceId]);
+
+    useEffect(() => {
+        if (!liveMode || !locationError) return;
+        setLiveMode(false);
+        toastBus.push({
+            variant: 'error',
+            title: t.detail.connectionLost,
+            message:
+                locationError.message || t.detail.connectionLostMessage,
+        });
+    }, [liveMode, locationError]);
 
     const status = device ? deriveDeviceStatus(device.last_seen_at, t) : null;
     /**
@@ -269,11 +313,15 @@ export function DeviceDetailPage({
                         onRefresh={() => {
                             if (deviceId) void getLatestLocation(deviceId);
                         }}
+                        onGoLive={() => setLiveMode(v => !v)}
+                        liveMode={liveMode}
                     />
                     <TelemetryCard
                         location={latest}
                         locale={locale}
                         translations={t}
+                        liveEntries={liveEntries}
+                        liveMode={liveMode}
                     />
                 </div>
             </section>

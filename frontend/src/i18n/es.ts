@@ -477,6 +477,12 @@ export const es: Translation = {
                 signal: 'Señal',
                 recorded: 'Registrado',
             },
+            goLive: 'En directo',
+            stopLive: 'Detener directo',
+            liveWaiting: 'Esperando el primer paquete…',
+            connectionLost: 'Conexión perdida',
+            connectionLostMessage:
+                'Rastreo en directo detenido: dispositivo no disponible.',
             info: {
                 title: 'Información del dispositivo',
                 subtitle: 'Identidad y metadatos de registro',

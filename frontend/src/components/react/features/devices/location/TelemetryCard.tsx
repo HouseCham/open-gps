@@ -17,11 +17,15 @@ import type { JSX } from 'react/jsx-runtime';
  * @prop {LocationPoint | null} location - Location details.
  * @prop {Language} locale - Locale.
  * @prop {Translation['device']} translations - Translations.
+ * @prop {LocationPoint[]} liveEntries - Log of points polled while live mode is on.
+ * @prop {boolean} liveMode - Whether live polling is currently active.
  */
 interface TelemetryCardProps {
     location: LocationPoint | null;
     locale: Language;
     translations: Translation['device'];
+    liveEntries: LocationPoint[];
+    liveMode: boolean;
 }
 /**
  * Shows telemetry information for a device.
@@ -33,6 +37,8 @@ export function TelemetryCard({
     location,
     locale,
     translations,
+    liveEntries,
+    liveMode,
 }: TelemetryCardProps): JSX.Element {
     const t = translations.detail;
     const items = location
@@ -122,6 +128,38 @@ export function TelemetryCard({
                             ))}
                         </div>
                         {/* Live mode location entries */}
+                        {liveMode && (
+                            <div className="dd-live-entries">
+                                {liveEntries.length === 0 ? (
+                                    <div className="dd-live-entries-empty">
+                                        {t.liveWaiting}
+                                    </div>
+                                ) : (
+                                    liveEntries.map((entry, i) => (
+                                        <div
+                                            className="dd-coordinates dd-coordinates--live"
+                                            key={`${entry.recorded_at}-${i}`}
+                                        >
+                                            <Crosshair size={15} />
+                                            <span>
+                                                <small>{t.latitude}</small>
+                                                {entry.latitude.toFixed(6)}
+                                            </span>
+                                            <span>
+                                                <small>{t.longitude}</small>
+                                                {entry.longitude.toFixed(6)}
+                                            </span>
+                                            <span className="dd-live-entries-time">
+                                                {formatRelativeTime(
+                                                    entry.recorded_at,
+                                                    locale
+                                                )}
+                                            </span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
                     </>
                 ) : (
                     <div className="dd-card-empty">

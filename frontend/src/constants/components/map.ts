@@ -137,3 +137,16 @@ export const MAP_COORDINATE_DECIMALS = 4;
  * @description Default size for the map empty state icon
  */
 export const MAP_EMPTY_STATE_ICON_SIZE = 26;
+/**
+ * @constant {number}
+ * @description Interval, in milliseconds, between polls when the "Go Live"
+ * button is active. Devices in the field report a location packet roughly
+ * every 15s, so the polling interval should stay under that floor.
+ */
+export const LIVE_POLL_INTERVAL_MS = 15_000;
+/**
+ * @constant {number}
+ * @description Icon size for the "Go Live" / "Stop Live" action button
+ * in the map card header. Mirrors {@link MAP_REFRESH_ICON_SIZE}.
+ */
+export const MAP_GO_LIVE_ICON_SIZE = 13;

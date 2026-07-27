@@ -465,6 +465,12 @@ export const en = {
                 signal: 'Signal',
                 recorded: 'Recorded',
             },
+            goLive: 'Go Live',
+            stopLive: 'Stop Live',
+            liveWaiting: 'Waiting for the first packet…',
+            connectionLost: 'Connection lost',
+            connectionLostMessage:
+                'Live tracking stopped: the device is unreachable.',
             info: {
                 title: 'Device information',
                 subtitle: 'Identity and registration metadata',

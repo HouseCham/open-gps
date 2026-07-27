@@ -14,11 +14,21 @@ import {
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 //-- Icons
-import { MapPin, RefreshCw } from 'lucide-react';
+import { MapPin, Radio, RefreshCw } from 'lucide-react';
 //-- Utils
 import { useEffect, useRef } from 'react';
 import { formatRelativeTime } from '@/lib';
-import { MAP_COORDINATE_DECIMALS, MAP_DEVICE_ZOOM, MAP_EASE_TO_DURATION_MS, MAP_EMPTY_STATE_ICON_SIZE, MAP_FALLBACK_CENTER, MAP_FALLBACK_ZOOM, MAP_REFRESH_ICON_SIZE, MAP_STYLE_URL } from '@/constants/components';
+import {
+    MAP_COORDINATE_DECIMALS,
+    MAP_DEVICE_ZOOM,
+    MAP_EASE_TO_DURATION_MS,
+    MAP_EMPTY_STATE_ICON_SIZE,
+    MAP_FALLBACK_CENTER,
+    MAP_FALLBACK_ZOOM,
+    MAP_GO_LIVE_ICON_SIZE,
+    MAP_REFRESH_ICON_SIZE,
+    MAP_STYLE_URL,
+} from '@/constants/components';
 
 /**
  * Props for the MapCard component
@@ -28,6 +38,8 @@ import { MAP_COORDINATE_DECIMALS, MAP_DEVICE_ZOOM, MAP_EASE_TO_DURATION_MS, MAP_
  * @prop {Translation['device']} translations - Translations.
  * @prop {boolean} loading - Loading state.
  * @prop {() => void} onRefresh - Callback for the refresh button.
+ * @prop {() => void} onGoLive - Callback for the go live / stop live toggle.
+ * @prop {boolean} liveMode - Whether live polling is active.
  */
 interface MapCardProps {
     location: LocationPoint | null;
@@ -35,6 +47,8 @@ interface MapCardProps {
     translations: Translation['device'];
     loading: boolean;
     onRefresh: () => void;
+    onGoLive: () => void;
+    liveMode: boolean;
 }
 /**
  * MapCard component
@@ -47,6 +61,8 @@ export function MapCard({
     translations,
     loading,
     onRefresh,
+    onGoLive,
+    liveMode,
 }: MapCardProps): JSX.Element {
     const t = translations.detail;
     const hasLocation = location !== null;
@@ -79,17 +95,29 @@ export function MapCard({
                             : t.noLocation}
                     </div>
                 </div>
-                {/* Refresh button */}
-                <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    loading={loading}
-                    icon={<RefreshCw size={MAP_REFRESH_ICON_SIZE} />}
-                    onClick={onRefresh}
-                >
-                    {t.refresh}
-                </Button>
+                {/* Refresh + Go Live actions */}
+                <div className="dd-card-head-actions">
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        loading={loading}
+                        icon={<RefreshCw size={MAP_REFRESH_ICON_SIZE} />}
+                        onClick={onRefresh}
+                    >
+                        {t.refresh}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant={liveMode ? 'primary' : 'secondary'}
+                        size="sm"
+                        icon={<Radio size={MAP_GO_LIVE_ICON_SIZE} />}
+                        onClick={onGoLive}
+                        aria-pressed={liveMode}
+                    >
+                        {liveMode ? t.stopLive : t.goLive}
+                    </Button>
+                </div>
             </div>
             <div className="dd-map" aria-label={t.mapLabel}>
                 <MapLibreMap
