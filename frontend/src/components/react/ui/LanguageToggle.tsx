@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 //-- Types
-import type { Language } from "@/types";
-import type { JSX } from "react/jsx-runtime";
+import type { Language } from '@/types';
+import type { JSX } from 'react/jsx-runtime';
 //-- Icons
-import { Globe } from "lucide-react";
+import { Globe } from 'lucide-react';
 /**
  * Props for the LanguageToggle component
  * @interface LanguageToggleProps

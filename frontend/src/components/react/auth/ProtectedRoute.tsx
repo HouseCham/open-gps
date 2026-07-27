@@ -69,9 +69,5 @@ export function ProtectedRoute({
         return <></>;
     }
 
-    return (
-        <>
-            {children}
-        </>
-    );
+    return <>{children}</>;
 }

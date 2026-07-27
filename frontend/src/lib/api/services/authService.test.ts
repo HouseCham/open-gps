@@ -350,15 +350,13 @@ describe('useAuthService.changePassword', () => {
             message: 'password changed',
             data: false,
         };
-        apiClient
-            .mockResolvedValueOnce({ data: body })
-            .mockResolvedValueOnce({
-                data: {
-                    status_code: 200,
-                    message: 'ok',
-                    data: updated,
-                },
-            });
+        apiClient.mockResolvedValueOnce({ data: body }).mockResolvedValueOnce({
+            data: {
+                status_code: 200,
+                message: 'ok',
+                data: updated,
+            },
+        });
 
         await svc.changePassword({
             old_password: 'temp',
