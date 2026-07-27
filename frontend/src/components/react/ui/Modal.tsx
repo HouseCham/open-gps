@@ -28,6 +28,7 @@ const SIZE_TO_MAX_WIDTH: Record<ModalSize, number> = {
  * @prop {ModalSize} [size='md'] - Width preset.
  * @prop {boolean} [dismissible=true] - When `false`, suppresses backdrop-click and Escape close. The close button is also hidden when {@link hideCloseButton} is not set.
  * @prop {boolean} [hideCloseButton=false] - When `true`, omits the X close button. Set independently of `dismissible` for cases that want a visible close button but block backdrop / Escape.
+ * @prop {ReactNode} [headerActions] - Optional action buttons rendered in the modal header next to (or in place of) the close button. Useful when the modal needs to expose persistent controls like theme or language toggles even while locked.
  * @prop {ReactNode} children - Modal body content.
  */
 export interface ModalProps {
@@ -39,6 +40,7 @@ export interface ModalProps {
     size?: ModalSize;
     dismissible?: boolean;
     hideCloseButton?: boolean;
+    headerActions?: ReactNode;
     children: ReactNode;
 }
 
@@ -57,6 +59,7 @@ export function Modal({
     size = 'md',
     dismissible = true,
     hideCloseButton = false,
+    headerActions,
     children,
 }: ModalProps): JSX.Element | null {
     useEffect(() => {
@@ -108,16 +111,19 @@ export function Modal({
                             <div className="gp-modal-sub">{subtitle}</div>
                         )}
                     </div>
-                    {showCloseButton && (
-                        <button
-                            type="button"
-                            className="gp-modal-close"
-                            onClick={onClose}
-                            aria-label="Close"
-                        >
-                            <X size={14} aria-hidden="true" />
-                        </button>
-                    )}
+                    <div className="gp-modal-head-actions">
+                        {headerActions}
+                        {showCloseButton && (
+                            <button
+                                type="button"
+                                className="gp-modal-close"
+                                onClick={onClose}
+                                aria-label="Close"
+                            >
+                                <X size={14} aria-hidden="true" />
+                            </button>
+                        )}
+                    </div>
                 </header>
                 <div className="gp-modal-body">{children}</div>
                 {footer && <footer className="gp-modal-foot">{footer}</footer>}

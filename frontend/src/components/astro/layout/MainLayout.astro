@@ -2,6 +2,7 @@
 import '@/styles/global.css';
 import '@/styles/sidebar.css';
 import '@/styles/topbar.css';
+import '@/styles/layout/main-layout.css';
 //-- i18n
 import { getTranslation } from '@/i18n';
 //-- Types
@@ -10,6 +11,7 @@ import type { Language } from '@/types';
 import AppShell from '@/components/astro/layout/AppShell.astro';
 import {
     AuthProvider,
+    ChangePasswordGate,
     OnlyAdminRoute,
     ProtectedRoute,
 } from '@/components/react/auth';
@@ -86,6 +88,7 @@ const currentPath = Astro.url.pathname;
                         </AppShell>
                     )
                 }
+                <ChangePasswordGate client:idle locale={locale} />
             </ProtectedRoute>
         </AuthProvider>
     </body>

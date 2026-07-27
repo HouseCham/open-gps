@@ -73,6 +73,13 @@
     min-width: 0;
 }
 
+.gp-modal-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
 .gp-modal-title {
     font-size: 16px;
     font-weight: 600;
