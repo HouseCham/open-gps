@@ -2,9 +2,10 @@ import '@/styles/components/form/signup-form.css';
 import '@/styles/components/form/password-strength.css';
 
 import { useState } from 'react';
+//-- Types
+import type { SignupFormStrings } from '@/types/components';
 import type { ChangeEvent, FormEvent, JSX } from 'react';
-import { AlertCircle, ArrowRight, Info, Mail, User } from 'lucide-react';
-//-- API
+//-- Utils
 import { isApiError } from '@/lib/api/api-utils';
 //-- Services
 import { useAuthService } from '@/lib/api/services';
@@ -21,8 +22,8 @@ import {
     PasswordStrength,
     strengthScore,
 } from '@/components/react/form/shared';
-//-- Types
-import type { SignupFormStrings } from '@/types/components';
+//-- Icons
+import { AlertCircle, ArrowRight, Info, Mail, User } from 'lucide-react';
 
 /**
  * Props for the SignupForm component.
