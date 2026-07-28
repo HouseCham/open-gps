@@ -471,6 +471,9 @@ export const en = {
             connectionLost: 'Connection lost',
             connectionLostMessage:
                 'Live tracking stopped: the device is unreachable.',
+            deviceNotLiveTitle: 'Device not live',
+            deviceNotLiveMessage:
+                'Live tracking stopped: the device has not reported a new location in over 30 seconds.',
             info: {
                 title: 'Device information',
                 subtitle: 'Identity and registration metadata',

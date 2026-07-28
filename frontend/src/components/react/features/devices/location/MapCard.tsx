@@ -97,6 +97,7 @@ export function MapCard({
                 </div>
                 {/* Refresh + Go Live actions */}
                 <div className="dd-card-head-actions">
+                    {/* Refresh button */}
                     <Button
                         type="button"
                         variant="secondary"
@@ -107,10 +108,12 @@ export function MapCard({
                     >
                         {t.refresh}
                     </Button>
+                    {/* Go live / stop live button */}
                     <Button
                         type="button"
-                        variant={liveMode ? 'primary' : 'secondary'}
+                        variant="secondary"
                         size="sm"
+                        className={liveMode ? 'dd-go-live-active' : undefined}
                         icon={<Radio size={MAP_GO_LIVE_ICON_SIZE} />}
                         onClick={onGoLive}
                         aria-pressed={liveMode}
@@ -153,17 +156,17 @@ export function MapCard({
                         </Marker>
                     )}
                 </MapLibreMap>
+                {liveMode && (
+                    <div className="dd-map-live">
+                        <span className="dd-map-live-dot" />
+                        {t.liveTracking}
+                    </div>
+                )}
                 {hasLocation && (
-                    <>
-                        <div className="dd-map-live">
-                            <span className="dd-map-live-dot" />
-                            {t.liveTracking}
-                        </div>
-                        <div className="dd-map-coords">
-                            {location.latitude.toFixed(MAP_COORDINATE_DECIMALS)}°,{' '}
-                            {location.longitude.toFixed(MAP_COORDINATE_DECIMALS)}°
-                        </div>
-                    </>
+                    <div className="dd-map-coords">
+                        {location.latitude.toFixed(MAP_COORDINATE_DECIMALS)}°,{' '}
+                        {location.longitude.toFixed(MAP_COORDINATE_DECIMALS)}°
+                    </div>
                 )}
                 {!hasLocation && (
                     <div className="dd-map-empty">

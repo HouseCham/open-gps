@@ -483,6 +483,9 @@ export const es: Translation = {
             connectionLost: 'Conexión perdida',
             connectionLostMessage:
                 'Rastreo en directo detenido: dispositivo no disponible.',
+            deviceNotLiveTitle: 'Dispositivo no en directo',
+            deviceNotLiveMessage:
+                'Rastreo en directo detenido: el dispositivo no ha comunicado una nueva ubicación en más de 30 segundos.',
             info: {
                 title: 'Información del dispositivo',
                 subtitle: 'Identidad y metadatos de registro',

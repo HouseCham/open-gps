@@ -150,3 +150,16 @@ export const LIVE_POLL_INTERVAL_MS = 15_000;
  * in the map card header. Mirrors {@link MAP_REFRESH_ICON_SIZE}.
  */
 export const MAP_GO_LIVE_ICON_SIZE = 13;
+/**
+ * @constant {number}
+ * @description Maximum age (ms) of the most recent polled point before
+ * the device is considered "not live". When a poll returns a point
+ * older than this, the polling loop triggers its retry budget.
+ */
+export const LIVE_STALE_THRESHOLD_MS = 30_000;
+/**
+ * @constant {number}
+ * @description Number of extra fetches the polling loop performs after
+ * detecting a stale packet before giving up and stopping live mode.
+ */
+export const LIVE_STALE_RETRIES = 2;

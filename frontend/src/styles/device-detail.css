@@ -751,10 +751,30 @@
 }
 
 .dd-coordinates--live {
-    border-style: dashed;
-    background: var(--bg-page);
-    color: var(--text-secondary);
+    border: 1px dashed #ea4335;
+    background: color-mix(in srgb, #ea4335 12%, var(--bg-surface));
+    color: var(--text-primary);
     margin-top: var(--s-2);
+}
+
+.btn.dd-go-live-active {
+    border-color: #ea4335;
+    background: color-mix(in srgb, #ea4335 14%, var(--bg-surface));
+    color: #ea4335;
+    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.5);
+    animation: dd-go-live-pulse 2.4s ease-out infinite;
+}
+
+@keyframes dd-go-live-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.5);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(234, 67, 53, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(234, 67, 53, 0);
+    }
 }
 
 .dd-live-entries {
