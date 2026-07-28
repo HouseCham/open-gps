@@ -51,6 +51,15 @@ export interface AuthSession {
 }
 
 /**
+ * Role assigned to a user. Mirrors the backend `domain.UserRole`
+ * (`"user" | "super_admin"`). Used for client-side gating of admin-only
+ * routes — the server remains the source of truth, this is only for
+ * UX-level redirect / UI hiding.
+ * @typedef {'user' | 'super_admin'} UserRole
+ */
+export type UserRole = 'user' | 'super_admin';
+
+/**
  * Response shape returned by GET /me. Only the user is relevant on the
  * client; session metadata stays server-side.
  * @interface MeResponse
@@ -105,6 +114,8 @@ export interface SignOutResponse {
  * @property {AuthUser | null} user - The currently authenticated user, or `null` when signed out.
  * @property {boolean} isAuthenticated - `true` when `user` is not `null`.
  * @property {boolean} isAuthLoading - `true` while a sign-in / sign-up / sign-out / session refresh is in flight.
+ * @property {UserRole | null} role - The authenticated user's role. `null` until `authService.fetchProfile()` settles — use {@link isRoleLoaded} to disambiguate "not yet fetched" from "fetched and got nothing".
+ * @property {boolean} isRoleLoaded - `true` once the profile fetch has resolved (success or failure). Only meaningful when `isAuthenticated` is `true`.
  * @property {(credentials: SignInCredentials) => Promise<void>} signIn - Sign in with email + password. Throws on invalid credentials.
  * @property {(credentials: SignUpCredentials) => Promise<void>} signUp - Register a new account. Throws on validation failure.
  * @property {(provider: OAuthProvider) => Promise<void>} signInOAuth - Begin the OAuth2 sign-in flow for the given provider. The browser is redirected away.
@@ -114,6 +125,8 @@ export interface UseAuthResult {
     user: AuthUser | null;
     isAuthenticated: boolean;
     isAuthLoading: boolean;
+    role: UserRole | null;
+    isRoleLoaded: boolean;
     signIn: (credentials: SignInCredentials) => Promise<void>;
     signUp: (credentials: SignUpCredentials) => Promise<void>;
     signInOAuth: (provider: OAuthProvider) => Promise<void>;

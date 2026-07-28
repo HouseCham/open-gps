@@ -1,0 +1,49 @@
+/* SignalIndicator */
+.signal {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 14px;
+}
+
+.signal-bar {
+    width: 3px;
+    background: var(--text-secondary);
+    opacity: 0.2;
+    border-radius: 1px;
+}
+
+.signal-bar.on {
+    opacity: 1;
+}
+
+.signal-bar.warn {
+    opacity: 1;
+    background: var(--warning);
+}
+
+.signal-bar.crit {
+    opacity: 1;
+    background: var(--danger);
+}
+
+.signal-bar:nth-child(1) {
+    height: 5px;
+}
+.signal-bar:nth-child(2) {
+    height: 8px;
+}
+.signal-bar:nth-child(3) {
+    height: 11px;
+}
+.signal-bar:nth-child(4) {
+    height: 14px;
+}
+
+.signal-dbm {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    margin-left: 6px;
+}

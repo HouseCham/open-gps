@@ -1,0 +1,43 @@
+/* Input */
+.input {
+    width: 100%;
+    padding: 9px var(--s-3);
+    border-radius: var(--radius-control);
+    border: 0.5px solid var(--border-strong);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.4;
+    transition:
+        border-color 0.12s ease,
+        box-shadow 0.12s ease;
+}
+
+.input::placeholder {
+    color: var(--text-muted);
+}
+
+.input:hover {
+    border-color: var(--text-muted);
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+.input[aria-invalid='true'] {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px var(--danger-tint);
+}
+
+.input:disabled {
+    background: var(--bg-sidebar);
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
+.input.is-mono {
+    font-family: var(--font-mono);
+}

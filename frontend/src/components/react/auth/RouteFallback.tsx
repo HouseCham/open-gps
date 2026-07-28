@@ -1,6 +1,4 @@
 import type { ReactElement } from 'react';
-//-- Styles
-import '@/styles/components/auth-gate.css';
 
 /**
  * Default loading UI shown by the auth-route gates

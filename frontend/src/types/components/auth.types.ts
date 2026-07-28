@@ -37,6 +37,17 @@ export interface LoginFormStrings {
     loginSubtitle: string;
     signInWithGoogle: string;
     orContinueWith: string;
+    rememberDevice: string;
+    forgotPassword: string;
+    noAccount: string;
+    createOne: string;
+    firstAdminBadge: string;
+    loginFailed: string;
+    showPassword: string;
+    hidePassword: string;
+    emailPasswordRequired: string;
+    apiInspectorTitle: string;
+    apiInspectorCookieNote: string;
 }
 /**
  * @interface SignupFormData
@@ -87,4 +98,88 @@ export interface SignupFormStrings {
     nameRequired: string;
     signupTitle: string;
     signupSubtitle: string;
+    strengthLabel: string;
+    strengthTooShort: string;
+    strengthWeak: string;
+    strengthFair: string;
+    strengthGood: string;
+    strengthStrong: string;
+    nameHelp: string;
+    passwordHelp: string;
+    confirmPassword: string;
+    passwordsDoNotMatch: string;
+    termsAgree: string;
+    termsLabel: string;
+    privacyLabel: string;
+    creatingAccount: string;
+    orDivider: string;
+    continueWithGoogle: string;
+    firstAdminWelcome: string;
+    createAccountBadge: string;
+    emailPasswordRequired: string;
+    acceptTerms: string;
+    pickStrongerPassword: string;
+    signupFailed: string;
+    showPassword: string;
+    hidePassword: string;
+    apiInspectorTitle: string;
+    apiInspectorCookieNote: string;
+    autoSignInNote: string;
+}
+/**
+ * @interface ChangePasswordStrings
+ * @property {string} title - Modal heading.
+ * @property {string} subtitle - Modal supporting copy.
+ * @property {string} description - Body copy that explains the situation.
+ * @property {string} currentPassword - Label for the current-password field.
+ * @property {string} currentPlaceholder - Placeholder for the current-password field.
+ * @property {string} newPassword - Label for the new-password field.
+ * @property {string} newPlaceholder - Placeholder for the new-password field.
+ * @property {string} confirmPassword - Label for the confirm-password field.
+ * @property {string} confirmPlaceholder - Placeholder for the confirm-password field.
+ * @property {string} submit - Label for the submit button at rest.
+ * @property {string} submitting - Label for the submit button while in flight.
+ * @property {string} errorWrongPassword - Inline error when the current password is wrong.
+ * @property {string} errorWeakPassword - Inline error when the new password fails server validation.
+ * @property {string} errorGeneric - Fallback inline error for any other failure.
+ * @property {string} passwordsDoNotMatch - Inline error when the confirm field doesn't match.
+ * @property {string} pickStrongerPassword - Inline error when the strength score is too low.
+ * @property {string} passwordRequired - Inline error when any password field is empty.
+ * @property {string} showPassword - Accessibility label for the show-password toggle.
+ * @property {string} hidePassword - Accessibility label for the hide-password toggle.
+ * @property {string} strengthLabel - Label for the strength-meter "Strength" header.
+ * @property {string} strengthTooShort - First (level 0) strength-meter label.
+ * @property {string} strengthWeak - Second (level 1) strength-meter label.
+ * @property {string} strengthFair - Third (level 2) strength-meter label.
+ * @property {string} strengthGood - Fourth (level 3) strength-meter label.
+ * @property {string} strengthStrong - Fifth (level 4) strength-meter label.
+ * @property {string} passwordHelp - Helper text under the new-password field.
+ */
+export interface ChangePasswordStrings {
+    title: string;
+    subtitle: string;
+    description: string;
+    currentPassword: string;
+    currentPlaceholder: string;
+    newPassword: string;
+    newPlaceholder: string;
+    confirmPassword: string;
+    confirmPlaceholder: string;
+    submit: string;
+    submitting: string;
+    errorWrongPassword: string;
+    errorWeakPassword: string;
+    errorGeneric: string;
+    passwordsDoNotMatch: string;
+    pickStrongerPassword: string;
+    passwordRequired: string;
+    showPassword: string;
+    hidePassword: string;
+    strengthLabel: string;
+    strengthTooShort: string;
+    strengthWeak: string;
+    strengthFair: string;
+    strengthGood: string;
+    strengthStrong: string;
+    passwordHelp: string;
 }

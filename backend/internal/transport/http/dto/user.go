@@ -34,9 +34,8 @@ func UserFromDomain(u *domain.User) UserResponse {
 
 type CreateUserRequest struct {
 	Email    string `json:"email" validate:"required,email"`
-	Name     string `json:"name" validate:"omitempty,min=0,max=100"`
+	Name     string `json:"name" validate:"required,min=1,max=100"`
 	Lastname string `json:"lastname" validate:"omitempty,min=0,max=100"`
-	Role     string `json:"role" validate:"required,user_role"`
 }
 
 type CreateUserResponse struct {

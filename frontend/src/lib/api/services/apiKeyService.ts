@@ -16,7 +16,7 @@ import {
 } from '@/lib/api/api-utils';
 import { toastBus } from '@/lib/stores/toast.store';
 //-- Http Client
-import { apiClient } from '@/lib/auth/client';
+import { apiClient } from '@/lib/api/client';
 
 /**
  * One row in the global `/api-keys` admin table. Returned by the

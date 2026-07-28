@@ -1,0 +1,43 @@
+/* StatusBadge */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px;
+    border-radius: var(--radius-control);
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--font-sans);
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    position: relative;
+}
+
+.status-dot::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.18;
+}
+
+.status-online {
+    background: var(--success-tint);
+    color: var(--success-text);
+}
+
+.status-stale {
+    background: var(--warning-tint);
+    color: var(--warning-text);
+}
+
+.status-offline {
+    background: var(--danger-tint);
+    color: var(--danger-text);
+}

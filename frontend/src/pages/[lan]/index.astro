@@ -1,20 +1,11 @@
 ---
+import type { GetStaticPaths } from 'astro';
 //-- Translations
 import { getTranslation } from '@/i18n';
 //-- Types
 import type { Language } from '@/types';
-import type { GetStaticPaths } from 'astro';
-//-- Constants
-import {
-    SECTION_GALLERY_DEMO_ACTIVITIES,
-    SECTION_GALLERY_DEMO_DEVICES,
-} from '@/constants/components';
 //-- Components
 import MainLayout from '@/components/astro/layout/MainLayout.astro';
-import PageHeader from '@/components/astro/layout/PageHeader.astro';
-import Dashboard from '@/components/sections/Dashboard.astro';
-//-- Utils
-import { getDemoKpiItems } from '@/lib';
 /**
  * @type {GetStaticPaths}
  */
@@ -22,31 +13,14 @@ export const getStaticPaths = (() => {
     return [{ params: { lan: 'en' } }, { params: { lan: 'es' } }];
 }) satisfies GetStaticPaths;
 
-//* note: getStaticPaths only emits the two supported locales,
-//   so the cast is exhaustive by construction.
 const locale = Astro.params.lan as Language;
 const translation = getTranslation(locale);
-const kpiItems = getDemoKpiItems(translation);
 ---
 
 <MainLayout
     locale={locale}
-    translation={translation}
-    active="dashboard"
-    showAdmin={true}
-    title="Dashboard · GPS Tracker"
+    title={"Open GPS"}
+    pageLabel={"Open GPS"}
 >
-    <PageHeader
-        eyebrow={translation.section.kpiBar.title}
-        title={translation.nav.dashboard}
-    />
-
-    <Dashboard
-        locale={locale}
-        translation={translation}
-        kpiItems={kpiItems}
-        activities={SECTION_GALLERY_DEMO_ACTIVITIES}
-        devices={SECTION_GALLERY_DEMO_DEVICES}
-        activityTitle={translation.section.activityFeed.title}
-    />
+    <h1>{"Hello World"}</h1>
 </MainLayout>

@@ -1,0 +1,38 @@
+/* EmptyState */
+.empty-state {
+    background: var(--bg-surface);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-card-lg);
+    padding: var(--s-9) var(--s-7);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--s-3);
+}
+
+.empty-state-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--bg-sidebar);
+    color: var(--text-muted);
+    display: grid;
+    place-items: center;
+    margin-bottom: var(--s-3);
+}
+
+.empty-state-icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+.empty-state h4 {
+    font-size: 15px;
+}
+
+.empty-state p {
+    color: var(--text-secondary);
+    font-size: 13px;
+    max-width: 36ch;
+}

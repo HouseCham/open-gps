@@ -1,0 +1,35 @@
+/* Field wrapper: label, help, error */
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.field-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.field-label .req {
+    color: var(--danger);
+    font-family: var(--font-mono);
+}
+
+.field-help {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.field-error {
+    font-size: 11px;
+    color: var(--danger-text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.4;
+}

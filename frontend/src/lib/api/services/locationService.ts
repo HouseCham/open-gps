@@ -5,7 +5,7 @@ import type { ApiError, Envelope, LocationPoint } from '@/types/api';
 import { toApiError, withApiErrorToast } from '@/lib/api/api-utils';
 import { toastBus } from '@/lib/stores/toast.store';
 //-- Http Client
-import { apiClient } from '@/lib/auth/client';
+import { apiClient } from '@/lib/api/client';
 
 /**
  * The interface for the locations service.
@@ -52,7 +52,7 @@ export const useLocationService = (): ILocationService => {
      * @param {string} deviceId - UUID of the device to query.
      * @returns {Promise<void>} Resolves once the request settles.
      */
-    const getLatestLocation = async (deviceId: string): Promise<void> => {
+    async function getLatestLocation(deviceId: string): Promise<void> {
         setIsLoading(true);
         setError(null);
         try {
@@ -103,7 +103,7 @@ export const useLocationService = (): ILocationService => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }
 
     return {
         isLoading,

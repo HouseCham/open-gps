@@ -1,0 +1,16 @@
+/* FieldGroup — joined input + button */
+.field-group {
+    display: flex;
+    gap: 0;
+}
+
+.field-group .input {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: 0;
+}
+
+.field-group .btn {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}

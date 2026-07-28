@@ -33,3 +33,13 @@ export const SIGNUP_PATH = '/signup';
  * @constant {string}
  */
 export const DASHBOARD_PATH = '/';
+
+/**
+ * `sessionStorage` key used as a one-shot handoff between the admin
+ * gate and the `no-access.astro` page. The gate writes a route slug
+ * here before issuing its redirect; the destination page reads it on
+ * mount, surfaces a transient toast, then clears it. One-shot by
+ * design — the next sign-in clears it.
+ * @constant {string}
+ */
+export const DENIED_ROUTE_STORAGE_KEY = 'ogps:denied-route';

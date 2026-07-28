@@ -16,8 +16,12 @@ import {
  */
 export function redirectTo(path: string): void {
     const supported = new Set(['en', 'es']);
-    let lang = (navigator.language || 'en').split('-')[0];
-    if (!supported.has(lang)) lang = 'en';
+    const fromPath = window.location.pathname.split('/').filter(Boolean)[0];
+    let lang = supported.has(fromPath) ? fromPath : undefined;
+    if (!lang) {
+        lang = (navigator.language || 'en').split('-')[0];
+        if (!supported.has(lang)) lang = 'en';
+    }
     window.location.replace('/' + lang + path);
 }
 /**

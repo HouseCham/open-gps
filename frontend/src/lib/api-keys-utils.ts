@@ -1,5 +1,7 @@
+import { API_KEY_SORT_OPTIONS } from '@/constants';
 import type { Translation } from '@/i18n';
-import type { DataTableColumn } from '@/types/components';
+import type { ApiKeySortKey } from '@/types';
+import type { DataTableColumn } from '@/types/components/ui';
 
 /**
  * Returns the column definitions for the API keys table. The `keyId`
@@ -30,4 +32,10 @@ export function getApiKeyTableColumns(
 export function truncateId(id: string): string {
     if (id.length <= 8) return id;
     return `${id.slice(0, 8)}…`;
+}
+/**
+ *
+ */
+export function isApiKeySortKey(value: string): value is ApiKeySortKey {
+    return API_KEY_SORT_OPTIONS.some(option => option === value);
 }

@@ -1,12 +1,13 @@
+import { useAuthService } from '@/lib/api/services';
 import { useEffect, useRef, type ReactNode } from 'react';
 //-- Services
-import { authService } from '@/lib/auth/service';
 /**
  * @interface AuthProviderProps
  * @property {ReactNode} children - The React tree that depends on the hydrated auth state.
  */
 interface AuthProviderProps {
     children: ReactNode;
+    showToast?: boolean;
 }
 /**
  * @function AuthProvider
@@ -16,7 +17,9 @@ interface AuthProviderProps {
  */
 export function AuthProvider({
     children,
+    showToast = true,
 }: AuthProviderProps): React.JSX.Element {
+    const { getSession } = useAuthService();
     const hydrated = useRef(false);
 
     useEffect(() => {
@@ -24,7 +27,7 @@ export function AuthProvider({
             return;
         }
         hydrated.current = true;
-        void authService.getSession();
+        void getSession(showToast);
     }, []);
 
     return <>{children}</>;

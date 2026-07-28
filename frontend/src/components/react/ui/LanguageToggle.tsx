@@ -1,16 +1,25 @@
-import { useState, useEffect, type JSX } from 'react';
+import { useEffect, useState } from 'react';
+//-- Types
 import type { Language } from '@/types';
+import type { JSX } from 'react/jsx-runtime';
+//-- Icons
 import { Globe } from 'lucide-react';
-
+/**
+ * Props for the LanguageToggle component
+ * @interface LanguageToggleProps
+ * @prop {Language} locale - The current locale
+ */
 interface LanguageToggleProps {
-    class?: string;
     locale: Language;
 }
-
-export default function LanguageToggle({
-    class: className,
-    locale,
-}: LanguageToggleProps): JSX.Element {
+/**
+ * Language toggle button. Swaps the URL prefix between /en/ and /es/ so
+ * the Astro router renders the matching locale. Persists the choice in
+ * localStorage so the next visit keeps the same language.
+ * @param {LanguageToggleProps} props - The current locale.
+ * @returns {JSX.Element} The rendered button.
+ */
+export function LanguageToggle({ locale }: LanguageToggleProps): JSX.Element {
     const [currentLocale, setCurrentLocale] = useState<Language>(() => {
         if (typeof document === 'undefined') return locale;
         // Safe: localStorage.getItem returns string | null; the next guard
@@ -36,7 +45,7 @@ export default function LanguageToggle({
     return (
         <button
             type="button"
-            className={`icon-btn ${className ?? ''}`}
+            className="chrome-icon-btn"
             onClick={toggleLanguage}
             aria-label={
                 currentLocale === 'en'
@@ -49,7 +58,7 @@ export default function LanguageToggle({
                     : 'Switch to English'
             }
         >
-            <Globe size={18} strokeWidth={1.75} />
+            <Globe size={16} strokeWidth={1.6} />
         </button>
     );
 }

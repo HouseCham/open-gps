@@ -1,4 +1,4 @@
-# GPS Tracker — Frontend
+# Open GPS — Frontend
 
 A self-hosted, open-source web application for real-time GPS tracking of IoT devices. Built for hobbyists, small businesses, and developers who want full control over their tracking data.
 
@@ -202,23 +202,6 @@ API services use `@better-fetch/fetch` and are structured as classes with depend
 - **`authClient`** — Authula HTTP client configured with cookie-based sessions
 
 All API calls return responses wrapped in a generic `Envelope<T>` type with status code, message, and data payload. Errors are normalized through `handleApiError` into a structured `ApiError` type.
-
----
-
-## Gallery Pages
-
-The project includes dev-only gallery pages for component verification during development:
-
-| Route                    | Content                      |
-| ------------------------ | ---------------------------- |
-| `/dev-gallery`           | UI primitives showcase       |
-| `/admin-gallery`         | Admin components             |
-| `/device-gallery`        | Device components + form     |
-| `/map-gallery`           | Map + route player           |
-| `/section-gallery`       | Sections and dashboard shell |
-| `/react-islands-gallery` | Modal, Toast, Dropdown       |
-
-These pages use hardcoded demo data and are not intended for production.
 
 ---
 

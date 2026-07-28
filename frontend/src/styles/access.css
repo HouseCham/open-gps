@@ -1,0 +1,399 @@
+/* =====================================================================
+   Access page — API keys table, filter bar, modals, reveal block,
+   page header. Tokens from src/styles/global.css.
+
+   Shares the generic `.dev-no-results` no-results banner with
+   devices.css (rendered by AccessPage when filters yield nothing).
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   Page header
+   --------------------------------------------------------------------- */
+.access-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--s-5);
+    flex-wrap: wrap;
+    margin-bottom: var(--s-6);
+}
+
+.access-page-header h1 {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.access-page-header-sub {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    max-width: 60ch;
+}
+
+.access-page-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+}
+
+/* ---------------------------------------------------------------------
+   Filter bar
+   --------------------------------------------------------------------- */
+.access-filter-bar {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card-lg);
+    padding: var(--s-4);
+    margin-bottom: var(--s-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+}
+
+.access-search-row {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+}
+
+.access-search {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px var(--s-3);
+    background: var(--bg-page);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    color: var(--text-secondary);
+    transition:
+        border-color 0.12s ease,
+        box-shadow 0.12s ease;
+    min-width: 240px;
+}
+
+.access-search:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-tint);
+    background: var(--bg-surface);
+}
+
+.access-search input {
+    border: 0;
+    background: transparent;
+    outline: none;
+    width: 100%;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-family: inherit;
+    padding: 0;
+}
+
+.access-search input::placeholder {
+    color: var(--text-muted);
+}
+
+.access-search svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+.access-filter-row {
+    display: flex;
+    gap: var(--s-2);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.access-filter-icon {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------------
+   Result row (count + clear)
+   --------------------------------------------------------------------- */
+.access-result-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--s-1) var(--s-2);
+}
+
+.access-result-count {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.access-clear {
+    font-size: 12px;
+    color: var(--accent);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.access-clear:hover {
+    text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------
+   Error banner
+   --------------------------------------------------------------------- */
+.access-error {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    padding: var(--s-3) var(--s-4);
+    background: var(--danger-tint);
+    border: 1px solid var(--danger);
+    border-radius: var(--radius-control);
+    color: var(--danger-text);
+    font-size: 13px;
+    margin-bottom: var(--s-4);
+}
+
+.access-error > svg {
+    color: var(--danger-text);
+    flex-shrink: 0;
+}
+
+.access-error > button {
+    margin-left: auto;
+}
+
+/* ---------------------------------------------------------------------
+   Data table
+   --------------------------------------------------------------------- */
+.access-table-wrap {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card-lg);
+    overflow: hidden;
+}
+
+.access-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.access-table thead th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 11px var(--s-4);
+    background: var(--bg-page);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.access-table thead th.is-right {
+    text-align: right;
+}
+
+.access-table tbody td {
+    padding: 12px var(--s-4);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.access-table tbody td.is-right {
+    text-align: right;
+}
+
+.access-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.access-table tbody tr {
+    transition: background 0.1s ease;
+}
+
+.access-table tbody tr:hover {
+    background: var(--bg-page);
+}
+
+.access-cell-device {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.access-cell-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 7px;
+    background: var(--bg-page);
+    color: var(--text-secondary);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+}
+
+.access-cell-device-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+
+.access-cell-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.access-cell-id {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 1px;
+}
+
+.access-key-id {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.access-key-id code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--bg-page);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--text-secondary);
+}
+
+.access-cell-time {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+}
+
+.access-cell-time.never {
+    color: var(--text-muted);
+    font-style: italic;
+    font-family: var(--font-sans);
+}
+
+.access-row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    justify-content: flex-end;
+}
+
+/* ---------------------------------------------------------------------
+   Add modal — reveal block (one-time key view)
+   --------------------------------------------------------------------- */
+.access-reveal-banner {
+    background: var(--warning-tint);
+    color: var(--warning-text);
+    padding: var(--s-3) var(--s-4);
+    border-radius: var(--radius-control);
+    font-size: 12px;
+    display: flex;
+    gap: var(--s-2);
+    align-items: flex-start;
+    line-height: 1.5;
+}
+
+.access-reveal-banner svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.access-reveal-display {
+    background: var(--bg-page);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    padding: var(--s-4);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+}
+
+.access-reveal-value {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: 0.01em;
+    word-break: break-all;
+    user-select: all;
+}
+
+.access-reveal-actions {
+    display: flex;
+    gap: var(--s-2);
+    flex-shrink: 0;
+}
+
+.access-reveal-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Add modal — device selector hint */
+.access-device-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* ---------------------------------------------------------------------
+   Mobile
+   --------------------------------------------------------------------- */
+@media (max-width: 720px) {
+    .access-table-wrap {
+        overflow-x: auto;
+    }
+
+    .access-table {
+        min-width: 720px;
+    }
+}
+
+@media (max-width: 560px) {
+    .access-filter-bar {
+        padding: var(--s-3);
+    }
+
+    .access-search {
+        min-width: 0;
+    }
+
+    .access-page-header h1 {
+        font-size: 20px;
+    }
+
+    .access-table thead th,
+    .access-table tbody td {
+        padding: 10px var(--s-3);
+    }
+}

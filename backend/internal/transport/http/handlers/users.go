@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+
 	"github.com/Authula/authula/models"
 
 	"github.com/gofiber/fiber/v3"
@@ -43,7 +45,7 @@ func (h *UsersHandler) List(c fiber.Ctx) error {
 	items, err := h.usersService.ListUsers(c.Context(), user.ID)
 	if err != nil {
 		log.Error(operation, "err", err)
-		return err
+		return fmt.Errorf("UsersHandler.List: %w", err)
 	}
 
 	resp := make([]dto.UserResponse, 0, len(items))
@@ -82,13 +84,13 @@ func (h *UsersHandler) GetByID(c fiber.Ctx) error {
 	targetUser, err := h.usersService.GetByID(c.Context(), requestingUser.ID, targetUserID)
 	if err != nil {
 		log.Error(operation, "err", err, "targetUserID", targetUserID)
-		return err
+		return fmt.Errorf("UsersHandler.GetByID: get user: %w", err)
 	}
 
 	devicesList, total, err := h.devicesService.ListForUserPaginated(c.Context(), targetUserID, page, pageSize)
 	if err != nil {
 		log.Error(operation, "err", err, "targetUserID", targetUserID)
-		return err
+		return fmt.Errorf("UsersHandler.GetByID: list devices: %w", err)
 	}
 
 	devicesResp := make([]dto.DeviceBasicResponse, 0, len(devicesList))
@@ -140,11 +142,11 @@ func (h *UsersHandler) Create(c fiber.Ctx) error {
 		req.Email,
 		req.Name,
 		req.Lastname,
-		domain.UserRole(req.Role),
+		domain.UserRoleUser,
 	)
 	if err != nil {
 		log.Error(operation, "err", err)
-		return err
+		return fmt.Errorf("UsersHandler.Create: %w", err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(response.HTTPResponse[dto.CreateUserResponse]{
@@ -190,7 +192,7 @@ func (h *UsersHandler) Update(c fiber.Ctx) error {
 	user, err := h.usersService.UpdateUser(c.Context(), targetUserID, req.Name, req.Lastname)
 	if err != nil {
 		log.Error(operation, "err", err, "userID", targetUserID)
-		return err
+		return fmt.Errorf("UsersHandler.Update: %w", err)
 	}
 
 	log.Info(operation, "user updated", "userID", targetUserID)
@@ -204,18 +206,12 @@ func (h *UsersHandler) Update(c fiber.Ctx) error {
 func (h *UsersHandler) ChangePassword(c fiber.Ctx) error {
 	actor, ok := c.Locals(middleware.LocalsKeyClaims).(*models.Actor)
 	if !ok || actor == nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(response.HTTPResponse[bool]{
-			StatusCode: fiber.StatusUnauthorized,
-			Message:    "unauthorized",
-		})
+		return middleware.UnauthorizedResponse(c)
 	}
 
 	user, ok := c.Locals(middleware.LocalsKeyUser).(*domain.User)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(response.HTTPResponse[bool]{
-			StatusCode: fiber.StatusUnauthorized,
-			Message:    "unauthorized",
-		})
+		return middleware.UnauthorizedResponse(c)
 	}
 
 	var req dto.ChangePasswordRequest
@@ -227,11 +223,11 @@ func (h *UsersHandler) ChangePassword(c fiber.Ctx) error {
 	}
 
 	if err := h.passwordUpdater.UpdatePassword(c.Context(), actor.ID, req.OldPassword, req.NewPassword); err != nil {
-		return err
+		return fmt.Errorf("UsersHandler.ChangePassword: update password: %w", err)
 	}
 
 	if err := h.usersService.SetMustChangePassword(c.Context(), user.ID, false); err != nil {
-		return err
+		return fmt.Errorf("UsersHandler.ChangePassword: clear password requirement: %w", err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.HTTPResponse[bool]{
@@ -257,19 +253,13 @@ func (h *UsersHandler) Me(c fiber.Ctx) error {
 	actor, ok := c.Locals(middleware.LocalsKeyClaims).(*models.Actor)
 	if !ok || actor == nil {
 		log.Error(operation, "err", fiber.ErrUnauthorized, "reason", "missing actor")
-		return c.Status(fiber.StatusUnauthorized).JSON(response.HTTPResponse[bool]{
-			StatusCode: fiber.StatusUnauthorized,
-			Message:    "unauthorized",
-		})
+		return middleware.UnauthorizedResponse(c)
 	}
 
 	user, ok := c.Locals(middleware.LocalsKeyUser).(*domain.User)
 	if !ok || user == nil {
 		log.Error(operation, "err", fiber.ErrUnauthorized, "reason", "missing local user")
-		return c.Status(fiber.StatusUnauthorized).JSON(response.HTTPResponse[bool]{
-			StatusCode: fiber.StatusUnauthorized,
-			Message:    "unauthorized",
-		})
+		return middleware.UnauthorizedResponse(c)
 	}
 
 	log.Debug(operation, "session resolved", "authulaUserID", actor.ID, "localUserID", user.ID)
@@ -298,10 +288,7 @@ func (h *UsersHandler) GetMe(c fiber.Ctx) error {
 	user, ok := middleware.GetRequestUser(c)
 	if !ok || user == nil {
 		log.Error(operation, "err", fiber.ErrUnauthorized, "reason", "missing local user")
-		return c.Status(fiber.StatusUnauthorized).JSON(response.HTTPResponse[bool]{
-			StatusCode: fiber.StatusUnauthorized,
-			Message:    "unauthorized",
-		})
+		return middleware.UnauthorizedResponse(c)
 	}
 
 	log.Debug(operation, "session resolved", "localUserID", user.ID)
@@ -352,7 +339,7 @@ func (h *UsersHandler) Delete(c fiber.Ctx) error {
 	log.Debug(operation, "executing use case", "requestingUserID", requestingUser.ID, "targetUserID", targetUserID)
 	if err := h.usersService.SoftDeleteUser(c.Context(), requestingUser.ID, targetUserID); err != nil {
 		log.Error(operation, "err", err, "targetUserID", targetUserID)
-		return err
+		return fmt.Errorf("UsersHandler.Delete: %w", err)
 	}
 
 	log.Info(operation, "user deleted", "targetUserID", targetUserID)

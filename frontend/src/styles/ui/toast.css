@@ -1,201 +1,134 @@
-/* ============================================
-   TOAST (React island)
-   Co-located with Toast.tsx.
-   Consumes tokens from global.css.
-   ============================================ */
+/* Toast — corner-positioned notifications, one global container per app.
+   Designed for the app shell: tokens from src/styles/global.css. */
 
-.toast-stack {
+.gp-toast-stack {
     position: fixed;
-    z-index: 300;
+    bottom: var(--s-6);
+    right: var(--s-6);
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    pointer-events: none;
+    gap: var(--s-2);
+    z-index: 60;
     max-width: 360px;
-    width: calc(100vw - 32px);
+    pointer-events: none;
 }
 
-.toast-stack--top-right {
-    top: 16px;
-    right: 16px;
-}
-.toast-stack--top-left {
-    top: 16px;
-    left: 16px;
-}
-.toast-stack--bottom-right {
-    bottom: 16px;
-    right: 16px;
-}
-.toast-stack--bottom-left {
-    bottom: 16px;
-    left: 16px;
-}
-.toast-stack--top-center {
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-}
-.toast-stack--bottom-center {
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-.toast {
+.gp-toast {
     pointer-events: auto;
-    position: relative;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border-strong);
+    border-radius: var(--radius-card);
+    padding: var(--s-3) var(--s-4);
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    padding: 12px 14px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    box-shadow: var(--shadow-md);
-    overflow: hidden;
-    animation: toast-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
-    transition:
-        transform 200ms ease,
-        opacity 200ms ease;
+    gap: var(--s-3);
+    box-shadow: 0 8px 24px rgba(46, 52, 64, 0.12);
+    min-width: 280px;
+    animation: gp-toast-in 0.18s ease-out;
 }
 
-.toast.is-hiding {
-    animation: toast-out 200ms ease forwards;
+.gp-toast--success {
+    border-left-color: var(--success);
+}
+.gp-toast--info {
+    border-left-color: var(--accent);
+}
+.gp-toast--warning {
+    border-left-color: var(--warning);
+}
+.gp-toast--error {
+    border-left-color: var(--danger);
 }
 
-@keyframes toast-in {
-    from {
-        transform: translateX(20px);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-@keyframes toast-out {
-    to {
-        transform: translateX(20px);
-        opacity: 0;
-    }
-}
-
-.toast-icon {
-    width: 32px;
-    height: 32px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
+.gp-toast-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    color: var(--color-on-accent);
     flex-shrink: 0;
 }
 
-.toast--success .toast-icon {
-    background: var(--green-soft);
-    color: var(--green);
-}
-.toast--error .toast-icon {
-    background: var(--red-soft);
-    color: var(--red);
-}
-.toast--warning .toast-icon {
-    background: var(--amber-soft);
-    color: var(--amber);
-}
-.toast--info .toast-icon {
-    background: var(--blue-soft);
-    color: var(--blue);
+.gp-toast-icon svg {
+    width: 13px;
+    height: 13px;
 }
 
-.toast-body {
+.gp-toast--success .gp-toast-icon {
+    background: var(--success);
+}
+.gp-toast--info .gp-toast-icon {
+    background: var(--accent);
+}
+.gp-toast--warning .gp-toast-icon {
+    background: var(--warning);
+}
+.gp-toast--error .gp-toast-icon {
+    background: var(--danger);
+}
+
+.gp-toast-body {
     flex: 1;
     min-width: 0;
 }
 
-.toast-title {
+.gp-toast-title {
     font-size: 13px;
     font-weight: 600;
-    color: var(--text);
-    line-height: 1.4;
+    color: var(--text-primary);
 }
 
-.toast-desc {
+.gp-toast-msg {
     font-size: 12px;
-    color: var(--muted);
+    color: var(--text-secondary);
     margin-top: 2px;
     line-height: 1.4;
 }
 
-.toast-progress {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    height: 2px;
-    background: currentColor;
-    opacity: 0.6;
-    width: 100%;
-    transform-origin: left;
-    animation: toast-progress linear forwards;
+.gp-toast-action {
+    margin-top: var(--s-2);
+    padding: 4px 8px;
+    border-radius: var(--radius-control);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
 }
 
-.toast--success .toast-progress {
-    background: var(--green);
-}
-.toast--error .toast-progress {
-    background: var(--red);
-}
-.toast--warning .toast-progress {
-    background: var(--amber);
-}
-.toast--info .toast-progress {
-    background: var(--blue);
+.gp-toast-action:hover {
+    background: var(--accent-tint);
+    color: var(--accent-text);
 }
 
-@keyframes toast-progress {
+.gp-toast-close {
+    color: var(--text-muted);
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+}
+
+.gp-toast-close:hover {
+    background: var(--bg-sidebar);
+    color: var(--text-primary);
+}
+
+@keyframes gp-toast-in {
     from {
-        transform: scaleX(1);
+        opacity: 0;
+        transform: translateY(6px);
     }
     to {
-        transform: scaleX(0);
+        opacity: 1;
+        transform: translateY(0);
     }
-}
-
-.toast-action {
-    background: none;
-    border: 0;
-    color: var(--text);
-    font-size: 12px;
-    font-weight: 600;
-    padding: 4px 6px;
-    border-radius: 4px;
-    cursor: pointer;
-    align-self: center;
-    transition: background var(--transition);
-}
-
-.toast-action:hover {
-    background: var(--surface-2);
-}
-
-.toast-x {
-    background: none;
-    border: 0;
-    color: var(--muted);
-    padding: 4px;
-    border-radius: 4px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition:
-        color var(--transition),
-        background var(--transition);
-}
-
-.toast-x:hover {
-    color: var(--text);
-    background: var(--surface-2);
 }

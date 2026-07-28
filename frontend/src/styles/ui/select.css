@@ -1,0 +1,42 @@
+/* Select — native select with chevron overlay */
+.select-native {
+    width: 100%;
+    padding: 9px var(--s-3);
+    padding-right: 32px;
+    border-radius: var(--radius-control);
+    border: 0.5px solid var(--border-strong);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.4;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M3 4.5l3 3 3-3' stroke='%2378838C' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px;
+    transition:
+        border-color 0.12s ease,
+        box-shadow 0.12s ease;
+}
+
+.select-native:hover {
+    border-color: var(--text-muted);
+}
+
+.select-native:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+.select-native[aria-invalid='true'] {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px var(--danger-tint);
+}
+
+.select-native:disabled {
+    background: var(--bg-sidebar);
+    color: var(--text-muted);
+    cursor: not-allowed;
+}

@@ -51,55 +51,78 @@ describe('generateNavbarItems', () => {
 
 describe('redirectTo', () => {
     let originalReplace: typeof window.location.replace;
+    let originalPathname: string;
     let replaceSpy: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         originalReplace = window.location.replace;
+        originalPathname = window.location.pathname;
         replaceSpy = vi.fn();
-        // redirectTo only touches .replace on window.location, so swapping
-        // that single method is enough — the rest of the Location object
-        // can stay intact.
         window.location.replace =
             replaceSpy as unknown as typeof window.location.replace;
     });
 
     afterEach(() => {
         window.location.replace = originalReplace;
+        window.history.pushState({}, '', originalPathname);
+    });
+
+    const setPath = (path: string): void => {
+        window.history.pushState({}, '', path);
+    };
+
+    const setNavigatorLanguage = (value: string): void => {
+        Object.defineProperty(navigator, 'language', {
+            value,
+            configurable: true,
+        });
+    };
+
+    it('prefers the locale in the current pathname over navigator.language', () => {
+        setPath('/es/devices/');
+        setNavigatorLanguage('en-US');
+        redirectTo('/devices/detail?id=abc');
+        expect(replaceSpy).toHaveBeenCalledWith('/es/devices/detail?id=abc');
+    });
+
+    it('prefixes the path with /en when the pathname starts with /en', () => {
+        setPath('/en/');
+        redirectTo('/dashboard');
+        expect(replaceSpy).toHaveBeenCalledWith('/en/dashboard');
     });
 
     it('prefixes the path with /en when navigator.language is en-US', () => {
-        Object.defineProperty(navigator, 'language', {
-            value: 'en-US',
-            configurable: true,
-        });
+        setPath('/');
+        setNavigatorLanguage('en-US');
         redirectTo('/dashboard');
         expect(replaceSpy).toHaveBeenCalledWith('/en/dashboard');
     });
 
     it('prefixes the path with /es when navigator.language starts with es', () => {
-        Object.defineProperty(navigator, 'language', {
-            value: 'es-MX',
-            configurable: true,
-        });
+        setPath('/');
+        setNavigatorLanguage('es-MX');
         redirectTo('/perfil');
         expect(replaceSpy).toHaveBeenCalledWith('/es/perfil');
     });
 
     it('falls back to /en for an unsupported navigator.language', () => {
-        Object.defineProperty(navigator, 'language', {
-            value: 'fr-FR',
-            configurable: true,
-        });
+        setPath('/');
+        setNavigatorLanguage('fr-FR');
         redirectTo('/foo');
         expect(replaceSpy).toHaveBeenCalledWith('/en/foo');
     });
 
     it('falls back to /en when navigator.language is empty', () => {
-        Object.defineProperty(navigator, 'language', {
-            value: '',
-            configurable: true,
-        });
+        setPath('/');
+        setNavigatorLanguage('');
         redirectTo('/foo');
         expect(replaceSpy).toHaveBeenCalledWith('/en/foo');
+    });
+
+    it('ignores an unsupported locale in the pathname and falls back to navigator', () => {
+        setPath('/fr/');
+        setNavigatorLanguage('es-MX');
+        redirectTo('/perfil');
+        expect(replaceSpy).toHaveBeenCalledWith('/es/perfil');
     });
 });

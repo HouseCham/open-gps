@@ -1,0 +1,35 @@
+---
+import type { GetStaticPaths } from 'astro';
+//-- Translations
+import { getTranslation } from '@/i18n';
+//-- Types
+import type { Language } from '@/types';
+//-- Components
+import MainLayout from '@/components/astro/layout/MainLayout.astro';
+import { AccessPage } from '@/components/react/access/AccessPage';
+
+/**
+ * Static paths — same locales as the rest of the authenticated pages.
+ */
+export const getStaticPaths: GetStaticPaths = () => {
+    return [{ params: { lan: 'en' } }, { params: { lan: 'es' } }];
+};
+
+const locale: Language = Astro.params.lan === 'es' ? 'es' : 'en';
+const translation = getTranslation(locale);
+const title = `${translation.page.access.title} · ${translation.layout.appName}`;
+---
+
+<MainLayout
+    locale={locale}
+    title={title}
+    pageLabel={translation.page.access.title}
+>
+    <AccessPage
+        client:load
+        locale={locale}
+        translations={translation.apiKeys}
+        dateTranslations={translation.date}
+        pageLabel={translation.page.access.title}
+    />
+</MainLayout>

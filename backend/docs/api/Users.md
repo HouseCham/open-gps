@@ -194,8 +194,7 @@ Content-Type: application/json
 {
   "email": "newuser@example.com",
   "name": "New",
-  "lastname": "User",
-  "role": "user"
+  "lastname": "User"
 }
 ```
 
@@ -203,9 +202,8 @@ Content-Type: application/json
 | Field | Type | Required | Validation |
 |-------|------|----------|-------------|
 | `email` | string | Yes | Must be a valid email address |
-| `name` | string | No | Max 100 characters |
+| `name` | string | Yes | 1–100 characters |
 | `lastname` | string | No | Max 100 characters |
-| `role` | string | Yes | Must be `user` or `super_admin` |
 
 **Response `201 Created`**
 
@@ -229,10 +227,11 @@ Content-Type: application/json
 ```
 
 **Special Behavior:**
-- If this is the **first user ever** created in the system, they are automatically assigned the `super_admin` role regardless of what `role` was requested.
-- Subsequent users get the role specified in the request body.
+- Users created through this endpoint are assigned the `user` role. The role is not accepted in the request body.
+- The first user in a completely empty system is assigned the `super_admin` role by the application bootstrap flow; this endpoint requires an authenticated `super_admin` and is intended for subsequent users.
 - The `temporary_password` returned in the response is a one-time, 32-character hex string (128 bits of entropy). The admin is responsible for delivering it to the new user through a secure channel.
 - The new user is created with `must_change_password = true` and can only reach `/api/v1/auth/change-password` until they update it.
+- Authula creates the shared user record as part of credential provisioning; the API updates that existing record rather than inserting a duplicate local row.
 
 **Error Responses**
 - `400` — Invalid request body or validation failure

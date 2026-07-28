@@ -1,14 +1,16 @@
+//-- Types
 import type { BetterFetchOption } from '@better-fetch/fetch';
 import type { BootstrapResponseEnvelope, BootstrapStatus } from '@/types/api';
-import { client } from '../client';
-import { handleApiError } from '../helpers/handle-api-error';
+import { apiClient } from '@/lib/api/client';
+//-- Utils
+import { handleApiError } from '@/lib/api/helpers/handle-api-error';
 
 /**
  * The HTTP client used to interact with the system bootstrap endpoint.
  * @class BootstrapService
  */
 export class BootstrapService {
-    constructor(private http: typeof client) {}
+    constructor(private http: typeof apiClient) {}
 
     /**
      * Asks the backend whether the app needs its first user.
@@ -28,15 +30,18 @@ export class BootstrapService {
                     method: 'GET',
                 } as BetterFetchOption
             );
-            // generic HTTP client returns unknown; trusted backend response shape
+            // better-fetch's generic doesn't narrow `data` to the
+            // BootstrapResponseEnvelope shape, so we re-assert it here.
+            // Trusted: this endpoint is gated by the same backend envelope
+            // contract as every other route in the API.
+            const envelope = data as unknown as BootstrapResponseEnvelope;
             return {
-                needsSetup: (data as unknown as BootstrapResponseEnvelope).data,
+                needsSetup: envelope.data,
             };
         } catch (error) {
-            console.error('Error fetching bootstrap status:', error);
             handleApiError(error);
         }
     }
 }
 
-export const bootstrapService = new BootstrapService(client);
+export const bootstrapService = new BootstrapService(apiClient);

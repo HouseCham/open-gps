@@ -1,22 +1,6 @@
 import type { User } from '@/types/api';
 import type { Translation } from '@/i18n';
-import type { AdminStatItem, DataTableColumn } from '@/types/components';
-/**
- * @constant DEMO_USER
- * @description Demo user for the admin gallery
- * @type {User}
- */
-export const DEMO_USER: User = {
-    id: '03b0b79d-083f-4d8b-b84e-64df6ce5fcaf',
-    email: 'john.doe@example.com',
-    name: 'John',
-    lastname: 'Doe',
-    role: 'super_admin',
-    created_at: '2022-01-01T00:00:00.000Z',
-    email_verified: true,
-    image: null,
-    must_change_password: false,
-};
+import type { DataTableColumn } from '@/types/components/ui';
 /**
  * @constant USER_TABLE_COLUMNS
  * @description Columns for the user table
@@ -76,42 +60,3 @@ export const USER_ROLE_LABEL_KEY: Record<
     super_admin: 'superAdmin',
     user: 'user',
 };
-/**
- * @constant ADMIN_GALLERY_DEMO_STATS
- * @description Demo stats for the admin gallery
- * @type {AdminStatItem[]}
- */
-export const ADMIN_GALLERY_DEMO_STATS: Array<AdminStatItem> = [
-    {
-        label: 'Total Users',
-        value: 128,
-        icon: 'users' as const,
-        trend: 'up' as const,
-        trendValue: '+12 this month',
-        variant: 'accent' as const,
-    },
-    {
-        label: 'Total Devices',
-        value: 342,
-        icon: 'cpu' as const,
-        trend: 'up' as const,
-        trendValue: '+24 this week',
-        variant: 'neutral' as const,
-    },
-    {
-        label: 'Active Today',
-        value: 87,
-        icon: 'activity' as const,
-        trend: 'up' as const,
-        trendValue: '+5% vs yesterday',
-        variant: 'success' as const,
-    },
-    {
-        label: 'Alerts',
-        value: 3,
-        icon: 'alert' as const,
-        trend: 'down' as const,
-        trendValue: '-2 vs yesterday',
-        variant: 'warning' as const,
-    },
-];

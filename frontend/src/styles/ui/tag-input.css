@@ -1,0 +1,56 @@
+/* TagInput */
+.tag-input {
+    background: var(--bg-surface);
+    border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius-control);
+    padding: 6px var(--s-3);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    min-height: 38px;
+    transition:
+        border-color 0.12s ease,
+        box-shadow 0.12s ease;
+    width: 100%;
+}
+
+.tag-input:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-sidebar);
+    color: var(--text-primary);
+    padding: 3px 8px;
+    border-radius: var(--radius-control);
+    font-size: 11px;
+}
+
+.tag-chip .x {
+    color: var(--text-muted);
+    display: inline-grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.tag-chip .x:hover {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+.tag-input input {
+    border: 0;
+    background: transparent;
+    outline: none;
+    flex: 1;
+    min-width: 60px;
+    font-size: 12px;
+}

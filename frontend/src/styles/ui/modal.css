@@ -1,24 +1,23 @@
-/* ============================================
-   MODAL (React island)
-   Co-located with Modal.tsx.
-   Consumes tokens from global.css.
-   ============================================ */
+/* Modal — accessible dialog with backdrop click + Escape dismiss.
+   Designed for the app shell: tokens from src/styles/global.css. */
 
-.modal-backdrop {
+.gp-modal-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 200;
+    background: rgba(14, 17, 22, 0.5);
+    z-index: 60;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    animation: modal-fade var(--transition);
+    padding: var(--s-4);
+    animation: gp-modal-fade 0.14s ease-out;
 }
 
-@keyframes modal-fade {
+[data-theme='dark'] .gp-modal-backdrop {
+    background: rgba(0, 0, 0, 0.65);
+}
+
+@keyframes gp-modal-fade {
     from {
         opacity: 0;
     }
@@ -27,120 +26,114 @@
     }
 }
 
-.modal-sentinel {
-    position: fixed;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-    pointer-events: none;
-    top: 0;
-    left: 0;
-}
-
-.modal {
-    position: relative;
-    background: var(--bg);
+.gp-modal {
+    background: var(--bg-surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    box-shadow: var(--shadow-lg);
+    border-radius: var(--radius-card-lg);
     width: 100%;
-    max-height: calc(100vh - 48px);
+    max-height: 90vh;
+    overflow: auto;
+    box-shadow: 0 24px 56px rgba(14, 17, 22, 0.24);
     display: flex;
     flex-direction: column;
-    outline: none;
-    animation: modal-scale var(--transition) cubic-bezier(0.16, 1, 0.3, 1);
-    overflow: hidden;
+    animation: gp-modal-rise 0.16s ease-out;
 }
 
-.modal--sm {
-    max-width: 380px;
-}
-.modal--md {
-    max-width: 480px;
-}
-.modal--lg {
-    max-width: 640px;
+.gp-modal.is-lg {
+    max-width: 560px;
 }
 
-.modal--danger {
-    border-top: 3px solid var(--red);
+.gp-modal.is-sm {
+    max-width: 420px;
 }
 
-@keyframes modal-scale {
+@keyframes gp-modal-rise {
     from {
         opacity: 0;
-        transform: scale(0.96);
+        transform: translateY(8px) scale(0.98);
     }
     to {
         opacity: 1;
-        transform: scale(1);
+        transform: translateY(0) scale(1);
     }
 }
 
-.modal-head {
+.gp-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding: var(--s-5) var(--s-5) var(--s-3);
+}
+
+.gp-modal-head-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.gp-modal-head-actions {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--border);
+    gap: 4px;
     flex-shrink: 0;
 }
 
-.modal-title {
-    margin: 0;
+.gp-modal-title {
     font-size: 16px;
     font-weight: 600;
-    color: var(--text);
+    color: var(--text-primary);
     letter-spacing: -0.01em;
+    line-height: 1.3;
 }
 
-.modal-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    background: none;
-    border: 0;
-    color: var(--muted);
+.gp-modal-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+}
+
+.gp-modal-close {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-control);
+    display: grid;
+    place-items: center;
+    color: var(--text-muted);
     cursor: pointer;
+    flex-shrink: 0;
     transition:
-        color var(--transition),
-        background var(--transition);
+        background 0.1s ease,
+        color 0.1s ease;
+    background: transparent;
+    border: 0;
+    font: inherit;
 }
 
-.modal-close:hover {
-    color: var(--text);
-    background: var(--surface-2);
+.gp-modal-close:hover {
+    background: var(--bg-sidebar);
+    color: var(--text-primary);
 }
 
-.modal-body {
-    padding: 20px 24px;
-    overflow-y: auto;
-    flex: 1;
-    min-height: 0;
-    color: var(--text);
-    font-size: 14px;
-    line-height: 1.5;
+.gp-modal-body {
+    padding: var(--s-4) var(--s-5) var(--s-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
 }
 
-.modal-foot {
+.gp-modal-foot {
+    padding: var(--s-3) var(--s-5) var(--s-5);
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
-    padding: 16px 24px;
+    gap: var(--s-2);
     border-top: 1px solid var(--border);
-    background: var(--surface);
-    flex-shrink: 0;
+    margin-top: var(--s-2);
 }
 
-@media (max-width: 640px) {
-    .modal-backdrop {
-        padding: 12px;
-        align-items: flex-end;
-    }
-    .modal {
-        max-height: calc(100vh - 24px);
+@media (max-width: 560px) {
+    .gp-modal {
+        max-width: 100%;
     }
 }

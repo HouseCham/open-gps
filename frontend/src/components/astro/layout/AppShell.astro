@@ -1,0 +1,52 @@
+---
+//-- Components
+import { Sidebar } from '@/components/react/layout/Sidebar';
+import { Topbar } from '@/components/react/layout/Topbar';
+//-- Types
+import type { Translation } from '@/i18n';
+import type { Language } from '@/types';
+/**
+ * @interface Props
+ * @property {Language} locale - Current locale code.
+ * @property {string | undefined} [class] - Extra classes.
+ * @property {Translation['nav']} nav - Navigation items.
+ * @property {Translation['layout']} layout - Layout items.
+ * @property {string} currentPath - Current path.
+ */
+interface Props {
+    locale: Language;
+    class?: string;
+    nav: Translation['nav'];
+    layout: Translation['layout'];
+    currentPath: string;
+}
+
+const {
+    locale,
+    class: className,
+    nav,
+    layout,
+    currentPath,
+} = Astro.props;
+const classes = ['gp-app', className].filter(Boolean).join(' ');
+---
+
+<div class={classes}>
+    <Sidebar
+        client:load
+        locale={locale}
+        pathname={currentPath}
+        nav={nav}
+        layout={layout}
+    />
+    <main class="gp-main">
+        <Topbar
+            client:load
+            locale={locale}
+            layout={layout}
+        />
+        <div class="gp-content">
+            <slot />
+        </div>
+    </main>
+</div>

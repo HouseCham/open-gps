@@ -1,0 +1,40 @@
+/* SearchInput — input with leading icon and trailing kbd hint */
+.input-search {
+    position: relative;
+}
+
+.input-search svg {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.input-search .input {
+    padding-left: 34px;
+}
+
+.input-search-append {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-muted);
+}
+
+.input-search-append kbd {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-page);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--text-secondary);
+}

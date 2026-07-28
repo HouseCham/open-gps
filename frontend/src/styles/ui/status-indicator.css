@@ -1,0 +1,42 @@
+/* StatusIndicator */
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.status-indicator .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    position: relative;
+}
+
+.status-indicator .dot::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    opacity: 0.25;
+}
+
+.status-indicator.online .dot {
+    background: var(--success);
+}
+.status-indicator.online .dot::after {
+    background: var(--success);
+}
+.status-indicator.stale .dot {
+    background: var(--warning);
+}
+.status-indicator.stale .dot::after {
+    background: var(--warning);
+}
+.status-indicator.offline .dot {
+    background: var(--danger);
+}
+.status-indicator.offline .dot::after {
+    background: var(--danger);
+}

@@ -4,10 +4,11 @@ import type { GetStaticPaths } from 'astro';
 import { getTranslation } from '@/i18n';
 //-- types
 import type { Language } from '@/types';
-import type { SignupFormStrings } from '@/types/components';
 //-- Components
 import AuthLayout from '@/components/astro/layout/AuthLayout.astro';
-import { BootstrapGate, SignupForm } from '@/components/react/auth';
+import { SignupForm } from '@/components/react/form';
+//-- Utils
+import { parseSignUpStrings } from '@/lib';
 
 /**
  * @type {GetStaticPaths}
@@ -18,30 +19,12 @@ export const getStaticPaths = (() => {
 
 const locale = Astro.params.lan as Language;
 const translation = getTranslation(locale);
-
-const signupStrings: SignupFormStrings = {
-    email: translation.auth.email,
-    emailPlaceholder: translation.auth.emailPlaceholder,
-    password: translation.auth.password,
-    passwordPlaceholder: translation.auth.passwordPlaceholder,
-    name: translation.auth.name,
-    namePlaceholder: translation.auth.namePlaceholder,
-    signingUp: translation.auth.signingUp,
-    signup: translation.auth.signup,
-    haveAccount: translation.auth.haveAccount,
-    loginLink: translation.auth.login,
-    emailRequired: translation.auth.emailRequired,
-    emailInvalid: translation.auth.emailInvalid,
-    passwordRequired: translation.auth.passwordRequired,
-    passwordMin: translation.auth.passwordMin,
-    nameRequired: translation.auth.nameRequired,
-    signupTitle: translation.auth.signupTitle,
-    signupSubtitle: translation.auth.signupSubtitle,
-};
+const signupStrings = parseSignUpStrings(translation.auth);
 ---
 
-<AuthLayout title={`${translation.auth.signupTitle} · GPS Tracker`}>
-    <BootstrapGate client:load locale={locale}>
-        <SignupForm client:load strings={signupStrings} />
-    </BootstrapGate>
+<AuthLayout title={`${translation.auth.signupTitle} · Open GPS`}>
+    <SignupForm 
+        client:load 
+        strings={signupStrings} 
+    />
 </AuthLayout>

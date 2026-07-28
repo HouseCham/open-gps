@@ -1,5 +1,7 @@
 import type { DeviceVehicleType } from '@/types/api';
 import type { MarkerStatus } from './map.types';
+import type { Translation } from '@/i18n';
+import type { DeviceStatusKey } from '@/constants';
 /**
  * @interface DeviceTableItem
  * @param {string} id - The ID of the device.
@@ -19,21 +21,9 @@ export interface DeviceTableItem {
 }
 /**
  * @interface DeviceCardItem
- * @param {string} id - The ID of the device.
- * @param {string} name - The name of the device.
- * @param {MarkerStatus} status - The status of the device.
- * @param {string | null} lastSeen - The last seen time of the device.
- * @param {number} battery - The battery level of the device.
- * @param {number} signal - The signal strength of the device.
  * @param {string} uuid_firmware - The UUID of the firmware.
  */
-export interface DeviceCardItem {
-    id: string;
-    name: string;
-    status: MarkerStatus;
-    lastSeen: string | null;
-    battery: number;
-    signal: number;
+export interface DeviceCardItem extends DeviceTableItem {
     uuid_firmware: string;
 }
 /**
@@ -143,4 +133,23 @@ export interface DeviceUserAccessTableStrings {
     removeTitle: string;
     removeConfirm: string;
     failedToLoad: string;
+}
+/**
+ * The translations for the device access table.
+ */
+export type DeviceAccessTableTranslations =
+    Translation['device']['detail']['accessTable'];
+/**
+ * The shape returned by `deriveDeviceStatus`. `key` is the canonical
+ * machine-readable state; `label` and `dot` are localized + class
+ * hints for the table pill.
+ * @interface DeviceStatus
+ * @param {DeviceStatusKey} key - The canonical machine-readable state.
+ * @param {string} label - The localized label.
+ * @param {'success' | 'warning' | 'danger' | 'never'} dot - The class hint.
+ */
+export interface DeviceStatus {
+    key: DeviceStatusKey;
+    label: string;
+    dot: 'success' | 'warning' | 'danger' | 'never';
 }

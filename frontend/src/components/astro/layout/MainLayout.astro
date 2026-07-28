@@ -1,105 +1,95 @@
 ---
 import '@/styles/global.css';
+import '@/styles/sidebar.css';
+import '@/styles/topbar.css';
 import '@/styles/layout/main-layout.css';
+//-- i18n
+import { getTranslation } from '@/i18n';
 //-- Types
-import type { Translation } from '@/i18n';
 import type { Language } from '@/types';
-import type { SidebarNavItemType } from '@/types/layout';
 //-- Components
-import Sidebar from '@/components/astro/Sidebar.astro';
-import TabBar from '@/components/astro/TabBar.astro';
-import Toolbar from '@/components/astro/Toolbar.astro';
-import { AuthProvider, ProtectedRoute } from '@/components/react/auth';
-import ToastProvider from '@/components/react/ui/ToastProvider';
-
+import AppShell from '@/components/astro/layout/AppShell.astro';
+import {
+    AuthProvider,
+    ChangePasswordGate,
+    OnlyAdminRoute,
+    ProtectedRoute,
+} from '@/components/react/auth';
+import { ToastProvider } from '@/components/react/ui';
 /**
  * @interface Props
- * @property {Language} locale - Current locale code ('en' | 'es').
- * @property {Translation} translation - Translation bundle (en/es) used for nav labels.
- * @property {SidebarNavItemType} [active] - Active nav item, drives the .active highlight and aria-current.
- * @property {boolean} [showAdmin] - Whether to surface the Admin nav item (super_admin only).
- * @property {string} [title] - Document title override; falls back to "GPS Tracker".
+ * @property {Language} [locale='en'] - Current locale code.
+ * @property {string | undefined} [title] - Page title.
+ * @property {string} pageLabel - Page title.
+ * @property {string | undefined} [class] - Extra classes.
+ * @property {boolean} [onlyAdmin] - Marks the page as admin-only.
  */
 interface Props {
-    locale: Language;
-    translation: Translation;
-    active?: SidebarNavItemType;
-    showAdmin?: boolean;
+    locale?: Language;
     title?: string;
+    pageLabel: string;
+    class?: string;
+    onlyAdmin?: boolean;
 }
 
 const {
     locale = 'en',
-    translation,
-    active = 'dashboard',
-    showAdmin = false,
-    title = 'GPS Tracker',
+    title = 'Open GPS',
+    pageLabel,
+    class: className,
+    onlyAdmin = false,
 } = Astro.props;
+const t = getTranslation(locale);
+const currentPath = Astro.url.pathname;
 ---
 
 <html lang={locale}>
     <head>
         <meta charset="utf-8" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="icon" href="/favicon.ico" />
         <meta name="viewport" content="width=device-width" />
         <meta name="generator" content={Astro.generator} />
         <title>{title}</title>
-        <meta name="description" content="GPS Tracker App" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cal+Sans:wght@600&display=swap"
+        <meta
+            name="description"
+            content={`${pageLabel} · ${t.layout.appName}`}
         />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" href="/favicon.ico" />
+        <script>
+            import '@/scripts/theme-init.js';
+        </script>
     </head>
     <body>
-        <AuthProvider client:load>
+        <ToastProvider client:idle />
+        <AuthProvider client:idle>
             <ProtectedRoute client:load>
-                <div class="app-shell">
-                    <Sidebar
-                        locale={locale}
-                        translation={translation}
-                        active={active}
-                        showAdmin={showAdmin}
-                    />
-                    <main class="app-shell__main">
-                        <!-- Toolbar -->
-                        <Toolbar locale={locale} />
-                        <!-- Content -->
-                        <slot />
-                    </main>
-                    <!-- Tab Bar (for mobile) -->
-                    <TabBar
-                        locale={locale}
-                        translation={translation}
-                        active={active}
-                        showAdmin={showAdmin}
-                    />
-                </div>
+                {
+                    onlyAdmin ? (
+                        <OnlyAdminRoute client:load locale={locale}>
+                            <AppShell
+                                locale={locale}
+                                class={className}
+                                nav={t.nav}
+                                layout={t.layout}
+                                currentPath={currentPath}
+                            >
+                                <slot />
+                            </AppShell>
+                        </OnlyAdminRoute>
+                    ) : (
+                        <AppShell
+                            locale={locale}
+                            class={className}
+                            nav={t.nav}
+                            layout={t.layout}
+                            currentPath={currentPath}
+                        >
+                            <slot />
+                        </AppShell>
+                    )
+                }
+                <ChangePasswordGate client:idle locale={locale} />
             </ProtectedRoute>
         </AuthProvider>
-        <ToastProvider client:load />
-        <script is:inline>
-            (function () {
-                var stored = localStorage.getItem('theme');
-                var preferred = stored
-                    ? stored
-                    : window.matchMedia('(prefers-color-scheme: dark)').matches
-                      ? 'dark'
-                      : 'light';
-                document.documentElement.dataset.theme = preferred;
-            })();
-            (function () {
-                var stored = localStorage.getItem('language');
-                var lang =
-                    stored === 'es' || stored === 'en'
-                        ? stored
-                        : navigator.language.toLowerCase().startsWith('es')
-                          ? 'es'
-                          : 'en';
-                document.documentElement.dataset.language = lang;
-            })();
-        </script>
     </body>
 </html>

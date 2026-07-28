@@ -1,6 +1,8 @@
 ---
 import '@/styles/global.css';
 import '@/styles/layout/main-layout.css';
+//-- i18n
+import { getTranslation } from '@/i18n';
 //-- Types
 import type { Language } from '@/types';
 //-- Components
@@ -8,13 +10,15 @@ import {
     AuthProvider,
     PublicOnlyRoute
 } from '@/components/react/auth';
-import Toolbar from '@/components/astro/Toolbar.astro';
+import { ToastProvider } from '@/components/react/ui';
+import { ThemeToggle } from '@/components/react/ui/ThemeToggle';
 
 /**
  * @interface Props
  * @property {Language} [locale='en'] - Current locale code.
  * @property {string | undefined} [title] - Page title.
  * @property {string | undefined} [class] - Extra classes.
+ * @property {boolean} [isLoginPage] - Marks the login page so PublicOnlyRoute can redirect.
  */
 interface Props {
     locale?: Language;
@@ -23,27 +27,142 @@ interface Props {
     isLoginPage?: boolean;
 }
 
-const { locale = 'en', title = 'GPS Tracker', class: className, isLoginPage } = Astro.props;
+const { locale = 'en', title = 'Open GPS', class: className, isLoginPage } = Astro.props;
+const t = getTranslation(locale);
 const classes = ['auth-layout', className].filter(Boolean).join(' ');
 ---
 
-<html lang="en" data-theme="dark">
+<html lang={locale}>
     <head>
         <meta charset="utf-8" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="icon" href="/favicon.ico" />
         <meta name="viewport" content="width=device-width" />
         <meta name="generator" content={Astro.generator} />
         <title>{title}</title>
-        <meta name="description" content="GPS Tracker App" />
+        <meta name="description" content={t.auth.metaDescription} />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" href="/favicon.ico" />
+        <script is:inline>
+            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+            (function () {
+                try {
+                    var t = localStorage.getItem('open-gps:theme');
+                    if (!t) {
+                        t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                    }
+                    document.documentElement.setAttribute('data-theme', t);
+                } catch (err) {
+                    void err;
+                    document.documentElement.setAttribute('data-theme', 'light');
+                }
+            })();
+        </script>
     </head>
     <body>
-        <Toolbar locale={locale} />
-        <AuthProvider client:load>
+        <ToastProvider client:idle />
+        <AuthProvider
+            client:idle
+            showToast={false}
+        >
             <PublicOnlyRoute client:load isLoginPage={isLoginPage}>
                 <div class={classes}>
-                    <div class="auth-layout__card">
-                        <slot />
+                    <div class="auth-split">
+                        <aside class="auth-brand">
+                            <div class="brand-controls">
+                                <ThemeToggle client:idle />
+                            </div>
+
+                            <div class="mark">
+                                <span class="dot"></span>
+                                <span class="name">{t.auth.appName}</span>
+                                <span class="ver">{t.auth.version}</span>
+                            </div>
+
+                            <div>
+                                <div class="tagline">
+                                    {t.auth.tagline}<span class="accent">{t.auth.taglineAccent}</span>
+                                </div>
+                                <div class="sub">
+                                    {t.auth.brandSubtitle}
+                                </div>
+                            </div>
+
+                            <div class="visual" aria-hidden="true">
+                                <svg viewBox="0 0 380 220" xmlns="http://www.w3.org/2000/svg">
+                                    <defs>
+                                        <pattern id="gp-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                            <path
+                                                d="M 20 0 L 0 0 0 20"
+                                                fill="none"
+                                                stroke="var(--gp-border)"
+                                                stroke-opacity=".5"
+                                                stroke-width=".5"></path>
+                                        </pattern>
+                                        <linearGradient id="gp-track" x1="0" y1="0" x2="1" y2="0">
+                                            <stop offset="0%" stop-color="var(--gp-route)" stop-opacity=".3"></stop>
+                                            <stop offset="100%" stop-color="var(--gp-route)" stop-opacity="1"
+                                            ></stop>
+                                        </linearGradient>
+                                    </defs>
+                                    <rect width="380" height="220" fill="url(#gp-grid)"></rect>
+                                    <path
+                                        d="M 30 170 Q 70 140 110 150 T 200 100 T 300 60 T 350 80"
+                                        fill="none"
+                                        stroke="var(--gp-route)"
+                                        stroke-opacity=".25"
+                                        stroke-width="6"
+                                        stroke-linecap="round"></path>
+                                    <path
+                                        d="M 30 170 Q 70 140 110 150 T 200 100 T 300 60 T 350 80"
+                                        fill="none"
+                                        stroke="url(#gp-track)"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-dasharray="4 4"></path>
+                                    {[['30', '170', 'A'], ['110', '150', 'B'], ['200', '100', 'C'], ['300', '60', 'D'], ['350', '80', 'E']].map(([x, y, l]) => (
+                                        <g>
+                                            <circle
+                                                cx={x}
+                                                cy={y}
+                                                r="3.5"
+                                                fill="var(--gp-surface)"
+                                                stroke="var(--gp-route)"
+                                                stroke-width="1.5"></circle>
+                                            <text
+                                                x={Number(x) + 7}
+                                                y={Number(y) + 3}
+                                                font-family="var(--gp-mono)"
+                                                font-size="9"
+                                                fill="var(--gp-text-faint)">{l}</text>
+                                        </g>
+                                    ))}
+                                    <circle r="5" fill="var(--gp-accent)">
+                                        <animateMotion
+                                            dur="6s"
+                                            repeatCount="indefinite"
+                                            rotate="auto"
+                                            path="M 30 170 Q 70 140 110 150 T 200 100 T 300 60 T 350 80"></animateMotion>
+                                    </circle>
+                                    <g transform="translate(20,200)">
+                                        <text
+                                            font-family="var(--gp-mono)"
+                                            font-size="10"
+                                            fill="var(--gp-text-faint)"
+                                        >
+                                            {t.auth.svgStatus}
+                                        </text>
+                                    </g>
+                                </svg>
+                            </div>
+
+                            <div class="footer">
+                                <span>{t.auth.footerHost}</span>
+                                <span>{t.auth.footerTech}</span>
+                            </div>
+                        </aside>
+
+                        <div class="auth-form">
+                            <slot />
+                        </div>
                     </div>
                 </div>
             </PublicOnlyRoute>
@@ -51,36 +170,36 @@ const classes = ['auth-layout', className].filter(Boolean).join(' ');
     </body>
 </html>
 
-<style is:global>
-    *,
-    *::before,
-    *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-        font-family: var(--font);
-        background: var(--bg);
-        color: var(--text);
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
-</style>
-
 <style>
     .auth-layout {
         display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 100dvh;
-        padding: 24px;
-        background: var(--bg);
+        min-height: 100vh;
+        background: var(--gp-bg);
     }
 
-    .auth-layout__card {
-        width: 100%;
-        max-width: 400px;
-        background: var(--surface);
-        border: none;
-        border-radius: var(--radius-md);
-        padding: 32px;
-        box-shadow: var(--shadow-md);
+    .auth-layout > .auth-split {
+        flex: 1;
+        min-height: 100vh;
+    }
+
+    .auth-layout .auth-brand,
+    .auth-layout .auth-form {
+        min-height: 100%;
+    }
+
+    .auth-layout .brand-controls {
+        position: absolute;
+        top: var(--s-3);
+        right: var(--s-4);
+    }
+
+    .auth-layout .sub {
+        margin-top: 0.625rem;
+    }
+
+    @media (max-width: var(--bp-tablet)) {
+        .auth-layout > .auth-split {
+            min-height: auto;
+        }
     }
 </style>

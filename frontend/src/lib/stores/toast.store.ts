@@ -1,5 +1,5 @@
+import type { ToastItem } from '@/types/components/ui';
 import { atom } from 'nanostores';
-import type { ToastItem } from '@/types/components';
 
 /**
  * Maximum number of toasts shown at once. The oldest is dropped when a

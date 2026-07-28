@@ -1,18 +1,38 @@
 import type { Translation } from '@/i18n';
-import type { AdminStatItem, DataTableColumn } from '@/types/components';
+import type { AdminStatItem, DeviceStatus } from '@/types/components';
+import {
+    DEVICE_OFFLINE_THRESHOLD_MIN,
+    DEVICE_ONLINE_THRESHOLD_MIN,
+} from '@/constants/device';
+
 /**
- * Get the columns for the device table.
- * @param {Translation} t - The translation object.
- * @returns {DataTableColumn[]} The columns for the device table.
+ * Derives the connection status of a device from its last heartbeat.
+ * Uses the same thresholds as the backend (5 min online, 60 min
+ * stale, beyond that offline; null = never-seen) so the UI pill
+ * matches what the server reports.
+ * @param {string | null} lastSeenIso - ISO timestamp of the last heartbeat, or null when the device never reported.
+ * @param {Translation['device']} strings - Localized labels.
+ * @returns {DeviceStatus} The status key, label, and dot tone.
  */
-export function getDeviceTableColumns(t: Translation): DataTableColumn[] {
-    return [
-        { key: 'name', label: t.device.table.name, sortable: true },
-        { key: 'vehicleType', label: t.device.table.vehicleType },
-        { key: 'status', label: t.device.table.status },
-        { key: 'lastSeen', label: t.device.table.lastSeen },
-        { key: 'actions', label: t.device.table.actions, align: 'right' },
-    ];
+export function deriveDeviceStatus(
+    lastSeenIso: string | null,
+    strings: Translation['device']
+): DeviceStatus {
+    if (!lastSeenIso) {
+        return { key: 'never-seen', label: strings.neverSeen, dot: 'never' };
+    }
+    const ageMin = (Date.now() - new Date(lastSeenIso).getTime()) / 60000;
+    if (ageMin < DEVICE_ONLINE_THRESHOLD_MIN) {
+        return { key: 'online', label: strings.online, dot: 'success' };
+    }
+    if (ageMin < DEVICE_OFFLINE_THRESHOLD_MIN) {
+        return {
+            key: 'stale',
+            label: strings.stale ?? strings.offline,
+            dot: 'warning',
+        };
+    }
+    return { key: 'offline', label: strings.offline, dot: 'danger' };
 }
 
 /**
@@ -21,7 +41,6 @@ export function getDeviceTableColumns(t: Translation): DataTableColumn[] {
  * @returns {AdminStatItem[]} The demo KPI items for the admin dashboard.
  */
 export function getDemoKpiItems(t: Translation): Array<AdminStatItem> {
-    //* note: narrow literals for AdminStatItem discriminated union
     return [
         {
             label: t.admin.totalDevices,
@@ -55,21 +74,5 @@ export function getDemoKpiItems(t: Translation): Array<AdminStatItem> {
             trendValue: '0',
             variant: 'danger' as const,
         },
-    ];
-}
-
-/**
- * Returns the columns for the device-access table.
- * @param {Translation['device']['detail']['accessTable']} t - Localized column labels.
- * @returns {DataTableColumn[]} Column definitions.
- */
-export function getDeviceAccessTableColumns(
-    t: Translation['device']['detail']['accessTable']
-): DataTableColumn[] {
-    return [
-        { key: 'name', label: t.name },
-        { key: 'email', label: t.email },
-        { key: 'access_granted_at', label: t.accessGranted },
-        { key: 'actions', label: t.actions, align: 'right' },
     ];
 }

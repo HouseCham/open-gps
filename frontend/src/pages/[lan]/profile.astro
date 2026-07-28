@@ -1,41 +1,27 @@
 ---
 import type { GetStaticPaths } from 'astro';
-//-- Translations
 import { getTranslation } from '@/i18n';
-//-- Types
 import type { Language } from '@/types';
-//-- Components
 import MainLayout from '@/components/astro/layout/MainLayout.astro';
-import PageHeader from '@/components/astro/layout/PageHeader.astro';
-import { ProfileView } from '@/components/react/profile';
-/**
- * @type {GetStaticPaths}
- */
-export const getStaticPaths = (() => {
-    return [{ params: { lan: 'en' } }, { params: { lan: 'es' } }];
-}) satisfies GetStaticPaths;
+import { ProfilePage } from '@/components/react/features/profile/ProfilePage';
 
-//* note: getStaticPaths only emits the two supported locales,
-//   so the cast is exhaustive by construction.
+export const getStaticPaths: GetStaticPaths = () => {
+    return [{ params: { lan: 'en' } }, { params: { lan: 'es' } }];
+};
+
 const locale = Astro.params.lan as Language;
 const translation = getTranslation(locale);
+const title = `${translation.profile.title} · ${translation.layout.appName}`;
 ---
 
 <MainLayout
     locale={locale}
-    translation={translation}
-    active="profile"
-    showAdmin={true}
-    title={`${translation.profile.title} · GPS Tracker`}
+    title={title}
+    pageLabel={translation.profile.title}
 >
-    <PageHeader
-        eyebrow={translation.nav.profile}
-        title={translation.profile.title}
-    />
-
-    <ProfileView
+    <ProfilePage
         client:load
         locale={locale}
-        translation={translation}
+        translations={translation.profile}
     />
 </MainLayout>

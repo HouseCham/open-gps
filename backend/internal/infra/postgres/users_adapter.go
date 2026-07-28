@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -23,7 +24,7 @@ func NewUsersAdapter(pool *pgxpool.Pool) *UsersAdapter {
 func (a *UsersAdapter) ListUsers(ctx context.Context, excludeUserID uuid.UUID) ([]domain.User, error) {
 	rows, err := a.q.GetUserList(ctx, PgtypeUUID(excludeUserID))
 	if err != nil {
-		return nil, WrapPgError(err)
+		return nil, fmt.Errorf("UsersAdapter.ListUsers: %w", WrapPgError(err))
 	}
 	result := make([]domain.User, 0, len(rows))
 	for _, r := range rows {
@@ -35,7 +36,7 @@ func (a *UsersAdapter) ListUsers(ctx context.Context, excludeUserID uuid.UUID) (
 func (a *UsersAdapter) GetByID(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
 	row, err := a.q.GetUserByID(ctx, PgtypeUUID(userID))
 	if err != nil {
-		return nil, WrapPgError(err)
+		return nil, fmt.Errorf("UsersAdapter.GetByID: %w", WrapPgError(err))
 	}
 	return rowToDomainPtr(row), nil
 }
@@ -43,7 +44,7 @@ func (a *UsersAdapter) GetByID(ctx context.Context, userID uuid.UUID) (*domain.U
 func (a *UsersAdapter) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	row, err := a.q.GetUserByEmail(ctx, email)
 	if err != nil {
-		return nil, WrapPgError(err)
+		return nil, fmt.Errorf("UsersAdapter.GetByEmail: %w", WrapPgError(err))
 	}
 	return rowToDomainPtr(row), nil
 }
@@ -58,7 +59,24 @@ func (a *UsersAdapter) CreateUser(ctx context.Context, email, name, lastname str
 		EmailVerified:      emailVerified,
 	})
 	if err != nil {
-		return nil, WrapPgError(err)
+		err = WrapPgError(err)
+		if !errors.Is(err, domain.ErrConflict) {
+			return nil, fmt.Errorf("UsersAdapter.CreateUser: %w", err)
+		}
+
+		user, getErr := a.GetByEmail(ctx, email)
+		if getErr != nil {
+			return nil, fmt.Errorf("UsersAdapter.CreateUser: get conflicting user: %w", getErr)
+		}
+		user, err = a.UpdateUser(ctx, user.ID, name, lastname)
+		if err != nil {
+			return nil, fmt.Errorf("UsersAdapter.CreateUser: update conflicting user: %w", err)
+		}
+		if err := a.SetMustChangePassword(ctx, user.ID, mustChangePassword); err != nil {
+			return nil, fmt.Errorf("UsersAdapter.CreateUser: set password requirement: %w", err)
+		}
+		user.MustChangePassword = mustChangePassword
+		return user, nil
 	}
 	return rowToDomainPtr(row), nil
 }
@@ -66,7 +84,7 @@ func (a *UsersAdapter) CreateUser(ctx context.Context, email, name, lastname str
 func (a *UsersAdapter) CountUsers(ctx context.Context) (int, error) {
 	row, err := a.q.CountUsers(ctx)
 	if err != nil {
-		return 0, WrapPgError(err)
+		return 0, fmt.Errorf("UsersAdapter.CountUsers: %w", WrapPgError(err))
 	}
 	return int(row), nil
 }
@@ -78,52 +96,67 @@ func (a *UsersAdapter) UpdateUser(ctx context.Context, userID uuid.UUID, name, l
 		Lastname: lastname,
 	})
 	if err != nil {
-		return nil, WrapPgError(err)
+		return nil, fmt.Errorf("UsersAdapter.UpdateUser: %w", WrapPgError(err))
 	}
 	return rowToDomainPtr(row), nil
 }
 
 func (a *UsersAdapter) SetMustChangePassword(ctx context.Context, userID uuid.UUID, mustChange bool) error {
-	return WrapPgError(a.q.SetUserMustChangePassword(ctx, SetUserMustChangePasswordParams{
+	if err := a.q.SetUserMustChangePassword(ctx, SetUserMustChangePasswordParams{
 		ID:                 PgtypeUUID(userID),
 		MustChangePassword: mustChange,
-	}))
+	}); err != nil {
+		return fmt.Errorf("UsersAdapter.SetMustChangePassword: %w", WrapPgError(err))
+	}
+	return nil
 }
 
 func (a *UsersAdapter) SoftDeleteUser(ctx context.Context, userID uuid.UUID) error {
-	return WrapPgError(a.q.SoftDeleteUser(ctx, PgtypeUUID(userID)))
+	if err := a.q.SoftDeleteUser(ctx, PgtypeUUID(userID)); err != nil {
+		return fmt.Errorf("UsersAdapter.SoftDeleteUser: %w", WrapPgError(err))
+	}
+	return nil
 }
 
 func (a *UsersAdapter) HasSuperAdmin(ctx context.Context) (bool, error) {
-	return a.q.HasSuperAdmin(ctx)
+	hasSuperAdmin, err := a.q.HasSuperAdmin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("UsersAdapter.HasSuperAdmin: %w", WrapPgError(err))
+	}
+	return hasSuperAdmin, nil
 }
 
 func (a *UsersAdapter) PromoteToSuperAdmin(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
 	row, err := a.q.PromoteToSuperAdmin(ctx, PgtypeUUID(userID))
 	if err != nil {
-		return nil, WrapPgError(err)
+		return nil, fmt.Errorf("UsersAdapter.PromoteToSuperAdmin: %w", WrapPgError(err))
 	}
 	return rowToDomainPtr(row), nil
 }
 
 // rowToDomain maps any sqlc-generated user row (Get/List/Create/Update
 // all share the same column shape) to a value-typed domain.User.
+type userRow GetUserByIDRow
+
 func rowToDomain(r any) domain.User {
+	var row userRow
 	switch v := r.(type) {
 	case GetUserByIDRow:
-		return newDomainUser(v.ID, v.Email, v.EmailVerified, v.Image, v.Name, v.Lastname, v.Role, v.MustChangePassword, v.CreatedAt, v.UpdatedAt)
+		row = userRow(v)
 	case GetUserByEmailRow:
-		return newDomainUser(v.ID, v.Email, v.EmailVerified, v.Image, v.Name, v.Lastname, v.Role, v.MustChangePassword, v.CreatedAt, v.UpdatedAt)
+		row = userRow(v)
 	case GetUserListRow:
-		return newDomainUser(v.ID, v.Email, v.EmailVerified, v.Image, v.Name, v.Lastname, v.Role, v.MustChangePassword, v.CreatedAt, v.UpdatedAt)
+		row = userRow(v)
 	case CreateUserRow:
-		return newDomainUser(v.ID, v.Email, v.EmailVerified, v.Image, v.Name, v.Lastname, v.Role, v.MustChangePassword, v.CreatedAt, v.UpdatedAt)
+		row = userRow(v)
 	case UpdateUserRow:
-		return newDomainUser(v.ID, v.Email, v.EmailVerified, v.Image, v.Name, v.Lastname, v.Role, v.MustChangePassword, v.CreatedAt, v.UpdatedAt)
+		row = userRow(v)
 	case PromoteToSuperAdminRow:
-		return newDomainUser(v.ID, v.Email, v.EmailVerified, v.Image, v.Name, v.Lastname, v.Role, v.MustChangePassword, v.CreatedAt, v.UpdatedAt)
+		row = userRow(v)
+	default:
+		panic(fmt.Sprintf("rowToDomain: unhandled sqlc row type %T", r))
 	}
-	panic(fmt.Sprintf("rowToDomain: unhandled sqlc row type %T", r))
+	return newDomainUser(row.ID, row.Email, row.EmailVerified, row.Image, row.Name, row.Lastname, row.Role, row.MustChangePassword, row.CreatedAt, row.UpdatedAt)
 }
 
 func rowToDomainPtr[T any](r T) *domain.User {

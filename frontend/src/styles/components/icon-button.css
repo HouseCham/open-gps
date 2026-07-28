@@ -1,0 +1,30 @@
+.icon-action-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-control);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+        background 0.1s ease,
+        color 0.1s ease;
+    background: transparent;
+    border: 0;
+}
+
+.icon-action-btn:hover {
+    background: var(--bg-sidebar);
+    color: var(--text-primary);
+}
+
+.icon-action-btn.is-danger:hover {
+    background: var(--danger-tint);
+    color: var(--danger-text);
+}
+
+.icon-action-btn svg {
+    width: 15px;
+    height: 15px;
+}

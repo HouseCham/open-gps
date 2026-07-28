@@ -4,56 +4,38 @@ import type { GetStaticPaths } from 'astro';
 import { getTranslation } from '@/i18n';
 //-- Types
 import type { Language } from '@/types';
-//-- Constants
-import { ADMIN_GALLERY_DEMO_STATS } from '@/constants/components';
 //-- Components
 import MainLayout from '@/components/astro/layout/MainLayout.astro';
-import PageHeader from '@/components/astro/layout/PageHeader.astro';
-import AdminStats from '@/components/admin/AdminStats.astro';
-import { UserTable } from '@/components/admin/UserTable';
-/**
- * @type {GetStaticPaths}
- */
-export const getStaticPaths = (() => {
-    return [{ params: { lan: 'en' } }, { params: { lan: 'es' } }];
-}) satisfies GetStaticPaths;
+import { UsersPage } from '@/components/react/features/users';
 
-//* note: getStaticPaths only emits the two supported locales,
-//   so the cast is exhaustive by construction.
+/**
+ * Static paths — same locales as the rest of the authenticated pages.
+ */
+export const getStaticPaths: GetStaticPaths = () => {
+    return [{ params: { lan: 'en' } }, { params: { lan: 'es' } }];
+};
+
 const locale = Astro.params.lan as Language;
 const translation = getTranslation(locale);
+const title = `${translation.page.users.title} · ${translation.layout.appName}`;
 ---
 
 <MainLayout
     locale={locale}
-    translation={translation}
-    active="admin"
-    showAdmin={true}
-    title={`${translation.page.admin.title} · GPS Tracker`}
+    title={title}
+    pageLabel={translation.page.users.title}
+    onlyAdmin
 >
-    <PageHeader
-        eyebrow={translation.admin.title}
-        title={translation.page.admin.title}
-        subtitle={translation.page.admin.subtitle}
+    <UsersPage
+        client:load
+        locale={locale}
+        translations={{
+            ...translation.user,
+            admin: translation.admin,
+            toast: translation.toast,
+        }}
+        dateTranslations={translation.date}
+        pageLabel={translation.page.users.title}
+        pageSubtitle={translation.page.users.subtitle}
     />
-
-    <AdminStats stats={ADMIN_GALLERY_DEMO_STATS} />
-
-    <section class="admin-users">
-        <UserTable
-            client:idle
-            locale={locale}
-            translation={translation}
-        />
-    </section>
 </MainLayout>
-
-<style>
-    .admin-users { margin-top: 24px; }
-    .admin-users__title {
-        margin: 0 0 12px;
-        font-size: 14px; font-weight: 600;
-        text-transform: uppercase; letter-spacing: 0.06em;
-        color: var(--muted);
-    }
-</style>

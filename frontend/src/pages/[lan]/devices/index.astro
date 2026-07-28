@@ -4,54 +4,32 @@ import type { GetStaticPaths } from 'astro';
 import { getTranslation } from '@/i18n';
 //-- Types
 import type { Language } from '@/types';
-//-- Constants
 //-- Components
 import MainLayout from '@/components/astro/layout/MainLayout.astro';
-import PageHeader from '@/components/astro/layout/PageHeader.astro';
-import KpiBar from '@/components/sections/KpiBar.astro';
-import { DeviceTable } from '@/components/react/table/DeviceTable';
-//-- Utils
-import { getDemoKpiItems } from '@/lib';
-/**
- * @type {GetStaticPaths}
- */
-export const getStaticPaths = (() => {
-    return [{ params: { lan: 'en' } }, { params: { lan: 'es' } }];
-}) satisfies GetStaticPaths;
+import { DevicesPage } from '@/components/react/features/devices';
 
-//* note: getStaticPaths only emits the two supported locales,
-//   so the cast is exhaustive by construction.
+/**
+ * Static paths — same locales as the index page.
+ */
+export const getStaticPaths: GetStaticPaths = () => {
+    return [{ params: { lan: 'en' } }, { params: { lan: 'es' } }];
+};
+
 const locale = Astro.params.lan as Language;
 const translation = getTranslation(locale);
-const kpiItems = getDemoKpiItems(translation);
+const title = `${translation.page.devices.title} · ${translation.layout.appName}`;
 ---
 
 <MainLayout
     locale={locale}
-    translation={translation}
-    active="devices"
-    showAdmin={true}
-    title={`${translation.page.devices.title} · GPS Tracker`}
+    title={title}
+    pageLabel={translation.page.devices.title}
 >
-    <PageHeader
-        eyebrow={translation.device.title}
-        title={translation.page.devices.title}
+    <DevicesPage
+        client:load
+        locale={locale}
+        translations={translation.device}
+        dateTranslations={translation.date}
+        pageLabel={translation.page.devices.title}
     />
-
-    <KpiBar
-        items={kpiItems}
-        title={translation.section.kpiBar.title}
-    />
-
-    <section class="devices-section">
-        <DeviceTable
-            client:idle
-            locale={locale}
-            translation={translation}
-        />
-    </section>
 </MainLayout>
-
-<style>
-    .devices-section { margin-top: 20px; }
-</style>

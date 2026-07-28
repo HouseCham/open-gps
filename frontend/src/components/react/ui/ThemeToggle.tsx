@@ -1,60 +1,29 @@
-import { useState, useEffect, type JSX } from 'react';
-//-- Types
-import type { Theme } from '@/types/components';
-//-- Icons
-import { Sun, Moon } from 'lucide-react';
-/**
- * @interface ThemeToggleProps
- * @param {string} [class] - The class name of the component.
- */
-interface ThemeToggleProps {
-    class?: string;
-}
-/**
- * A button that toggles between light and dark themes.
- * @param {ThemeToggleProps} props - The props for the component.
- * @returns {JSX.Element} The rendered component.
- */
-export default function ThemeToggle({
-    class: className,
-}: ThemeToggleProps): JSX.Element {
-    const [theme, setTheme] = useState<Theme>(() => {
-        if (typeof document === 'undefined') return 'dark';
-        // Safe: document.documentElement.dataset.theme is set by the server/inline script
-        // and only contains values from the Theme type ('light' | 'dark')
-        return (document.documentElement.dataset.theme as Theme) ?? 'dark';
-    });
+import { useTheme } from '@/lib/hooks/useTheme';
+import { Moon, Sun } from 'lucide-react';
+import type { JSX } from 'react/jsx-runtime';
 
-    useEffect(() => {
-        document.documentElement.dataset.theme = theme;
-    }, [theme]);
-
-    const toggleTheme = (): void => {
-        const next: Theme = theme === 'dark' ? 'light' : 'dark';
-        setTheme(next);
-        localStorage.setItem('theme', next);
-    };
+/**
+ * ThemeToggle — sun/moon icon button that reads/writes the data-theme attribute.
+ * Must be hydrated client:load so it is interactive immediately.
+ */
+export function ThemeToggle(): JSX.Element {
+    const [theme, , toggleTheme] = useTheme();
+    const isDark = theme === 'dark';
 
     return (
         <button
-            type="button"
-            className={`icon-btn ${className ?? ''}`}
+            className="gp-iconbtn"
             onClick={toggleTheme}
             aria-label={
-                theme === 'dark'
-                    ? 'Switch to light mode'
-                    : 'Switch to dark mode'
+                isDark ? 'Switch to light theme' : 'Switch to dark theme'
             }
-            title={
-                theme === 'dark'
-                    ? 'Switch to light mode'
-                    : 'Switch to dark mode'
-            }
+            title={isDark ? 'Light' : 'Dark'}
+            type="button"
         >
-            {theme === 'dark' ? (
-                <Sun size={18} strokeWidth={1.75} />
+            {isDark ? (
+                <Sun className="icon-16" strokeWidth={1.6} />
             ) : (
-                <Moon size={18} strokeWidth={1.75} />
+                <Moon className="icon-16" strokeWidth={1.6} />
             )}
         </button>
     );

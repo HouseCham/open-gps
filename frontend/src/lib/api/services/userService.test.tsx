@@ -1,14 +1,20 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/auth/client', () => ({
+vi.mock('@/lib/api/client', () => ({
     authClient: vi.fn(),
     apiClient: vi.fn(),
 }));
 
-import * as clientMod from '@/lib/auth/client';
+import * as clientMod from '@/lib/api/client';
 import { $toasts } from '@/lib/stores/toast.store';
-import type { CreateUserDto, Envelope, User } from '@/types/api';
+import type {
+    CreatedUser,
+    CreateUserDto,
+    Envelope,
+    User,
+    UserWithDevices,
+} from '@/types/api';
 import { useUserService } from './userService';
 
 const apiClient = vi.mocked(clientMod.apiClient);
@@ -57,10 +63,47 @@ describe('useUserService', () => {
         );
     });
 
+    it('getUserByID fetches the user and their paginated devices', async () => {
+        const user: UserWithDevices = {
+            ...u1,
+            devices: [
+                {
+                    id: 'd1',
+                    uuid_firmware: 'esp32-001',
+                    name: 'Tracker',
+                },
+            ],
+            pagination: {
+                page: 2,
+                page_size: 5,
+                total: 6,
+                total_pages: 2,
+            },
+        };
+        apiClient.mockResolvedValue({
+            data: { status_code: 200, message: 'OK', data: user },
+        });
+        const { result } = renderHook(() => useUserService());
+
+        await act(async () => {
+            await result.current.getUserByID('u1', 2, 5);
+        });
+
+        expect(result.current.user).toEqual(user);
+        expect(result.current.isLoading).toBe(false);
+        expect(apiClient).toHaveBeenCalledWith('/users/u1', {
+            method: 'GET',
+            query: { page: 2, page_size: 5 },
+        });
+    });
+
     it('createUser appends the returned user to the existing list', async () => {
         const seedEnv = listEnv([u1]);
-        const created = makeUser({ id: 'u3', name: 'Gamma' });
-        const createEnv: { data: Envelope<User> } = {
+        const created: CreatedUser = {
+            ...makeUser({ id: 'u3', name: 'Gamma' }),
+            temporary_password: '0123456789abcdef0123456789abcdef',
+        };
+        const createEnv: { data: Envelope<CreatedUser> } = {
             data: { status_code: 201, message: 'OK', data: created },
         };
         apiClient
@@ -74,10 +117,13 @@ describe('useUserService', () => {
         });
         expect(result.current.users.map(u => u.id)).toEqual(['u1']);
 
-        const dto: CreateUserDto = { email: created.email, role: 'user' };
+        const dto: CreateUserDto = { email: created.email, name: created.name };
+        let response: User | undefined;
         await act(async () => {
-            await result.current.createUser(dto);
+            response = await result.current.createUser(dto);
         });
+
+        expect(response).toEqual(created);
 
         expect(result.current.users.map(u => u.id)).toEqual(['u1', 'u3']);
         expect(apiClient).toHaveBeenLastCalledWith(

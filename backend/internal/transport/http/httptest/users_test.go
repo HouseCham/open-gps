@@ -574,7 +574,6 @@ func TestUsersMe(t *testing.T) {
 	})
 }
 
-
 func TestUsersGetMe(t *testing.T) {
 	t.Run("200 - returns full local projection", func(t *testing.T) {
 		ta := NewTestApp()

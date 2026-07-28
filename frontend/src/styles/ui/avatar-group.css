@@ -1,0 +1,27 @@
+/* AvatarGroup */
+.avatar-group {
+    display: inline-flex;
+}
+
+.avatar-group .ag {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-surface);
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: #fff;
+    margin-left: -8px;
+}
+
+.avatar-group .ag:first-child {
+    margin-left: 0;
+}
+
+.avatar-group .ag-more {
+    background: var(--bg-sidebar);
+    color: var(--text-secondary);
+}

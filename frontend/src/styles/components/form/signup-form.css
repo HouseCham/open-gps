@@ -1,0 +1,77 @@
+/* SignupForm — uses shared primitives from main-layout.css.
+   Reserved for signup-specific overrides. */
+
+.input-with-prefix {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-with-prefix .input {
+    padding-left: 38px;
+}
+
+.input-with-prefix .prefix {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--gp-text-faint);
+    pointer-events: none;
+}
+
+.form-check-row {
+    margin-top: 4px;
+}
+
+/* Password strength meter — signup-only */
+.pw-strength {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pw-strength .bars {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    height: 4px;
+}
+
+.pw-strength .bar {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--gp-border);
+}
+
+.pw-strength[data-level='1'] .bar:nth-child(-n + 1) {
+    background: var(--gp-danger);
+}
+
+.pw-strength[data-level='2'] .bar:nth-child(-n + 2) {
+    background: var(--gp-warn);
+}
+
+.pw-strength[data-level='3'] .bar:nth-child(-n + 3) {
+    background: var(--gp-info);
+}
+
+.pw-strength[data-level='4'] .bar:nth-child(-n + 4) {
+    background: var(--gp-accent);
+}
+
+.pw-strength .legend {
+    font-size: 11px;
+    color: var(--gp-text-faint);
+    display: flex;
+    justify-content: space-between;
+}
+
+.pw-strength .legend .label[data-active='true'] {
+    color: var(--gp-text-mute);
+    font-weight: 500;
+}
+
+.form-spacer {
+    margin: 20px 0;
+}
