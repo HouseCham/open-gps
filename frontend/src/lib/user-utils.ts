@@ -1,5 +1,4 @@
 import type {
-    UserRoleFilter,
     UserEmailFilter,
     UserSortKey,
     UserFilterCounts,
@@ -58,7 +57,6 @@ export function getUserTableColumns(
  * Apply the role / email / search filters and sort the result.
  * @param {User[]} users - The list of users.
  * @param {string} query - The search query.
- * @param {UserRoleFilter} roleFilter - The role filter.
  * @param {UserEmailFilter} emailFilter - The email filter.
  * @param {UserSortKey} sortBy - The sort key.
  * @returns {User[]} The filtered and sorted list of users.
@@ -66,7 +64,6 @@ export function getUserTableColumns(
 export function filterAndSortUsers(
     users: User[],
     query: string,
-    roleFilter: UserRoleFilter,
     emailFilter: UserEmailFilter,
     sortBy: UserSortKey
 ): User[] {
@@ -78,7 +75,6 @@ export function filterAndSortUsers(
         ) {
             return false;
         }
-        if (roleFilter !== 'all' && u.role !== roleFilter) return false;
         if (emailFilter === 'verified' && !u.email_verified) return false;
         if (emailFilter === 'unverified' && u.email_verified) return false;
         return true;

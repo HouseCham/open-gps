@@ -20,7 +20,6 @@ import { UsersTable } from './UsersTable';
 import type {
     UserEmailFilter,
     UserFilterCounts,
-    UserRoleFilter,
     UserSortKey,
 } from '@/types/api';
 //-- Services
@@ -107,7 +106,6 @@ export function UsersPage({
     } = useUserService();
 
     const [query, setQuery] = useState('');
-    const [roleFilter, setRoleFilter] = useState<UserRoleFilter>('all');
     const [emailFilter, setEmailFilter] = useState<UserEmailFilter>('all');
     const [sortBy, setSortBy] = useState<UserSortKey>('created-desc');
 
@@ -133,14 +131,13 @@ export function UsersPage({
     const filtered = filterAndSortUsers(
         users,
         query,
-        roleFilter,
         emailFilter,
         sortBy
     );
 
     const counts: UserFilterCounts = computeFilterCounts(users);
 
-    const hasFilters = !!query || roleFilter !== 'all' || emailFilter !== 'all';
+    const hasFilters = !!query || emailFilter !== 'all';
 
     /**
      * Clear all search filters.
@@ -148,7 +145,6 @@ export function UsersPage({
      */
     const clearFilters = (): void => {
         setQuery('');
-        setRoleFilter('all');
         setEmailFilter('all');
     };
 
@@ -240,8 +236,6 @@ export function UsersPage({
                 t={t.filters}
                 query={query}
                 onQuery={setQuery}
-                roleFilter={roleFilter}
-                onRoleFilter={setRoleFilter}
                 emailFilter={emailFilter}
                 onEmailFilter={setEmailFilter}
                 sortBy={sortBy}
