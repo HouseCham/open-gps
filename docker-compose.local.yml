@@ -1,13 +1,16 @@
 services:
   db:
-    image: chamito/gps-tracker-db:dev
+    build:
+      context: ./db
+    image: open-gps-db
+    container_name: open-gps-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gps_pass}
       POSTGRES_DB: ${POSTGRES_DB}
-    expose:
-      - "5432"
+    ports:
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - ./.data/postgres:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +22,11 @@ services:
       retries: 10
 
   api:
-    image: chamito/gps-tracker-api:dev
+    build:
+      context: ./backend
+      target: runtime
+    image: open-gps-api
+    container_name: open-gps-api
     restart: unless-stopped
     expose:
       - "8080"
@@ -27,20 +34,26 @@ services:
       API_PORT: ${API_PORT}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD:-gps_pass}@db:5432/${POSTGRES_DB}?sslmode=disable
-      JWT_JWKS_URL: ${JWT_JWKS_URL}
-      JWT_ISSUER: ${JWT_ISSUER}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-gps-tracker-api}
+      JWT_JWKS_URL: ${JWT_JWKS_URL:-http://localhost/api/auth/.well-known/jwks.json}
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-open-gps-api}
+      SERVER_PORT: 8080
       AUTHULA_BASE_URL: ${AUTHULA_BASE_URL}
       AUTHULA_SECRET: ${AUTHULA_SECRET}
       AUTHULA_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD:-gps_pass}@db:5432/${POSTGRES_DB}?sslmode=disable
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   frontend:
-    image: chamito/gps-tracker-frontend:dev
+    build:
+      context: ./frontend
+      args:
+        PUBLIC_API_URL: ${PUBLIC_API_URL}
+    image: open-gps-frontend
+    container_name: open-gps-frontend
     restart: unless-stopped
     expose:
       - "80"
@@ -50,14 +63,17 @@ services:
       - api
 
   nginx:
-    image: chamito/gps-tracker-nginx:dev
+    build:
+      context: ./nginx
+    image: open-gps-nginx
+    container_name: open-gps-nginx
     restart: unless-stopped
-    expose:
-      - "80"
+    ports:
+      - "${NGINX_PORT:-443}:443"
+      - "${NGINX_HTTP_PORT:-80}:80"
     volumes:
       - frontend_dist:/var/www/html:ro
-    environment:
-      NGINX_API_UPSTREAM: ${NGINX_API_UPSTREAM:-api:8080}
+      - ./nginx/certs:/etc/nginx/certs:ro
     depends_on:
       - frontend
       - api
