@@ -33,3 +33,23 @@ jobs:
           echo "::group::Build backend"
           go build ./cmd/api
           echo "::endgroup::"
+
+  backend-docker:
+    needs: [backend-build]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build docker image
+        working-directory: backend
+        run: |
+          echo "::group::Build docker image"
+          docker build -t chamito/open-gps-api:dev .
+          echo "::endgroup::"
+
+      - name: Push docker image
+        working-directory: backend
+        run: |
+          echo "::group::Push docker image"
+          docker login -u chamito -p ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          docker push chamito/open-gps-api:dev
+          echo "::endgroup::"
