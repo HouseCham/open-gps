@@ -55,3 +55,23 @@ jobs:
           echo "::group::Build frontend"
           pnpm build
           echo "::endgroup::"
+
+  frontend-docker:
+    needs: [frontend-build]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build docker image
+        working-directory: frontend
+        run: |
+          echo "::group::Build docker image"
+          docker build -t chamito/open-gps-frontend:dev .
+          echo "::endgroup::"
+
+      - name: Push docker image
+        working-directory: frontend
+        run: |
+          echo "::group::Push docker image"
+          docker login -u chamito -p ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          docker push chamito/open-gps-frontend:dev
+          echo "::endgroup::"
