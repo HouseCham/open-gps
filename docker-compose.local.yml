@@ -21,6 +21,23 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    build: ./migrate
+    image: open-gps-migrate
+    container_name: open-gps-migrate
+    restart: "no"
+    command:
+      - "-database"
+      - "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD:-gps_pass}@db:5432/${POSTGRES_DB}?sslmode=disable"
+      - up
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gps_pass}
+      POSTGRES_DB: ${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+
   api:
     build:
       context: ./backend

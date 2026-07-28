@@ -1,10 +1,10 @@
 services:
   db:
-    image: chamito/gps-tracker-db:dev
+    image: chamito/open-gps-db:dev
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gps_pass}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     expose:
       - "5432"
@@ -18,29 +18,44 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    image: chamito/open-gps-migrate:dev
+    restart: "no"
+    command:
+      - "-database"
+      - "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable"
+      - "up"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+
   api:
-    image: chamito/gps-tracker-api:dev
+    image: chamito/open-gps-api:dev
     restart: unless-stopped
     expose:
       - "8080"
     environment:
       API_PORT: ${API_PORT}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD:-gps_pass}@db:5432/${POSTGRES_DB}?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
       JWT_JWKS_URL: ${JWT_JWKS_URL}
       JWT_ISSUER: ${JWT_ISSUER}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-gps-tracker-api}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-open-gps-api}
       AUTHULA_BASE_URL: ${AUTHULA_BASE_URL}
       AUTHULA_SECRET: ${AUTHULA_SECRET}
-      AUTHULA_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD:-gps_pass}@db:5432/${POSTGRES_DB}?sslmode=disable
+      AUTHULA_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   frontend:
-    image: chamito/gps-tracker-frontend:dev
+    image: chamito/open-gps-frontend:dev
     restart: unless-stopped
     expose:
       - "80"
@@ -50,7 +65,7 @@ services:
       - api
 
   nginx:
-    image: chamito/gps-tracker-nginx:dev
+    image: chamito/open-gps-nginx:dev
     restart: unless-stopped
     expose:
       - "80"

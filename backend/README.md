@@ -45,7 +45,7 @@ cp .env.example .env
 
 ### 2. Run database migrations
 
-Use your preferred migration tool with the files in `migrations/`.
+Use your preferred migration tool with the files in `../migrate/migrations/`.
 
 ### 3. Generate SQL code
 
@@ -53,7 +53,7 @@ Use your preferred migration tool with the files in `migrations/`.
 ~/go/bin/sqlc generate
 ```
 
-This reads SQL queries from `queries/` and the schema from `migrations/`, then generates Go code into `internal/infra/postgres/`.
+This reads SQL queries from `queries/` and the schema from `../migrate/migrations/`, then generates Go code into `internal/infra/postgres/`.
 
 ### 4. Run the API
 
