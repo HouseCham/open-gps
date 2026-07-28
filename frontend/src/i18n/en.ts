@@ -294,6 +294,14 @@ export const en = {
         backCta: 'Back to dashboard',
         hint: 'Sign in with an account that has the required permissions.',
     },
+    date: {
+        relative: {
+            justNow: 'just now',
+            minutesAgo: '{count}m ago',
+            hoursAgo: '{count}h ago',
+            daysAgo: '{count}d ago',
+        },
+    },
     device: {
         title: 'Devices',
         online: 'Online',

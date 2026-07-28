@@ -98,11 +98,6 @@ export const MAP_STYLE_URL: string =
  */
 export const MAP_ONLINE_THRESHOLD_MS = 60 * 1000;
 /**
- * @constant {string}
- * @description Stroke color for the route polyline drawn on the live device map.
- */
-export const MAP_ROUTE_LINE_COLOR = '#1a73e8';
-/**
  * @constant {number}
  * @description Default center and zoom for the map
  */

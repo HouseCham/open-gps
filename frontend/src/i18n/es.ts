@@ -302,6 +302,14 @@ export const es: Translation = {
         backCta: 'Volver al panel',
         hint: 'Inicia sesión con una cuenta con permisos.',
     },
+    date: {
+        relative: {
+            justNow: 'ahora mismo',
+            minutesAgo: 'hace {count}m',
+            hoursAgo: 'hace {count}h',
+            daysAgo: 'hace {count}d',
+        },
+    },
     device: {
         title: 'Dispositivos',
         online: 'En línea',
