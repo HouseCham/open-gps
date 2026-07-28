@@ -4,7 +4,6 @@ import type { Translation } from '@/i18n';
 import type {
     UserEmailFilter,
     UserFilterCounts,
-    UserRoleFilter,
     UserSortKey,
 } from '@/types/api';
 //-- Constants
@@ -22,8 +21,6 @@ import { Chip } from '@/components/react/ui/';
  * @prop {Translation['user']['filters']} t - Translation strings for the filter bar.
  * @prop {string} query - Current search query.
  * @prop {(q: string) => void} onQuery - Search query setter.
- * @prop {UserRoleFilter} roleFilter - Current role filter.
- * @prop {(v: UserRoleFilter) => void} onRoleFilter - Role filter setter.
  * @prop {UserEmailFilter} emailFilter - Current email-verification filter.
  * @prop {(v: UserEmailFilter) => void} onEmailFilter - Email filter setter.
  * @prop {UserSortKey} sortBy - Current sort key.
@@ -35,8 +32,6 @@ interface UserFilterBarProps {
     t: Translation['user']['filters'];
     query: string;
     onQuery: (v: string) => void;
-    roleFilter: UserRoleFilter;
-    onRoleFilter: (v: UserRoleFilter) => void;
     emailFilter: UserEmailFilter;
     onEmailFilter: (v: UserEmailFilter) => void;
     sortBy: UserSortKey;
@@ -54,8 +49,6 @@ export function UserFilterBar({
     t,
     query,
     onQuery,
-    roleFilter,
-    onRoleFilter,
     emailFilter,
     onEmailFilter,
     sortBy,
@@ -113,27 +106,6 @@ export function UserFilterBar({
                 >
                     <RefreshCw size={14} strokeWidth={1.6} />
                 </Button>
-            </div>
-            <div className="users-chip-row">
-                <span className="users-chip-row-label">{t.roleLabel}</span>
-                <Chip
-                    label={t.roleAll}
-                    count={counts.all}
-                    active={roleFilter === 'all'}
-                    onClick={() => onRoleFilter('all')}
-                />
-                <Chip
-                    label={t.roleSuperAdmin}
-                    count={counts.admin}
-                    active={roleFilter === 'super_admin'}
-                    onClick={() => onRoleFilter('super_admin')}
-                />
-                <Chip
-                    label={t.roleUser}
-                    count={counts.user}
-                    active={roleFilter === 'user'}
-                    onClick={() => onRoleFilter('user')}
-                />
             </div>
             <div className="users-chip-row">
                 <span className="users-chip-row-label">{t.emailLabel}</span>

@@ -18,11 +18,13 @@ import { getVehicleLabel } from '@/lib/features';
  * @prop {DeviceDetail} device - Device details.
  * @prop {Language} locale - Locale.
  * @prop {Translation['device']} translations - Translations.
+ * @prop {Translation['date']} date - Date-related translation strings.
  */
 interface DeviceInfoCardProps {
     device: DeviceDetail;
     locale: Language;
     translations: Translation['device'];
+    date: Translation['date'];
 }
 /**
  * Card component for showing device information
@@ -33,6 +35,7 @@ export function DeviceInfoCard({
     device,
     locale,
     translations,
+    date,
 }: DeviceInfoCardProps): JSX.Element {
     const t = translations.detail;
     const rows: Array<{
@@ -69,11 +72,11 @@ export function DeviceInfoCard({
         },
         {
             label: t.info.created,
-            value: formatRelativeTime(device.created_at, locale),
+            value: formatRelativeTime(device.created_at, locale, date),
         },
         {
             label: t.info.lastSeen,
-            value: formatRelativeTime(device.last_seen_at, locale),
+            value: formatRelativeTime(device.last_seen_at, locale, date),
         },
     ];
 

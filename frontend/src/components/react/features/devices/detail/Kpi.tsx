@@ -67,6 +67,7 @@ export function KpiCard({
  * @prop {DeviceStatus} status - Device status.
  * @prop {Language} locale - Locale.
  * @prop {Translation['device']} translations - Translations.
+ * @prop {Translation['date']} date - Date-related translation strings.
  */
 interface KpiStripProps {
     device: DeviceDetail;
@@ -74,6 +75,7 @@ interface KpiStripProps {
     status: DeviceStatus;
     locale: Language;
     translations: Translation['device'];
+    date: Translation['date'];
 }
 /**
  * KpiStrip component
@@ -86,6 +88,7 @@ export function KpiStrip({
     status,
     locale,
     translations,
+    date,
 }: KpiStripProps): JSX.Element {
     const t = translations.detail;
     const batteryPercent =
@@ -168,7 +171,7 @@ export function KpiStrip({
             <KpiCard
                 icon={<Clock3 size={15} />}
                 label={t.kpi.lastPing}
-                value={formatRelativeTime(lastPing, locale)}
+                value={formatRelativeTime(lastPing, locale, date)}
                 hint={formatDateTime(lastPing, locale)}
                 percent={statusPercent}
                 tone={

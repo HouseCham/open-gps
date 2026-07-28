@@ -294,6 +294,14 @@ export const en = {
         backCta: 'Back to dashboard',
         hint: 'Sign in with an account that has the required permissions.',
     },
+    date: {
+        relative: {
+            justNow: 'just now',
+            minutesAgo: '{count}m ago',
+            hoursAgo: '{count}h ago',
+            daysAgo: '{count}d ago',
+        },
+    },
     device: {
         title: 'Devices',
         online: 'Online',
@@ -465,6 +473,15 @@ export const en = {
                 signal: 'Signal',
                 recorded: 'Recorded',
             },
+            goLive: 'Go Live',
+            stopLive: 'Stop Live',
+            liveWaiting: 'Waiting for the first packet…',
+            connectionLost: 'Connection lost',
+            connectionLostMessage:
+                'Live tracking stopped: the device is unreachable.',
+            deviceNotLiveTitle: 'Device not live',
+            deviceNotLiveMessage:
+                'Live tracking stopped: the device has not reported a new location in over 30 seconds.',
             info: {
                 title: 'Device information',
                 subtitle: 'Identity and registration metadata',

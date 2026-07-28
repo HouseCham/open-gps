@@ -302,6 +302,14 @@ export const es: Translation = {
         backCta: 'Volver al panel',
         hint: 'Inicia sesión con una cuenta con permisos.',
     },
+    date: {
+        relative: {
+            justNow: 'ahora mismo',
+            minutesAgo: 'hace {count}m',
+            hoursAgo: 'hace {count}h',
+            daysAgo: 'hace {count}d',
+        },
+    },
     device: {
         title: 'Dispositivos',
         online: 'En línea',
@@ -477,6 +485,15 @@ export const es: Translation = {
                 signal: 'Señal',
                 recorded: 'Registrado',
             },
+            goLive: 'En directo',
+            stopLive: 'Detener directo',
+            liveWaiting: 'Esperando el primer paquete…',
+            connectionLost: 'Conexión perdida',
+            connectionLostMessage:
+                'Rastreo en directo detenido: dispositivo no disponible.',
+            deviceNotLiveTitle: 'Dispositivo no en directo',
+            deviceNotLiveMessage:
+                'Rastreo en directo detenido: el dispositivo no ha comunicado una nueva ubicación en más de 30 segundos.',
             info: {
                 title: 'Información del dispositivo',
                 subtitle: 'Identidad y metadatos de registro',

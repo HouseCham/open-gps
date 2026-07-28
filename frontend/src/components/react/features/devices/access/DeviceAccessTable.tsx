@@ -16,6 +16,7 @@ import { formatRelativeTime, getInitials, interpolateTemplate } from '@/lib';
  * @prop {DeviceDetail} device - Device details.
  * @prop {Language} locale - Locale.
  * @prop {Translation['device']} translations - Translations.
+ * @prop {Translation['date']} date - Date-related translation strings.
  * @prop {() => void} onInvite - Callback for the invite button.
  * @prop {(user: DeviceAccessListItem) => void} onRevoke - Callback for the revoke button.
  */
@@ -23,6 +24,7 @@ interface DeviceAccessTableProps {
     device: DeviceDetail;
     locale: Language;
     translations: Translation['device'];
+    date: Translation['date'];
     onInvite: () => void;
     onRevoke: (user: DeviceAccessListItem) => void;
 }
@@ -35,6 +37,7 @@ export function DeviceAccessTable({
     device,
     locale,
     translations,
+    date,
     onInvite,
     onRevoke,
 }: DeviceAccessTableProps): JSX.Element {
@@ -126,7 +129,8 @@ export function DeviceAccessTable({
                                     <td className="dd-muted">
                                         {formatRelativeTime(
                                             user.access_granted_at,
-                                            locale
+                                            locale,
+                                            date
                                         )}
                                     </td>
                                     <td className="dd-table-actions">

@@ -7,6 +7,7 @@ import type {
     ApiKeySortKey,
     Language,
 } from '@/types';
+import type { Translation } from '@/i18n';
 //-- Icons
 import { AlertTriangle, KeyRound, KeySquare } from 'lucide-react';
 //-- Components
@@ -41,11 +42,13 @@ const DeleteAccessKeyModal = lazy(() =>
  * @interface AccessPageProps
  * @prop {Language} locale - Active locale.
  * @prop {AccessTranslation} translations - Localized strings.
+ * @prop {Translation['date']} dateTranslations - Date-related translation strings.
  * @prop {string} pageLabel - Page label rendered in the topbar.
  */
 interface AccessPageProps {
     locale: Language;
     translations: AccessTranslation;
+    dateTranslations: Translation['date'];
     pageLabel: string;
 }
 
@@ -59,6 +62,7 @@ interface AccessPageProps {
 export function AccessPage({
     locale,
     translations: t,
+    dateTranslations: date,
     pageLabel,
 }: AccessPageProps): JSX.Element {
     const { rows, isLoading, error, getAllApiKeys, issueApiKey, revokeApiKey } =
@@ -270,6 +274,7 @@ export function AccessPage({
             ) : (
                 <AccessKeysTable
                     t={t.table}
+                    date={date}
                     rows={filtered}
                     locale={locale}
                     onDelete={setDeleteTarget}

@@ -20,7 +20,6 @@ import { UsersTable } from './UsersTable';
 import type {
     UserEmailFilter,
     UserFilterCounts,
-    UserRoleFilter,
     UserSortKey,
 } from '@/types/api';
 //-- Services
@@ -69,12 +68,14 @@ type UsersTranslation = Translation['user'] &
  * @interface UsersPageProps
  * @prop {Language} locale - Active locale.
  * @prop {UsersTranslation} translations - Translation bundle.
+ * @prop {Translation['date']} dateTranslations - Date-related translation strings.
  * @prop {string} pageLabel - The page label (also rendered in the topbar).
  * @prop {string} pageSubtitle - The page subtitle shown under the title.
  */
 interface UsersPageProps {
     locale: Language;
     translations: UsersTranslation;
+    dateTranslations: Translation['date'];
     pageLabel: string;
     pageSubtitle: string;
 }
@@ -89,6 +90,7 @@ interface UsersPageProps {
 export function UsersPage({
     locale,
     translations: t,
+    dateTranslations: date,
     pageLabel,
     pageSubtitle,
 }: UsersPageProps): JSX.Element {
@@ -104,7 +106,6 @@ export function UsersPage({
     } = useUserService();
 
     const [query, setQuery] = useState('');
-    const [roleFilter, setRoleFilter] = useState<UserRoleFilter>('all');
     const [emailFilter, setEmailFilter] = useState<UserEmailFilter>('all');
     const [sortBy, setSortBy] = useState<UserSortKey>('created-desc');
 
@@ -130,14 +131,13 @@ export function UsersPage({
     const filtered = filterAndSortUsers(
         users,
         query,
-        roleFilter,
         emailFilter,
         sortBy
     );
 
     const counts: UserFilterCounts = computeFilterCounts(users);
 
-    const hasFilters = !!query || roleFilter !== 'all' || emailFilter !== 'all';
+    const hasFilters = !!query || emailFilter !== 'all';
 
     /**
      * Clear all search filters.
@@ -145,7 +145,6 @@ export function UsersPage({
      */
     const clearFilters = (): void => {
         setQuery('');
-        setRoleFilter('all');
         setEmailFilter('all');
     };
 
@@ -237,8 +236,6 @@ export function UsersPage({
                 t={t.filters}
                 query={query}
                 onQuery={setQuery}
-                roleFilter={roleFilter}
-                onRoleFilter={setRoleFilter}
                 emailFilter={emailFilter}
                 onEmailFilter={setEmailFilter}
                 sortBy={sortBy}
@@ -346,6 +343,7 @@ export function UsersPage({
                     t={t.detail}
                     roleLabels={t.admin.roles}
                     tableLabels={t.table}
+                    date={date}
                 />
             </Suspense>
 

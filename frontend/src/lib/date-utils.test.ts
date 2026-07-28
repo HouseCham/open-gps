@@ -27,36 +27,43 @@ describe('formatDate', () => {
 
 describe('formatRelativeTime', () => {
     const now = Date.now();
+    const date = en.date;
 
     it('returns the em-dash placeholder for null / undefined / invalid input', () => {
-        expect(formatRelativeTime(null)).toBe('—');
-        expect(formatRelativeTime(undefined)).toBe('—');
-        expect(formatRelativeTime('not-a-date')).toBe('—');
+        expect(formatRelativeTime(null, 'en', date)).toBe('—');
+        expect(formatRelativeTime(undefined, 'en', date)).toBe('—');
+        expect(formatRelativeTime('not-a-date', 'en', date)).toBe('—');
     });
 
     it('reports timestamps less than a minute old as "just now"', () => {
         const iso = new Date(now - 30 * 1000).toISOString();
-        expect(formatRelativeTime(iso)).toBe('just now');
+        expect(formatRelativeTime(iso, 'en', date)).toBe('just now');
     });
 
     it('rounds sub-hour ages to whole minutes', () => {
         const iso = new Date(now - 42 * 60 * 1000).toISOString();
-        expect(formatRelativeTime(iso)).toBe('42m ago');
+        expect(formatRelativeTime(iso, 'en', date)).toBe('42m ago');
     });
 
     it('switches to "h ago" past the 1-hour mark', () => {
         const iso = new Date(now - 5 * 60 * 60 * 1000).toISOString();
-        expect(formatRelativeTime(iso)).toBe('5h ago');
+        expect(formatRelativeTime(iso, 'en', date)).toBe('5h ago');
     });
 
     it('switches to "d ago" past the 1-day mark', () => {
         const iso = new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString();
-        expect(formatRelativeTime(iso)).toBe('3d ago');
+        expect(formatRelativeTime(iso, 'en', date)).toBe('3d ago');
+    });
+
+    it('uses the Spanish templates when given the es locale bundle', async () => {
+        const es = (await import('@/i18n')).es.date;
+        const iso = new Date(now - 42 * 60 * 1000).toISOString();
+        expect(formatRelativeTime(iso, 'es', es)).toBe('hace 42m');
     });
 
     it('returns a localized absolute date once the age exceeds 30 days', () => {
         const iso = new Date(now - 60 * 24 * 60 * 60 * 1000).toISOString();
-        const out = formatRelativeTime(iso);
+        const out = formatRelativeTime(iso, 'en', date);
         // The exact locale string depends on the runtime; we just want a
         // date-shaped string (digits + slashes), not the relative phrase.
         expect(out).not.toBe('—');

@@ -98,7 +98,63 @@ export const MAP_STYLE_URL: string =
  */
 export const MAP_ONLINE_THRESHOLD_MS = 60 * 1000;
 /**
- * @constant {string}
- * @description Stroke color for the route polyline drawn on the live device map.
+ * @constant {number}
+ * @description Default center and zoom for the map
  */
-export const MAP_ROUTE_LINE_COLOR = '#1a73e8';
+export const MAP_FALLBACK_CENTER = { latitude: 19.4326, longitude: -99.1332 };
+/**
+ * @constant {number}
+ * @description Default zoom for the map
+ */
+export const MAP_FALLBACK_ZOOM = 4;
+/**
+ * @constant {number}
+ * @description Default zoom for the map
+ */
+export const MAP_DEVICE_ZOOM = 15;
+/**
+ * @constant {number}
+ * @description Default duration for the map animation
+ */
+export const MAP_EASE_TO_DURATION_MS = 1200;
+/**
+ * @constant {number}
+ * @description Default size for the map refresh icon
+ */
+export const MAP_REFRESH_ICON_SIZE = 13;
+/**
+ * @constant {number}
+ * @description Default decimal precision for map coordinates
+ */
+export const MAP_COORDINATE_DECIMALS = 4;
+/**
+ * @constant {number}
+ * @description Default size for the map empty state icon
+ */
+export const MAP_EMPTY_STATE_ICON_SIZE = 26;
+/**
+ * @constant {number}
+ * @description Interval, in milliseconds, between polls when the "Go Live"
+ * button is active. Devices in the field report a location packet roughly
+ * every 15s, so the polling interval should stay under that floor.
+ */
+export const LIVE_POLL_INTERVAL_MS = 15_000;
+/**
+ * @constant {number}
+ * @description Icon size for the "Go Live" / "Stop Live" action button
+ * in the map card header. Mirrors {@link MAP_REFRESH_ICON_SIZE}.
+ */
+export const MAP_GO_LIVE_ICON_SIZE = 13;
+/**
+ * @constant {number}
+ * @description Maximum age (ms) of the most recent polled point before
+ * the device is considered "not live". When a poll returns a point
+ * older than this, the polling loop triggers its retry budget.
+ */
+export const LIVE_STALE_THRESHOLD_MS = 30_000;
+/**
+ * @constant {number}
+ * @description Number of extra fetches the polling loop performs after
+ * detecting a stale packet before giving up and stopping live mode.
+ */
+export const LIVE_STALE_RETRIES = 2;

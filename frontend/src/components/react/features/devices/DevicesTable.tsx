@@ -14,6 +14,7 @@ import { VehicleIcon } from './VehicleIcon';
  * Props for the DevicesTable component.
  * @interface DevicesTableProps
  * @prop {Translation['device']} t - Translation strings.
+ * @prop {Translation['date']} date - Date-related translation strings.
  * @prop {DeviceWithAccess[]} devices - List of devices.
  * @prop {Language} locale - Locale.
  * @prop {(d: DeviceWithAccess) => void} onEdit - Callback for editing a device.
@@ -21,6 +22,7 @@ import { VehicleIcon } from './VehicleIcon';
  */
 interface DevicesTableProps {
     t: Translation['device'];
+    date: Translation['date'];
     devices: DeviceWithAccess[];
     locale: Language;
     onEdit: (d: DeviceWithAccess) => void;
@@ -33,6 +35,7 @@ interface DevicesTableProps {
  */
 export function DevicesTable({
     t,
+    date,
     devices,
     locale,
     onEdit,
@@ -147,7 +150,7 @@ export function DevicesTable({
                                 <td
                                     className={`dev-cell-time${d.last_seen_at ? '' : ' never'}`}
                                 >
-                                    {formatRelativeTime(d.last_seen_at, locale)}
+                                    {formatRelativeTime(d.last_seen_at, locale, date)}
                                 </td>
                                 {/* Actions */}
                                 <td className="col-actions">

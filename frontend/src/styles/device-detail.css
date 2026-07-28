@@ -742,3 +742,60 @@
         opacity: 0;
     }
 }
+
+.dd-card-head-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    flex-wrap: wrap;
+}
+
+.dd-coordinates--live {
+    border: 1px dashed #ea4335;
+    background: color-mix(in srgb, #ea4335 12%, var(--bg-surface));
+    color: var(--text-primary);
+    margin-top: var(--s-2);
+}
+
+.btn.dd-go-live-active {
+    border-color: #ea4335;
+    background: color-mix(in srgb, #ea4335 14%, var(--bg-surface));
+    color: #ea4335;
+    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.5);
+    animation: dd-go-live-pulse 2.4s ease-out infinite;
+}
+
+@keyframes dd-go-live-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.5);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(234, 67, 53, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(234, 67, 53, 0);
+    }
+}
+
+.dd-live-entries {
+    max-height: 240px;
+    overflow-y: auto;
+    margin-top: var(--s-3);
+    padding-right: var(--s-1);
+}
+
+.dd-live-entries-empty {
+    padding: var(--s-3);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-control);
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: center;
+}
+
+.dd-live-entries-time {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 10px;
+}
