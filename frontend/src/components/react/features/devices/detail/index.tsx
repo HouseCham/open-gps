@@ -63,11 +63,13 @@ const RevokeAccessModal = lazy(() =>
  * @interface DeviceDetailPageProps
  * @prop {Language} locale - Locale.
  * @prop {Translation['device']} translations - Translations.
+ * @prop {Translation['date']} dateTranslations - Date-related translation strings.
  * @prop {string} pageLabel - Page label.
  */
 interface DeviceDetailPageProps {
     locale: Language;
     translations: Translation['device'];
+    dateTranslations: Translation['date'];
     pageLabel: string;
 }
 
@@ -79,6 +81,7 @@ interface DeviceDetailPageProps {
 export function DeviceDetailPage({
     locale,
     translations: t,
+    dateTranslations: date,
     pageLabel,
 }: DeviceDetailPageProps): JSX.Element {
     const {
@@ -320,6 +323,7 @@ export function DeviceDetailPage({
                 status={status}
                 locale={locale}
                 translations={t}
+                date={date}
                 onBack={goBack}
                 onShare={() => setInviteOpen(true)}
                 onEdit={() => setEditOpen(true)}
@@ -343,6 +347,7 @@ export function DeviceDetailPage({
                 status={status}
                 locale={locale}
                 translations={t}
+                date={date}
             />
 
             {/* GPS Telemetry Section */}
@@ -358,6 +363,7 @@ export function DeviceDetailPage({
                         location={latest}
                         locale={locale}
                         translations={t}
+                        date={date}
                         loading={locationLoading}
                         onRefresh={() => {
                             if (deviceId) void getLatestLocation(deviceId);
@@ -369,6 +375,7 @@ export function DeviceDetailPage({
                         location={latest}
                         locale={locale}
                         translations={t}
+                        date={date}
                         liveEntries={liveEntries}
                         liveMode={liveMode}
                     />
@@ -387,6 +394,7 @@ export function DeviceDetailPage({
                     device={device}
                     locale={locale}
                     translations={t}
+                    date={date}
                 />
             </section>
 
@@ -402,6 +410,7 @@ export function DeviceDetailPage({
                     device={device}
                     locale={locale}
                     translations={t}
+                    date={date}
                     onInvite={() => setInviteOpen(true)}
                     onRevoke={setRevokeTarget}
                 />

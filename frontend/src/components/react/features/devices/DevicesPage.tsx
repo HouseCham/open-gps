@@ -51,11 +51,13 @@ const EditDeviceModal = lazy(() =>
  * @interface DevicesPageProps
  * @prop {Language} locale - The locale for the page.
  * @prop {Translation['device']} translations - The translations for the page.
+ * @prop {Translation['date']} dateTranslations - Date-related translation strings.
  * @prop {string} pageLabel - The label for the page.
  */
 interface DevicesPageProps {
     locale: Language;
     translations: Translation['device'];
+    dateTranslations: Translation['date'];
     pageLabel: string;
 }
 /**
@@ -66,6 +68,7 @@ interface DevicesPageProps {
 export function DevicesPage({
     locale,
     translations: t,
+    dateTranslations: date,
     pageLabel,
 }: DevicesPageProps): JSX.Element {
     const {
@@ -338,6 +341,7 @@ export function DevicesPage({
             ) : (
                 <DevicesTable
                     t={t}
+                    date={date}
                     devices={filtered}
                     locale={locale}
                     onEdit={setEditTarget}

@@ -36,6 +36,7 @@ import {
  * @prop {LocationPoint | null} location - Location details.
  * @prop {Language} locale - Locale.
  * @prop {Translation['device']} translations - Translations.
+ * @prop {Translation['date']} date - Date-related translation strings.
  * @prop {boolean} loading - Loading state.
  * @prop {() => void} onRefresh - Callback for the refresh button.
  * @prop {() => void} onGoLive - Callback for the go live / stop live toggle.
@@ -45,6 +46,7 @@ interface MapCardProps {
     location: LocationPoint | null;
     locale: Language;
     translations: Translation['device'];
+    date: Translation['date'];
     loading: boolean;
     onRefresh: () => void;
     onGoLive: () => void;
@@ -59,6 +61,7 @@ export function MapCard({
     location,
     locale,
     translations,
+    date,
     loading,
     onRefresh,
     onGoLive,
@@ -91,7 +94,7 @@ export function MapCard({
                     <h3>{t.liveGps}</h3>
                     <div className="dd-card-sub">
                         {location
-                            ? `${t.latestReading} · ${formatRelativeTime(location.recorded_at, locale)}`
+                            ? `${t.latestReading} · ${formatRelativeTime(location.recorded_at, locale, date)}`
                             : t.noLocation}
                     </div>
                 </div>

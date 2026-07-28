@@ -15,12 +15,14 @@ import { IconButton } from '@/components/react/ui/button';
  * Props for the AccessKeysTable component.
  * @interface AccessKeysTableProps
  * @prop {Translation['apiKeys']['table']} t - Localized column labels.
+ * @prop {Translation['date']} date - Date-related translation strings.
  * @prop {ApiKeyRow[]} rows - Filtered API key rows to render.
  * @prop {Language} locale - Active locale for relative-time formatting.
  * @prop {(row: ApiKeyRow) => void} onDelete - Open the revoke confirmation.
  */
 interface AccessKeysTableProps {
     t: Translation['apiKeys']['table'];
+    date: Translation['date'];
     rows: ApiKeyRow[];
     locale: Language;
     onDelete: (row: ApiKeyRow) => void;
@@ -35,6 +37,7 @@ interface AccessKeysTableProps {
  */
 export function AccessKeysTable({
     t,
+    date,
     rows,
     locale,
     onDelete,
@@ -101,7 +104,7 @@ export function AccessKeysTable({
                             <td
                                 className={`access-cell-time${row.created_at ? '' : ' never'}`}
                             >
-                                {formatRelativeTime(row.created_at, locale)}
+                                {formatRelativeTime(row.created_at, locale, date)}
                             </td>
                             {/* Last used — ApiKeyRow omits this; backend
                                 endpoint will add it later. */}

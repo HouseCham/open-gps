@@ -27,6 +27,7 @@ import { formatRelativeTime } from '@/lib';
  * @prop {DeviceStatus} status - Device status.
  * @prop {Language} locale - Locale.
  * @prop {Translation['device']} translations - Translations.
+ * @prop {Translation['date']} date - Date-related translation strings.
  * @prop {() => void} onBack - Callback for the back button.
  * @prop {() => void} onShare - Callback for the share button.
  * @prop {() => void} onEdit - Callback for the edit button.
@@ -37,6 +38,7 @@ interface VehicleDetailHeaderProps {
     status: DeviceStatus;
     locale: Language;
     translations: Translation['device'];
+    date: Translation['date'];
     onBack: () => void;
     onShare: () => void;
     onEdit: () => void;
@@ -52,6 +54,7 @@ export function VehicleDetailHeader({
     status,
     locale,
     translations,
+    date,
     onBack,
     onShare,
     onEdit,
@@ -91,7 +94,7 @@ export function VehicleDetailHeader({
                     <span className="dd-sub-item">
                         <Clock3 size={12} />
                         {t.lastPing}{' '}
-                        {formatRelativeTime(device.last_seen_at, locale)}
+                        {formatRelativeTime(device.last_seen_at, locale, date)}
                     </span>
                     <span className="dd-sub-item">
                         <Shield size={12} />

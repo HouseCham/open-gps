@@ -27,6 +27,7 @@ import {
  * @prop {Translation['user']['detail']} t - Translation strings for the modal body.
  * @prop {Translation['admin']['roles']} roleLabels - Localized role labels.
  * @prop {Translation['user']['table']} tableLabels - Localized table strings (verified/unverified/password labels).
+ * @prop {Translation['date']} date - Date-related translation strings.
  */
 interface UserDetailModalProps {
     user: UserWithDevices | null;
@@ -35,6 +36,7 @@ interface UserDetailModalProps {
     t: Translation['user']['detail'];
     roleLabels: Translation['admin']['roles'];
     tableLabels: Translation['user']['table'];
+    date: Translation['date'];
 }
 
 /**
@@ -50,6 +52,7 @@ export function UserDetailModal({
     t,
     roleLabels,
     tableLabels,
+    date,
 }: UserDetailModalProps): JSX.Element | null {
     if (!user) return null;
     const devices = user.devices ?? [];
@@ -123,7 +126,7 @@ export function UserDetailModal({
                     <div className="userdetail-value">
                         {formatDate(locale, user.created_at)}
                         <span className="userdetail-relative">
-                            · {formatRelativeTime(user.created_at, locale)}
+                            · {formatRelativeTime(user.created_at, locale, date)}
                         </span>
                     </div>
                 </div>

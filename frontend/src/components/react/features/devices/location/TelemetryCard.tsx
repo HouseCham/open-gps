@@ -17,6 +17,7 @@ import type { JSX } from 'react/jsx-runtime';
  * @prop {LocationPoint | null} location - Location details.
  * @prop {Language} locale - Locale.
  * @prop {Translation['device']} translations - Translations.
+ * @prop {Translation['date']} date - Date-related translation strings.
  * @prop {LocationPoint[]} liveEntries - Log of points polled while live mode is on.
  * @prop {boolean} liveMode - Whether live polling is currently active.
  */
@@ -24,6 +25,7 @@ interface TelemetryCardProps {
     location: LocationPoint | null;
     locale: Language;
     translations: Translation['device'];
+    date: Translation['date'];
     liveEntries: LocationPoint[];
     liveMode: boolean;
 }
@@ -37,6 +39,7 @@ export function TelemetryCard({
     location,
     locale,
     translations,
+    date,
     liveEntries,
     liveMode,
 }: TelemetryCardProps): JSX.Element {
@@ -80,7 +83,7 @@ export function TelemetryCard({
               {
                   icon: <Clock3 size={14} />,
                   label: t.telemetry.recorded,
-                  value: formatRelativeTime(location.recorded_at, locale),
+                  value: formatRelativeTime(location.recorded_at, locale, date),
               },
           ]
         : [];
@@ -152,7 +155,8 @@ export function TelemetryCard({
                                             <span className="dd-live-entries-time">
                                                 {formatRelativeTime(
                                                     entry.recorded_at,
-                                                    locale
+                                                    locale,
+                                                    date
                                                 )}
                                             </span>
                                         </div>
