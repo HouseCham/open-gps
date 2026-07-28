@@ -11,37 +11,37 @@ Make sure `migrate` is installed and available in your PATH. See [README.md](./R
 ### Apply all pending migrations
 **Creates all new migration files that haven't been applied yet.**
 ```bash
-migrate -path ./migrations -database "$DATABASE_URL" up
+migrate -path ../migrate/migrations -database "$DATABASE_URL" up
 ```
 
 ### Rollback the last migration
 **Reverts the most recently applied migration.**
 ```bash
-migrate -path ./migrations -database "$DATABASE_URL" down 1
+migrate -path ../migrate/migrations -database "$DATABASE_URL" down 1
 ```
 
 ### Check current migration version
 **Shows the last applied migration version.**
 ```bash
-migrate -path ./migrations -database "$DATABASE_URL" version
+migrate -path ../migrate/migrations -database "$DATABASE_URL" version
 ```
 
 ### Apply a specific number of migrations
 **Runs `n` migrations forward.**
 ```bash
-migrate -path ./migrations -database "$DATABASE_URL" up N
+migrate -path ../migrate/migrations -database "$DATABASE_URL" up N
 ```
 
 ### Rollback a specific number of migrations
 **Reverts `n` migrations.**
 ```bash
-migrate -path ./migrations -database "$DATABASE_URL" down N
+migrate -path ../migrate/migrations -database "$DATABASE_URL" down N
 ```
 
 ### Force a specific version
 **Sets the migration version without running migrations (use with caution).**
 ```bash
-migrate -path ./migrations -database "$DATABASE_URL" force VERSION
+migrate -path ../migrate/migrations -database "$DATABASE_URL" force VERSION
 ```
 
 ## Notes
