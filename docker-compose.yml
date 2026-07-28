@@ -57,7 +57,6 @@ services:
       JWT_JWKS_URL: ${JWT_JWKS_URL:-http://localhost/api/auth/.well-known/jwks.json}
       JWT_ISSUER: ${JWT_ISSUER:-http://localhost}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-gps-tracker-api}
-      SERVER_PORT: 8080
       AUTHULA_BASE_URL: ${AUTHULA_BASE_URL}
       AUTHULA_SECRET: ${AUTHULA_SECRET}
       AUTHULA_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD:-gps_pass}@db:5432/${POSTGRES_DB}?sslmode=disable
