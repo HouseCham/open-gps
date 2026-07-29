@@ -149,6 +149,7 @@ export const es: Translation = {
         brandSubtitle:
             'Rastreo GPS auto-hospedado para furgonetas de reparto, alquileres y equipos de campo — sin bloqueo de SaaS, sin reventa de datos.',
         svgStatus: 'EN VIVO  •  5 paradas  •  ● en ruta',
+        loading: 'Cargando…',
         footerHost: 'auth.open-gps.local',
         footerTech: 'hecho con Go + Astro',
         metaDescription: 'Open GPS · Auth',

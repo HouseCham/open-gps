@@ -560,6 +560,20 @@ textarea.textarea {
     border-color: var(--gp-accent);
 }
 
+.auth-gate__fallback {
+    min-height: 100vh;
+    padding: var(--s-6);
+    display: grid;
+    place-items: center;
+    background: var(--gp-bg);
+}
+
+.auth-gate__fallback svg {
+    width: 100%;
+    max-width: 380px;
+    height: auto;
+}
+
 /* =====================================================================
    AuthLayout split
    ===================================================================== */
