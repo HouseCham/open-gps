@@ -4,7 +4,9 @@ import { lazy, Suspense, useEffect, useState, type JSX } from 'react';
 //-- Types
 import type { CreatedUser, CreateUserDto, User } from '@/types/api';
 import type { Translation } from '@/i18n';
-import type { Language } from '@/types';
+import type { Language, WelcomeEmailRequest } from '@/types';
+//-- Constants
+import { RESEND_IS_ENABLED } from '@/constants';
 //-- Utils
 import {
     computeFilterCounts,
@@ -24,6 +26,7 @@ import type {
 } from '@/types/api';
 //-- Services
 import { useUserService } from '@/lib/api/services/userService';
+import { useEmail } from '@/lib/hooks';
 //-- Stores
 import { toastBus } from '@/lib/stores/toast.store';
 //-- Icons
@@ -104,6 +107,7 @@ export function UsersPage({
         createUser,
         deleteUser,
     } = useUserService();
+    const { sendWelcomeEmail } = useEmail();
 
     const [query, setQuery] = useState('');
     const [emailFilter, setEmailFilter] = useState<UserEmailFilter>('all');
@@ -142,6 +146,23 @@ export function UsersPage({
         setQuery('');
         setEmailFilter('all');
     };
+    /**
+     * Send a welcome email to a user.
+     * @param {User} user - The user to send the email to.
+     * @returns {void}
+     */
+    const handleSendEmail = (user:CreatedUser): void => {
+        if (!RESEND_IS_ENABLED) return;
+        const request: WelcomeEmailRequest = {
+            email: user.email,
+            first_name: user.name,
+            subject: "Welcome to your new account!",
+            temporary_password: user.temporary_password,
+            // to: user.email,
+            to: "ramsesramirezvallejo@gmail.com"
+        };
+        void sendWelcomeEmail(request, locale);
+    };
 
     /**
      * Submit the create-user form.
@@ -162,6 +183,7 @@ export function UsersPage({
                     name,
                 }),
             });
+            handleSendEmail(created);
         } catch (err) {
             // service already pushed a toast via withApiErrorToast; keep
             // the modal open so the admin can retry without re-typing.

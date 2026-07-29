@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 //-- Hooks
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useAuth } from '@/lib/hooks';
 //-- Constants
 import { DASHBOARD_PATH, LOGIN_PATH, SIGNUP_PATH } from '@/constants/auth';
 //-- Utils

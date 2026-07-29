@@ -74,6 +74,11 @@ services:
     restart: unless-stopped
     expose:
       - "80"
+    environment:
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      WELCOME_EMAIL_TEMPLATE_EN: ${WELCOME_EMAIL_TEMPLATE_EN}
+      WELCOME_EMAIL_TEMPLATE_ES: ${WELCOME_EMAIL_TEMPLATE_ES}
+      EMAIL_FROM: ${EMAIL_FROM}
     volumes:
       - frontend_dist:/app/dist
     depends_on:

@@ -1,8 +1,13 @@
-import { Resend } from "resend";
+import { Resend } from 'resend';
 //-- Types
-import type { Language, WelcomeEmailRequest } from "@/types";
+import type { Language, WelcomeEmailRequest } from '@/types';
 //-- Constants
-import { EMAIL_FROM, WELCOME_EMAIL_TEMPLATE_EN, WELCOME_EMAIL_TEMPLATE_ES } from "@/constants";
+import {
+    EMAIL_FROM,
+    RESEND_API_KEY,
+    WELCOME_EMAIL_TEMPLATE_EN,
+    WELCOME_EMAIL_TEMPLATE_ES,
+} from '@/constants';
 
 /**
  * Email service
@@ -17,17 +22,23 @@ interface EmailService {
  * @returns {EmailService} The email service connected to Resend
  */
 export function useEmail(): EmailService {
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    const resend = new Resend(RESEND_API_KEY);
     /**
      * Send a welcome email to the user
      * @param {WelcomeEmailRequest} data - The data to send in the email
      * @param {Language} locale - The language of the email
-     * @returns {Promise<void>} 
+     * @returns {Promise<void>}
      */
-    async function sendWelcomeEmail(data: WelcomeEmailRequest, locale: Language): Promise<void> {
+    async function sendWelcomeEmail(
+        data: WelcomeEmailRequest,
+        locale: Language
+    ): Promise<void> {
         const { to, subject, first_name, temporary_password, email } = data;
         try {
-            const templateId = locale === 'en' ? WELCOME_EMAIL_TEMPLATE_EN : WELCOME_EMAIL_TEMPLATE_ES;
+            const templateId =
+                locale === 'en'
+                    ? WELCOME_EMAIL_TEMPLATE_EN
+                    : WELCOME_EMAIL_TEMPLATE_ES;
             // verify that the template exists
             if (!templateId) {
                 throw new Error('Template not found');
@@ -41,7 +52,7 @@ export function useEmail(): EmailService {
                     variables: {
                         first_name,
                         temporary_password,
-                        email
+                        email,
                     },
                 },
             });
@@ -55,6 +66,6 @@ export function useEmail(): EmailService {
     }
 
     return {
-        sendWelcomeEmail
-    }
+        sendWelcomeEmail,
+    };
 }

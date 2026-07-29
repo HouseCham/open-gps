@@ -4,7 +4,7 @@ import { useStore } from '@nanostores/react';
 import { $sidebarOpen, closeSidebar } from '@/lib/stores/layout';
 import { $user } from '@/lib/stores/auth';
 //-- Hooks
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useAuth } from '@/lib/hooks';
 //-- Types
 import type { Translation } from '@/i18n';
 import type { Language } from '@/types';
