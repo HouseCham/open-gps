@@ -54,29 +54,15 @@ services:
       migrate:
         condition: service_completed_successfully
 
-  frontend:
-    image: chamito/open-gps-frontend:dev
-    restart: unless-stopped
-    expose:
-      - "80"
-    volumes:
-      - frontend_dist:/app/dist
-    depends_on:
-      - api
-
   nginx:
     image: chamito/open-gps-nginx:dev
     restart: unless-stopped
     expose:
       - "80"
-    volumes:
-      - frontend_dist:/var/www/html:ro
     environment:
       NGINX_API_UPSTREAM: ${NGINX_API_UPSTREAM:-api:8080}
     depends_on:
-      - frontend
       - api
 
 volumes:
-  frontend_dist:
   postgres_data:
