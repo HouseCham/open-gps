@@ -150,7 +150,11 @@ export function DevicesTable({
                                 <td
                                     className={`dev-cell-time${d.last_seen_at ? '' : ' never'}`}
                                 >
-                                    {formatRelativeTime(d.last_seen_at, locale, date)}
+                                    {formatRelativeTime(
+                                        d.last_seen_at,
+                                        locale,
+                                        date
+                                    )}
                                 </td>
                                 {/* Actions */}
                                 <td className="col-actions">

@@ -20,6 +20,7 @@ import { RouteFallback } from './RouteFallback';
 interface OnlyAdminRouteProps extends PropsWithChildren {
     locale: Language;
     fallback?: ReactNode;
+    loadingMessage: string;
 }
 
 /**
@@ -31,6 +32,7 @@ export function OnlyAdminRoute({
     children,
     locale,
     fallback,
+    loadingMessage,
 }: OnlyAdminRouteProps): React.JSX.Element {
     const { isAuthenticated, isAuthLoading, role, isRoleLoaded } = useAuth();
 
@@ -49,7 +51,7 @@ export function OnlyAdminRoute({
     }, [isAuthLoading, isAuthenticated, isRoleLoaded, role, locale]);
 
     if (isAuthLoading || !isAuthenticated || !isRoleLoaded) {
-        return <>{fallback ?? <RouteFallback />}</>;
+        return <>{fallback ?? <RouteFallback message={loadingMessage} />}</>;
     }
 
     if (!isSuperAdmin(role)) {

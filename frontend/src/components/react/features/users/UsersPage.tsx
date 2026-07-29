@@ -128,12 +128,7 @@ export function UsersPage({
         void getUserByID(detailTarget.id);
     }, [detailTarget]);
 
-    const filtered = filterAndSortUsers(
-        users,
-        query,
-        emailFilter,
-        sortBy
-    );
+    const filtered = filterAndSortUsers(users, query, emailFilter, sortBy);
 
     const counts: UserFilterCounts = computeFilterCounts(users);
 

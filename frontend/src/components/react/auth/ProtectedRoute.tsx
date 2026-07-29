@@ -23,6 +23,7 @@ import { RouteFallback } from './RouteFallback';
  */
 interface ProtectedRouteProps extends PropsWithChildren {
     fallback?: ReactNode;
+    loadingMessage: string;
 }
 
 /**
@@ -34,6 +35,7 @@ interface ProtectedRouteProps extends PropsWithChildren {
 export function ProtectedRoute({
     children,
     fallback,
+    loadingMessage,
 }: ProtectedRouteProps): React.JSX.Element {
     const { isAuthenticated, isAuthLoading } = useAuth();
     const [bootstrapStatus, setBootstrapStatus] =
@@ -58,11 +60,11 @@ export function ProtectedRoute({
     }, [isAuthLoading, isAuthenticated, bootstrapStatus]);
 
     if (isAuthLoading) {
-        return <>{fallback ?? <RouteFallback />}</>;
+        return <>{fallback ?? <RouteFallback message={loadingMessage} />}</>;
     }
 
     if (!isAuthenticated && bootstrapStatus === null) {
-        return <>{fallback ?? <RouteFallback />}</>;
+        return <>{fallback ?? <RouteFallback message={loadingMessage} />}</>;
     }
 
     if (!isAuthenticated) {

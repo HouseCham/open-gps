@@ -39,3 +39,5 @@ export type { StatusBadgeProps } from './ui/StatusBadge';
 
 export { StatusIndicator } from './ui/StatusIndicator';
 export type { StatusIndicatorProps } from './ui/StatusIndicator';
+
+export * from './MapSVG';

@@ -144,6 +144,7 @@ export const en = {
         brandSubtitle:
             'Self-hostable GPS tracking for delivery vans, rentals, and field teams — no SaaS lock-in, no data resale.',
         svgStatus: 'LIVE  •  5 stops  •  ● en route',
+        loading: 'Loading…',
         footerHost: 'auth.open-gps.local',
         footerTech: 'built with Go + Astro',
         metaDescription: 'Open GPS · Auth',

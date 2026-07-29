@@ -202,8 +202,7 @@ export function DeviceDetailPage({
         toastBus.push({
             variant: 'error',
             title: t.detail.connectionLost,
-            message:
-                locationError.message || t.detail.connectionLostMessage,
+            message: locationError.message || t.detail.connectionLostMessage,
         });
     }, [liveMode, locationError]);
 

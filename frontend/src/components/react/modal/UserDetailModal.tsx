@@ -126,7 +126,8 @@ export function UserDetailModal({
                     <div className="userdetail-value">
                         {formatDate(locale, user.created_at)}
                         <span className="userdetail-relative">
-                            · {formatRelativeTime(user.created_at, locale, date)}
+                            ·{' '}
+                            {formatRelativeTime(user.created_at, locale, date)}
                         </span>
                     </div>
                 </div>
