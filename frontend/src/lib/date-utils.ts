@@ -24,7 +24,10 @@ export function formatRelativeTime(
     if (absolute < 60) return t.relative.justNow;
     const minutes = Math.round(seconds / 60);
     if (Math.abs(minutes) < 60)
-        return t.relative.minutesAgo.replace('{count}', String(Math.abs(minutes)));
+        return t.relative.minutesAgo.replace(
+            '{count}',
+            String(Math.abs(minutes))
+        );
     const hours = Math.round(minutes / 60);
     if (Math.abs(hours) < 24)
         return t.relative.hoursAgo.replace('{count}', String(Math.abs(hours)));
