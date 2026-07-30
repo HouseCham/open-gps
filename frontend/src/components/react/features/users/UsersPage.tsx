@@ -4,7 +4,7 @@ import { lazy, Suspense, useEffect, useState, type JSX } from 'react';
 //-- Types
 import type { CreatedUser, CreateUserDto, User } from '@/types/api';
 import type { Translation } from '@/i18n';
-import type { Language } from '@/types';
+import type { Language, WelcomeEmailRequest } from '@/types';
 //-- Utils
 import {
     computeFilterCounts,
@@ -33,6 +33,7 @@ import {
     UserPlus,
     Users as UsersIcon,
 } from 'lucide-react';
+import { useEmailService } from '@/lib/api/services';
 //-- Lazy components
 const AddUserModal = lazy(() =>
     import('@/components/react/modal/AddUserModal').then(m => ({
@@ -104,6 +105,7 @@ export function UsersPage({
         createUser,
         deleteUser,
     } = useUserService();
+    const { sendWelcomeEmail } = useEmailService();
 
     const [query, setQuery] = useState('');
     const [emailFilter, setEmailFilter] = useState<UserEmailFilter>('all');
@@ -142,7 +144,34 @@ export function UsersPage({
         setQuery('');
         setEmailFilter('all');
     };
-
+    /**
+     * Send a welcome email to a user.
+     * @param {User} user - The user to send the email to.
+     * @returns {void}
+     */
+    const handleSendEmail = async (user: CreatedUser): Promise<void> => {
+        const request: WelcomeEmailRequest = {
+            email: user.email,
+            first_name: user.name,
+            subject: t.tempPassword.emailSubject,
+            temporary_password: user.temporary_password,
+            locale,
+        };
+        const ok = await sendWelcomeEmail(request);
+        // if the email was sent successfully, show a toast only
+        if (ok) {
+            toastBus.push({
+                variant: 'success',
+                title: t.toast.emailSent.title,
+                message: interpolateTemplate(t.toast.emailSent.message, {
+                    name: `${user.name} ${user.lastname}`.trim(),
+                }),
+            });
+        // otherwise, show the temporary password in the modal
+        } else {
+            setCreatedUser(user);
+        }
+    };
     /**
      * Submit the create-user form.
      * @param {CreateUserDto} payload - The validated form payload.
@@ -152,7 +181,6 @@ export function UsersPage({
         setCreateLoading(true);
         try {
             const created = await createUser(payload);
-            setCreatedUser(created);
             setAddOpen(false);
             const name = `${created.name} ${created.lastname}`.trim();
             toastBus.push({
@@ -162,11 +190,12 @@ export function UsersPage({
                     name,
                 }),
             });
+            handleSendEmail(created);
         } catch (err) {
             // service already pushed a toast via withApiErrorToast; keep
             // the modal open so the admin can retry without re-typing.
-            // `err` is bound + ignored to satisfy the no-silent-catch rule.
-            void err;
+            // Log so we have a breadcrumb if the toast ever drops one.
+            console.error('[UsersPage] create user failed:', err);
         } finally {
             setCreateLoading(false);
         }
@@ -192,9 +221,9 @@ export function UsersPage({
             });
         } catch (err) {
             // service already pushed a toast via withApiErrorToast; leave
-            // the modal open so the admin can retry. `err` is bound + ignored
-            // to satisfy the no-silent-catch rule.
-            void err;
+            // the modal open so the admin can retry. Log so we have a
+            // breadcrumb if the toast ever drops one.
+            console.error('[UsersPage] delete user failed:', err);
         } finally {
             setDeleteLoading(false);
         }
@@ -216,6 +245,7 @@ export function UsersPage({
                     >
                         {t.page.export}
                     </Button>
+                    {/* Add user button */}
                     <Button
                         type="button"
                         variant="primary"

@@ -5,7 +5,7 @@ import {
     type ReactNode,
 } from 'react';
 //-- Hooks
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useAuth } from '@/lib/hooks';
 //-- Constants
 import { LOGIN_PATH, SIGNUP_PATH } from '@/constants/auth';
 import { redirectTo } from '@/lib';

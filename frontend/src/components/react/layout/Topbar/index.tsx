@@ -7,8 +7,7 @@ import { $user } from '@/lib/stores/auth';
 import type { Translation } from '@/i18n';
 import type { Language } from '@/types';
 //-- Hooks
-import { useAuth } from '@/lib/hooks/useAuth';
-import { useTheme } from '@/lib/hooks/useTheme';
+import { useAuth, useTheme } from '@/lib/hooks';
 //-- Constants
 import { MOBILE_BREAKPOINT } from '@/constants/layout';
 //-- Utils

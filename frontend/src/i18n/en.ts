@@ -598,6 +598,7 @@ export const en = {
         tempPassword: {
             title: 'User created',
             banner: 'Share this temporary password securely. {name} will be required to change it on first sign in.',
+            emailSubject: 'Welcome to your new account!',
             copy: 'Copy',
             copied: 'Copied',
             saved: "I've saved the password",
@@ -625,6 +626,10 @@ export const en = {
         userDeleted: {
             title: 'User deleted',
             message: '{name} no longer has access.',
+        },
+        emailSent: {
+            title: 'Welcome email sent',
+            message: '{name} will receive their temporary password by email.',
         },
         accessDenied: {
             title: 'Access denied',

@@ -5,3 +5,4 @@ export * from './userService';
 export * from './apiKeyService';
 export * from './locationService';
 export * from './authService';
+export * from './emailService';

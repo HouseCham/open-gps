@@ -615,6 +615,7 @@ export const es: Translation = {
         tempPassword: {
             title: 'Usuario creado',
             banner: 'Comparte esta contraseña temporal de forma segura. {name} deberá cambiarla en su primer inicio de sesión.',
+            emailSubject: '¡Bienvenido a tu nueva cuenta!',
             copy: 'Copiar',
             copied: 'Copiado',
             saved: 'He guardado la contraseña',
@@ -642,6 +643,10 @@ export const es: Translation = {
         userDeleted: {
             title: 'Usuario eliminado',
             message: '{name} ya no tiene acceso.',
+        },
+        emailSent: {
+            title: 'Correo de bienvenida enviado',
+            message: '{name} recibirá la contraseña temporal por correo.',
         },
         accessDenied: {
             title: 'Acceso denegado',
