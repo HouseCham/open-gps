@@ -3,8 +3,7 @@ import { useState } from "react";
 import type { WelcomeEmailRequest, WelcomeEmailResponse } from "@/types";
 import type { ApiError, Envelope } from "@/types/api";
 //-- Utils
-import { handleApiError, withApiErrorToast } from '@/lib/api/api-utils';
-import { toastBus } from '@/lib/stores/toast.store';
+import { withApiErrorToast } from '@/lib/api/api-utils';
 //-- Http Client
 import { apiClient } from '@/lib/api/client';
 
@@ -14,13 +13,13 @@ import { apiClient } from '@/lib/api/client';
  * @property {boolean} isLoading - Whether the service is currently dispatching an email.
  * @property {ApiError | null} error - The last error returned by the API, if any.
  * @property {string | null} messageId - Resend's email id from the most recent successful dispatch.
- * @method sendWelcomeEmail - Dispatches the welcome email through Resend using the locale-specific template.
+ * @method sendWelcomeEmail - Dispatches the welcome email through Resend. Resolves `true` when the API accepted the dispatch (202), `false` otherwise.
  */
 interface IEmailService {
     isLoading: boolean;
     error: ApiError | null;
     messageId: string | null;
-    sendWelcomeEmail: (request: WelcomeEmailRequest) => Promise<void>;
+    sendWelcomeEmail: (request: WelcomeEmailRequest) => Promise<boolean>;
 }
 
 /**
@@ -38,45 +37,43 @@ export const useEmailService = (): IEmailService => {
     function resetState(): void {
         setIsLoading(false);
         setError(null);
+        setMessageId(null);
     }
 
     /**
      * Dispatches the welcome email through Resend using the locale-specific
      * template. The 202 status reflects that the API accepted the dispatch;
-     * delivery itself is asynchronous on Resend's side.
+     * delivery itself is asynchronous on Resend's side. Network / 4xx / 5xx
+     * errors are surfaced through `withApiErrorToast`; this function does not
+     * throw on those paths.
      * @param {WelcomeEmailRequest} request - The payload for the welcome email.
-     * @returns {Promise<void>} Resolves when the email is dispatched and state is updated.
+     * @returns {Promise<boolean>} `true` when the API returned 202, `false` otherwise.
      */
     async function sendWelcomeEmail(
         request: WelcomeEmailRequest
-    ): Promise<void> {
+    ): Promise<boolean> {
         resetState();
         setIsLoading(true);
-        setMessageId(null);
         try {
-            const { data: response } = await withApiErrorToast(() =>
+            const result = await withApiErrorToast(() =>
                 apiClient<Envelope<WelcomeEmailResponse> | null>('/email/welcome', {
                     method: 'POST',
                     body: request,
                 })
             );
-            if (!response || !response.data) {
-                toastBus.push({
-                    variant: 'error',
-                    title: 'Error',
-                    message: 'send welcome email returned a null response',
-                });
-                handleApiError(
-                    new Error('send welcome email returned a null response')
-                );
+            const response = result?.data;
+            const ok = response?.status_code === 202;
+            if (ok && response?.data) {
+                setMessageId(response.data.message_id);
             }
-            setMessageId(response.data.message_id);
+            return ok;
         } finally {
             setIsLoading(false);
         }
     }
 
     return {
+        //-- state
         isLoading,
         error,
         messageId,

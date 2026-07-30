@@ -627,6 +627,10 @@ export const en = {
             title: 'User deleted',
             message: '{name} no longer has access.',
         },
+        emailSent: {
+            title: 'Welcome email sent',
+            message: '{name} will receive their temporary password by email.',
+        },
         accessDenied: {
             title: 'Access denied',
             message: 'This area is restricted to administrators.',

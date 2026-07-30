@@ -644,6 +644,10 @@ export const es: Translation = {
             title: 'Usuario eliminado',
             message: '{name} ya no tiene acceso.',
         },
+        emailSent: {
+            title: 'Correo de bienvenida enviado',
+            message: '{name} recibirá la contraseña temporal por correo.',
+        },
         accessDenied: {
             title: 'Acceso denegado',
             message: 'Esta área está restringida a administradores.',
