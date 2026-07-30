@@ -21,6 +21,8 @@ import (
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/handlers"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/ports"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/email"
+	"github.com/resend/resend-go/v3"
 )
 
 func main() {
@@ -113,6 +115,19 @@ func main() {
 	locationsAdapter := locations.NewAdapter(pool)
 	locationsService := locations.New(locationsAdapter, locationsAdapter)
 
+	//-- email (Resend). Config is required at startup; the loader
+	//   fails the process if anything is missing.
+	emailCfg, err := config.LoadEmailConfig()
+	if err != nil {
+		log.Error("load email config", "err", err)
+		os.Exit(1)
+	}
+	resendClient := resend.NewClient(emailCfg.APIKey)
+	emailService := email.New(resendClient, emailCfg.From, map[string]string{
+		"en": emailCfg.TemplateWelcome.EN,
+		"es": emailCfg.TemplateWelcome.ES,
+	})
+
 	//-- queries pool — kept separate so the IoT auth middleware can
 	//   use it without taking a service dependency.
 	queries := postgres.New(pool)
@@ -126,6 +141,7 @@ func main() {
 	accessHandler := handlers.NewAccessHandler(accessService)
 	apiKeysHandler := handlers.NewAPIKeysHandler(apiKeysService)
 	locationsHandler := handlers.NewLocationsHandler(locationsService)
+	emailHandler := handlers.NewEmailHandler(emailService)
 
 	app := http.NewRouter(http.RouterDeps{
 		HealthHandler:     healthHandler,
@@ -134,6 +150,7 @@ func main() {
 		AccessHandler:     accessHandler,
 		APIKeysHandler:    apiKeysHandler,
 		LocationsHandler:  locationsHandler,
+		EmailHandler:      emailHandler,
 		BootstrapHandler:  handlers.NewBootstrapHandler(usersService),
 		AccessService:     accessService,
 		UsersService:      usersService,

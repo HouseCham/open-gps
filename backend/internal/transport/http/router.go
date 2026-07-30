@@ -25,6 +25,7 @@ type RouterDeps struct {
 	AccessHandler    *handlers.AccessHandler
 	APIKeysHandler   *handlers.APIKeysHandler
 	LocationsHandler *handlers.LocationsHandler
+	EmailHandler     *handlers.EmailHandler
 	BootstrapHandler *handlers.BootstrapHandler
 	AccessService    *access.AccessService
 	UsersService     *users.Service
@@ -262,6 +263,20 @@ func NewRouter(deps RouterDeps) *fiber.App {
 		authSession,
 		middleware.ValidateRequestBody[dto.ChangePasswordRequest](),
 		deps.UsersHandler.ChangePassword,
+	)
+
+	// === Email routes ===
+	// Welcome email dispatch. super_admin only — the same gate that
+	// produces the temporary password on POST /api/v1/users. Lives
+	// at /api/v1/email/welcome so the URL reads as the resource
+	// being acted on (the welcome dispatch) rather than a verb.
+	email := apiV1.Group("/email")
+	email.Post("/welcome",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireUserRole(domain.UserRoleSuperAdmin),
+		middleware.ValidateRequestBody[dto.SendWelcomeEmailRequest](),
+		deps.EmailHandler.SendWelcome,
 	)
 
 	return app
