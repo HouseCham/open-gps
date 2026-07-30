@@ -66,7 +66,7 @@ Content-Type: application/json
 | `first_name` | string | yes | 1–100 chars | Rendered in the template as `{{first_name}}`. |
 | `temporary_password` | string | yes | 1–255 chars | Rendered in the template as `{{temporary_password}}`. The client is responsible for surfacing it to the admin before this call. |
 | `subject` | string | yes | 1–200 chars | Forwarded to Resend as the message subject. The actual rendered subject comes from the template; this field is required by the SDK contract. |
-| `locale` | string | yes | `"en"` or `"es"` | Selects which Resend template to render (`WELCOME_EMAIL_TEMPLATE_EN` / `WELCOME_EMAIL_TEMPLATE_ES`). |
+| `locale` | string | yes | `"en"` or `"es"` | Selects which Resend template to render (`WELCOME_EMAIL_TEMPLATE_EN_ID` / `WELCOME_EMAIL_TEMPLATE_ES_ID`). |
 
 **Response `202 Accepted`**
 
@@ -127,8 +127,8 @@ The handler is wired only if the four env vars below are present at startup. Mis
 |----------|---------|
 | `RESEND_API_KEY` | Resend API key used to authenticate every send. |
 | `EMAIL_FROM` | RFC-5322 From header, e.g. `Open GPS <noreply@open-gps.com>`. |
-| `WELCOME_EMAIL_TEMPLATE_EN` | Resend template id for the English welcome email. |
-| `WELCOME_EMAIL_TEMPLATE_ES` | Resend template id for the Spanish welcome email. |
+| `WELCOME_EMAIL_TEMPLATE_EN_ID` | Resend template id for the English welcome email. |
+| `WELCOME_EMAIL_TEMPLATE_ES_ID` | Resend template id for the Spanish welcome email. |
 
 ## Template Variables
 

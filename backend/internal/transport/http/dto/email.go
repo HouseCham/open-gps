@@ -10,7 +10,7 @@ type SendWelcomeEmailRequest struct {
 	TemporaryPassword string `json:"temporary_password" validate:"required,min=1,max=255"`
 	Subject           string `json:"subject"            validate:"required,min=1,max=200"`
 	// Language is the locale code that selects the Resend template.
-	// "en" -> WELCOME_EMAIL_TEMPLATE_EN, "es" -> WELCOME_EMAIL_TEMPLATE_ES.
+	// "en" -> WELCOME_EMAIL_TEMPLATE_EN_ID, "es" -> WELCOME_EMAIL_TEMPLATE_ES_ID.
 	Language string `json:"locale" validate:"required,oneof=en es"`
 }
 

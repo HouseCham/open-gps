@@ -34,8 +34,8 @@ func LoadEmailConfig() (EmailConfig, error) {
 		APIKey: os.Getenv("RESEND_API_KEY"),
 		From:   os.Getenv("EMAIL_FROM"),
 	}
-	cfg.TemplateWelcome.EN = os.Getenv("WELCOME_EMAIL_TEMPLATE_EN")
-	cfg.TemplateWelcome.ES = os.Getenv("WELCOME_EMAIL_TEMPLATE_ES")
+	cfg.TemplateWelcome.EN = os.Getenv("WELCOME_EMAIL_TEMPLATE_EN_ID")
+	cfg.TemplateWelcome.ES = os.Getenv("WELCOME_EMAIL_TEMPLATE_ES_ID")
 
 	if cfg.APIKey == "" {
 		return EmailConfig{}, fmt.Errorf("email config: RESEND_API_KEY is required")
@@ -51,10 +51,10 @@ func LoadEmailConfig() (EmailConfig, error) {
 		return EmailConfig{}, fmt.Errorf("email config: EMAIL_FROM is invalid (%q): %w", cfg.From, err)
 	}
 	if cfg.TemplateWelcome.EN == "" {
-		return EmailConfig{}, fmt.Errorf("email config: WELCOME_EMAIL_TEMPLATE_EN is required")
+		return EmailConfig{}, fmt.Errorf("email config: WELCOME_EMAIL_TEMPLATE_EN_ID is required")
 	}
 	if cfg.TemplateWelcome.ES == "" {
-		return EmailConfig{}, fmt.Errorf("email config: WELCOME_EMAIL_TEMPLATE_ES is required")
+		return EmailConfig{}, fmt.Errorf("email config: WELCOME_EMAIL_TEMPLATE_ES_ID is required")
 	}
 	return cfg, nil
 }
