@@ -598,6 +598,7 @@ export const en = {
         tempPassword: {
             title: 'User created',
             banner: 'Share this temporary password securely. {name} will be required to change it on first sign in.',
+            emailSubject: 'Welcome to your new account!',
             copy: 'Copy',
             copied: 'Copied',
             saved: "I've saved the password",

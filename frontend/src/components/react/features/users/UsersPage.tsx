@@ -5,8 +5,6 @@ import { lazy, Suspense, useEffect, useState, type JSX } from 'react';
 import type { CreatedUser, CreateUserDto, User } from '@/types/api';
 import type { Translation } from '@/i18n';
 import type { Language, WelcomeEmailRequest } from '@/types';
-//-- Constants
-import { RESEND_IS_ENABLED } from '@/constants';
 //-- Utils
 import {
     computeFilterCounts,
@@ -26,7 +24,6 @@ import type {
 } from '@/types/api';
 //-- Services
 import { useUserService } from '@/lib/api/services/userService';
-import { useEmail } from '@/lib/hooks';
 //-- Stores
 import { toastBus } from '@/lib/stores/toast.store';
 //-- Icons
@@ -36,6 +33,7 @@ import {
     UserPlus,
     Users as UsersIcon,
 } from 'lucide-react';
+import { useEmailService } from '@/lib/api/services';
 //-- Lazy components
 const AddUserModal = lazy(() =>
     import('@/components/react/modal/AddUserModal').then(m => ({
@@ -107,7 +105,7 @@ export function UsersPage({
         createUser,
         deleteUser,
     } = useUserService();
-    const { sendWelcomeEmail } = useEmail();
+    const { sendWelcomeEmail } = useEmailService();
 
     const [query, setQuery] = useState('');
     const [emailFilter, setEmailFilter] = useState<UserEmailFilter>('all');
@@ -152,18 +150,15 @@ export function UsersPage({
      * @returns {void}
      */
     const handleSendEmail = (user:CreatedUser): void => {
-        if (!RESEND_IS_ENABLED) return;
         const request: WelcomeEmailRequest = {
             email: user.email,
             first_name: user.name,
-            subject: "Welcome to your new account!",
+            subject: t.tempPassword.emailSubject,
             temporary_password: user.temporary_password,
-            // to: user.email,
-            to: "ramsesramirezvallejo@gmail.com"
+            locale
         };
-        void sendWelcomeEmail(request, locale);
+        void sendWelcomeEmail(request);
     };
-
     /**
      * Submit the create-user form.
      * @param {CreateUserDto} payload - The validated form payload.
@@ -238,6 +233,7 @@ export function UsersPage({
                     >
                         {t.page.export}
                     </Button>
+                    {/* Add user button */}
                     <Button
                         type="button"
                         variant="primary"

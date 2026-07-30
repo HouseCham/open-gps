@@ -615,6 +615,7 @@ export const es: Translation = {
         tempPassword: {
             title: 'Usuario creado',
             banner: 'Comparte esta contraseña temporal de forma segura. {name} deberá cambiarla en su primer inicio de sesión.',
+            emailSubject: '¡Bienvenido a tu nueva cuenta!',
             copy: 'Copiar',
             copied: 'Copiado',
             saved: 'He guardado la contraseña',
