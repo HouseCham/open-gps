@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <esp_task_wdt.h>
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 #include "gps_board.h"
 #include "location_payload.h"
@@ -12,39 +14,41 @@ static Secrets  secrets;
 static bool     wifi_up = false;
 
 void setup() {
+    // Rationale: Mask BOD to survive the initial high-current transient from unmanaged power rails.
+    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+
+    // Rationale: Immediate PMU configuration block to collapse default high-draw states.
+    if (!board.begin()) {
+        WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); // Restore BOD before halting
+        Serial.begin(115200);
+        Serial.println(F("[HALT] Hardware bring-up failed; rebooting in 5 s"));
+        Serial.flush();
+        delay(5000);
+        ESP.restart();
+    }
+
+    // Rationale: Rails are now stable. Restore hardware brownout protection immediately.
+    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1);
+
     Serial.begin(115200);
-    // Head-start delay so an operator can press RST and still have time
-    // to attach a serial monitor before the boot logs scroll past. The
-    // ESP32-S3 USB-CDC port also re-enumerates on reset, which most
-    // monitors handle by dropping the connection; this delay gives the
-    // host a moment to re-establish before setup() emits anything.
-    delay(3000);
+    delay(3000); 
     Serial.println(F("\n[BOOT] T-SIM7080G-S3 GPS bring-up"));
     Serial.flush();
 
     esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true);
     esp_task_wdt_add(NULL);
 
-    if (!board.begin()) {
-        Serial.println(F("[HALT] bring-up failed; rebooting in 5 s"));
-        Serial.flush();
-        delay(5000);
-        ESP.restart();
-    }
-    Serial.flush();
-
     if (!secrets_load(secrets)) {
-        Serial.println(F("[ERR ] secrets missing — copy config/secrets.example.h to config/secrets.h and fill uuid + api_key"));
-        Serial.println(F("[HALT] rebooting in 5 s"));
+        Serial.println(F("[ERR ] secrets missing"));
         Serial.flush();
         delay(5000);
         ESP.restart();
     }
+    
     secrets_print_diag(secrets);
     Serial.flush();
 
     wifi_up = transport_begin(secrets);
-    Serial.flush();
 }
 
 void loop() {
