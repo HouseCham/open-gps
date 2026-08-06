@@ -84,7 +84,9 @@ bool GpsBoard::begin() {
     if (!is_modem_responsive) {
         return false;
     }
-    
+
+    modem.enableGPS();
+
     return true;
 }
 
