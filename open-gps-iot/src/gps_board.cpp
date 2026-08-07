@@ -9,6 +9,8 @@
 
 static XPowersPMU PMU;
 
+XPowersPMU& board_pmu() { return PMU; }
+
 #ifdef DUMP_AT_COMMANDS
 #include <StreamDebugger.h>
 static StreamDebugger s_modemDbg(Serial1, Serial);
@@ -48,9 +50,6 @@ static bool pmuInit() {
 
     // Rationale: Stabilize DC3 output voltage before attempting modem communication.
     delay(500);
-
-    // Rationale: Visual heartbeat indicating ESP32 successfully bypassed BOD.
-    PMU.setChargingLedMode(XPOWERS_CHG_LED_BLINK_4HZ);
 
     return true;
 }

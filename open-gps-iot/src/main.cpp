@@ -8,6 +8,7 @@
 #include "transport.h"
 #include "config.h"
 #include "secrets.h"
+#include "telemetry.h"
 
 static GpsBoard board;
 static Secrets  secrets;
@@ -31,9 +32,11 @@ void setup() {
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1);
 
     Serial.begin(115200);
-    delay(3000); 
+    delay(3000);
     Serial.println(F("\n[BOOT] T-SIM7080G-S3 GPS bring-up"));
     Serial.flush();
+
+    telemetry_set_state(SystemState::BOOTING);
 
     esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true);
     esp_task_wdt_add(NULL);
@@ -41,18 +44,31 @@ void setup() {
     if (!secrets_load(secrets)) {
         Serial.println(F("[ERR ] secrets missing"));
         Serial.flush();
-        delay(5000);
-        ESP.restart();
+        telemetry_set_state(SystemState::ERR_SECRETS);
+        while (true) {
+            telemetry_tick();
+            esp_task_wdt_reset();
+            delay(10);
+        }
     }
-    
+
     secrets_print_diag(secrets);
     Serial.flush();
 
+    telemetry_set_state(SystemState::CONNECTING_NETWORK);
     wifi_up = transport_begin(secrets);
+
+    if (!wifi_up) {
+        Serial.println(F("[ERR ] WiFi connect failed; remaining in ERR_NETWORK until reset"));
+        telemetry_set_state(SystemState::ERR_NETWORK);
+    } else {
+        telemetry_set_state(SystemState::WAITING_GNSS_FIX);
+    }
 }
 
 void loop() {
     esp_task_wdt_reset();
+    telemetry_tick();
 
     static unsigned long lastPoll = 0;
     static unsigned long lastIdle = 0;
@@ -84,9 +100,13 @@ void loop() {
     if (now - lastUpload < UPLOAD_PERIOD_S * 1000UL) return;
     lastUpload = now;
 
+    telemetry_set_state(SystemState::UPLOADING_API);
+
     if (transport_post_locations(lastFix, secrets)) {
         Serial.println(F("[UP  ] location sent"));
+        telemetry_set_state(SystemState::WAITING_GNSS_FIX);
     } else {
-        Serial.println(F("[ERR ] upload failed; next cycle will retry"));
+        Serial.println(F("[ERR ] upload failed; remaining in ERR_API_FAIL until reset"));
+        telemetry_set_state(SystemState::ERR_API_FAIL);
     }
 }
