@@ -23,6 +23,12 @@ type EmailConfig struct {
 		EN string
 		ES string
 	}
+	// TemplatePasswordReset bundles the two supported password-reset
+	// templates. Same locale-switching contract as TemplateWelcome.
+	TemplatePasswordReset struct {
+		EN string
+		ES string
+	}
 }
 
 // LoadEmailConfig reads the Resend-related env vars and returns a
@@ -36,6 +42,8 @@ func LoadEmailConfig() (EmailConfig, error) {
 	}
 	cfg.TemplateWelcome.EN = os.Getenv("WELCOME_EMAIL_TEMPLATE_EN_ID")
 	cfg.TemplateWelcome.ES = os.Getenv("WELCOME_EMAIL_TEMPLATE_ES_ID")
+	cfg.TemplatePasswordReset.EN = os.Getenv("PASSWORD_RESET_EMAIL_TEMPLATE_EN_ID")
+	cfg.TemplatePasswordReset.ES = os.Getenv("PASSWORD_RESET_EMAIL_TEMPLATE_ES_ID")
 
 	if cfg.APIKey == "" {
 		return EmailConfig{}, fmt.Errorf("email config: RESEND_API_KEY is required")
@@ -55,6 +63,12 @@ func LoadEmailConfig() (EmailConfig, error) {
 	}
 	if cfg.TemplateWelcome.ES == "" {
 		return EmailConfig{}, fmt.Errorf("email config: WELCOME_EMAIL_TEMPLATE_ES_ID is required")
+	}
+	if cfg.TemplatePasswordReset.EN == "" {
+		return EmailConfig{}, fmt.Errorf("email config: PASSWORD_RESET_EMAIL_TEMPLATE_EN_ID is required")
+	}
+	if cfg.TemplatePasswordReset.ES == "" {
+		return EmailConfig{}, fmt.Errorf("email config: PASSWORD_RESET_EMAIL_TEMPLATE_ES_ID is required")
 	}
 	return cfg, nil
 }

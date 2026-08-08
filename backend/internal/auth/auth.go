@@ -338,6 +338,22 @@ func (u authulaPasswordUpdater) UpdatePassword(ctx context.Context, authulaUserI
 	return nil
 }
 
+// ResetPassword overwrites the Authula account password without
+// verifying the old one. Used by the password-reset flow after the
+// caller has validated a one-time reset token. The local
+// must_change_password flag is NOT touched here — the caller (the
+// passwordreset service) clears it on the local users table.
+func (u authulaPasswordUpdater) ResetPassword(ctx context.Context, authulaUserID, newPassword string) error {
+	hash, err := u.passwordService.Hash(newPassword)
+	if err != nil {
+		return fmt.Errorf("auth: hash password: %w", err)
+	}
+	if err := u.accountService.UpdateFields(ctx, authulaUserID, map[string]any{"password": hash}); err != nil {
+		return fmt.Errorf("auth: update account password: %w", err)
+	}
+	return nil
+}
+
 func (a *Auth) NewSessionManager() ports.SessionManager {
 	return authulaSessionManager{
 		sessionSvc: a.sessionService,
