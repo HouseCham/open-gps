@@ -14,7 +14,8 @@ import (
 	"github.com/HouseCham/gps-tracker/backend/internal/domain"
 )
 
-// PasswordResetTokensAdapter implements passwordreset.Repository
+// PasswordResetTokensAdapter implements passwordreset.TokenStore and
+// passwordreset.RateLimitCounter
 // against the password_reset_tokens table. One row per token; the
 // sha256 hash is what the DB stores, the raw token only exists in
 // the email.
