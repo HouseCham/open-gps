@@ -12,7 +12,15 @@ import {
 } from '@/components/react/auth';
 import { ToastProvider } from '@/components/react/ui';
 import { ThemeToggle } from '@/components/react/ui/ThemeToggle';
-import { MapSVG } from '@/components/react';
+import { MapSVG, RecoveryPipelineSVG } from '@/components/react';
+
+/**
+ * Brand-panel variants. `default` keeps the fleet-route visual used by
+ * login + signup; `recovery` swaps in the 4-hop pipeline visual + the
+ * "recover access" copy for the password-recovery pages.
+ * @typedef {'default' | 'recovery'} AuthLayoutVariant
+ */
+export type AuthLayoutVariant = 'default' | 'recovery';
 
 /**
  * @interface Props
@@ -20,17 +28,51 @@ import { MapSVG } from '@/components/react';
  * @property {string | undefined} [title] - Page title.
  * @property {string | undefined} [class] - Extra classes.
  * @property {boolean} [isLoginPage] - Marks the login page so PublicOnlyRoute can redirect.
+ * @property {AuthLayoutVariant} [variant='default'] - Brand-panel variant.
  */
 interface Props {
     locale?: Language;
     title?: string;
     class?: string;
     isLoginPage?: boolean;
+    variant?: AuthLayoutVariant;
 }
 
-const { locale = 'en', title = 'Open GPS', class: className, isLoginPage } = Astro.props;
+const {
+    locale = 'en',
+    title = 'Open GPS',
+    class: className,
+    isLoginPage,
+    variant = 'default',
+} = Astro.props;
 const t = getTranslation(locale);
-const classes = ['auth-layout', className].filter(Boolean).join(' ');
+const classes = ['auth-layout', `auth-layout--${variant}`, className]
+    .filter(Boolean)
+    .join(' ');
+const isRecovery = variant === 'recovery';
+const brand = isRecovery
+    ? {
+          tagline: t.auth.recoveryBrand.tagline,
+          taglineAccent: t.auth.recoveryBrand.taglineAccent,
+          subtitle: t.auth.recoveryBrand.subtitle,
+          svgStatus: t.auth.recoveryBrand.svgStatus,
+          svgTtl: t.auth.recoveryBrand.svgTtl,
+          footerSection: t.auth.recoveryBrand.footerSection,
+          step1: t.auth.recoveryBrand.step1,
+          step2: t.auth.recoveryBrand.step2,
+          step3: t.auth.recoveryBrand.step3,
+      }
+    : {
+          tagline: t.auth.tagline,
+          taglineAccent: t.auth.taglineAccent,
+          subtitle: t.auth.brandSubtitle,
+          svgStatus: t.auth.svgStatus,
+          svgTtl: t.auth.svgStatus,
+          footerSection: t.auth.footerTech,
+          step1: '',
+          step2: '',
+          step3: '',
+      };
 ---
 
 <html lang={locale}>
@@ -84,20 +126,44 @@ const classes = ['auth-layout', className].filter(Boolean).join(' ');
 
                             <div>
                                 <div class="tagline">
-                                    {t.auth.tagline}<span class="accent">{t.auth.taglineAccent}</span>
+                                    {brand.tagline}<span class="accent">{brand.taglineAccent}</span>
                                 </div>
                                 <div class="sub">
-                                    {t.auth.brandSubtitle}
+                                    {brand.subtitle}
                                 </div>
                             </div>
 
                             <div class="visual" aria-hidden="true">
-                                <MapSVG client:load status={t.auth.svgStatus} />
+                                {isRecovery ? (
+                                    <RecoveryPipelineSVG
+                                        client:visible
+                                        status={brand.svgStatus}
+                                        ttl={brand.svgTtl}
+                                    />
+                                ) : (
+                                    <MapSVG
+                                        client:visible
+                                        status={brand.svgStatus}
+                                    />
+                                )}
                             </div>
+
+                            {isRecovery && (
+                                <div class="step-rail" aria-label="Step 1 of 3">
+                                    <span class="dot active" aria-hidden="true"></span>
+                                    <span class="lbl now">{brand.step1}</span>
+                                    <span class="sep" aria-hidden="true"></span>
+                                    <span class="dot" aria-hidden="true"></span>
+                                    <span class="lbl">{brand.step2}</span>
+                                    <span class="sep" aria-hidden="true"></span>
+                                    <span class="dot" aria-hidden="true"></span>
+                                    <span class="lbl">{brand.step3}</span>
+                                </div>
+                            )}
 
                             <div class="footer">
                                 <span>{t.auth.footerHost}</span>
-                                <span>{t.auth.footerTech}</span>
+                                <span>{isRecovery ? brand.footerSection : t.auth.footerTech}</span>
                             </div>
                         </aside>
 
@@ -114,12 +180,15 @@ const classes = ['auth-layout', className].filter(Boolean).join(' ');
 <style>
     .auth-layout {
         display: flex;
+        justify-content: center;
         min-height: 100vh;
         background: var(--gp-bg);
     }
 
     .auth-layout > .auth-split {
         flex: 1;
+        max-width: 1200px;
+        width: 100%;
         min-height: 100vh;
     }
 
@@ -144,3 +213,4 @@ const classes = ['auth-layout', className].filter(Boolean).join(' ');
         }
     }
 </style>
+
