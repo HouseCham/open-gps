@@ -24,6 +24,16 @@ type WelcomeInput struct {
 	Language         string
 }
 
+// ResetInput is the handler-facing payload for a password-reset email.
+// ResetURL is the full URL the user clicks (the caller already embedded
+// the token); we forward it to Resend verbatim.
+type ResetInput struct {
+	To        string
+	FirstName string
+	ResetURL  string
+	Language  string
+}
+
 // Service is the application-layer wrapper around the Resend SDK.
 // It hides the SDK type behind concrete methods so the handler only
 // deals with domain-shaped inputs.
@@ -31,22 +41,28 @@ type Service struct {
 	client       *resend.Client
 	from         string
 	welcomeByLang map[string]string
+	resetByLang   map[string]string
 }
 
 // New builds a Service from an already-configured Resend client and
 // the per-language template IDs. The template map is owned by the
 // caller — the service keeps the reference for the lifetime of the
 // process.
-func New(client *resend.Client, from string, welcomeTemplates map[string]string) *Service {
-	copied := make(map[string]string, len(welcomeTemplates))
-	for k, v := range welcomeTemplates {
-		copied[k] = v
-	}
+func New(client *resend.Client, from string, welcomeTemplates, resetTemplates map[string]string) *Service {
 	return &Service{
 		client:        client,
 		from:          from,
-		welcomeByLang: copied,
+		welcomeByLang: copyMap(welcomeTemplates),
+		resetByLang:   copyMap(resetTemplates),
 	}
+}
+
+func copyMap(in map[string]string) map[string]string {
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
 
 // SendWelcome dispatches the welcome email for the given input.
@@ -76,6 +92,36 @@ func (s *Service) SendWelcome(ctx context.Context, in WelcomeInput) (string, err
 	sent, err := s.client.Emails.SendWithContext(ctx, req)
 	if err != nil {
 		return "", fmt.Errorf("resend send welcome: %w", err)
+	}
+	return sent.Id, nil
+}
+
+// SendPasswordReset dispatches the password-reset email for the given
+// input. Returns ErrInvalidLanguage when the locale is not configured,
+// and a wrapped error when Resend rejects the send.
+func (s *Service) SendPasswordReset(ctx context.Context, in ResetInput) (string, error) {
+	templateID, ok := s.resetByLang[in.Language]
+	if !ok {
+		return "", fmt.Errorf("%w: %q", ErrInvalidLanguage, in.Language)
+	}
+
+	req := &resend.SendEmailRequest{
+		From:    s.from,
+		To:      []string{in.To},
+		Subject: "Password reset",
+		Template: &resend.EmailTemplate{
+			Id: templateID,
+			Variables: map[string]any{
+				"first_name":         in.FirstName,
+				"email":              in.To,
+				"reset_password_url": in.ResetURL,
+			},
+		},
+	}
+
+	sent, err := s.client.Emails.SendWithContext(ctx, req)
+	if err != nil {
+		return "", fmt.Errorf("resend send password reset: %w", err)
 	}
 	return sent.Id, nil
 }

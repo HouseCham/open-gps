@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState } from 'react';
 //-- Types
-import type { WelcomeEmailRequest, WelcomeEmailResponse } from "@/types";
-import type { ApiError, Envelope } from "@/types/api";
+import type { WelcomeEmailRequest, WelcomeEmailResponse } from '@/types';
+import type { ApiError, Envelope } from '@/types/api';
 //-- Utils
 import { withApiErrorToast } from '@/lib/api/api-utils';
 //-- Http Client
@@ -56,10 +56,13 @@ export const useEmailService = (): IEmailService => {
         setIsLoading(true);
         try {
             const result = await withApiErrorToast(() =>
-                apiClient<Envelope<WelcomeEmailResponse> | null>('/email/welcome', {
-                    method: 'POST',
-                    body: request,
-                })
+                apiClient<Envelope<WelcomeEmailResponse> | null>(
+                    '/email/welcome',
+                    {
+                        method: 'POST',
+                        body: request,
+                    }
+                )
             );
             const response = result?.data;
             const ok = response?.status_code === 202;

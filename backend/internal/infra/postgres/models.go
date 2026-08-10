@@ -131,6 +131,16 @@ type Location struct {
 	SignalStrength *int32
 }
 
+type PasswordResetToken struct {
+	ID        pgtype.UUID
+	UserID    pgtype.UUID
+	TokenHash string
+	IpAddress string
+	ExpiresAt pgtype.Timestamptz
+	UsedAt    pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+}
+
 type User struct {
 	ID                 pgtype.UUID
 	Email              string

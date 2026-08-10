@@ -98,6 +98,12 @@ c.Locals("device_id") → uuid.UUID   // set by RequireDeviceAPIKey
 
 ## Application-level auth endpoints
 
+### Password recovery (forgot password)
+
+Two endpoints under `/api/v1/auth/{generate,consume}-pwd-recovery-token` cover the password-recovery flow. They are public (no session required) so a user who has lost their password can still recover it. Tokens are single-use, hashed at rest, expire in 1 hour, and are rate-limited per email + per IP.
+
+See [PasswordRecovery.md](./PasswordRecovery.md) for the full contract, including the anti-enumeration and rate-limit semantics.
+
 ### `POST /api/v1/auth/change-password`
 
 Change the signed-in user's password. Verifies the current password against Authula's credential store, hashes the new one, writes it back, and clears the local `must_change_password` flag. **Not** gated by `RequirePasswordChanged` — a user who hasn't changed their temporary password yet must be able to hit this endpoint.

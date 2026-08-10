@@ -41,3 +41,5 @@ export { StatusIndicator } from './ui/StatusIndicator';
 export type { StatusIndicatorProps } from './ui/StatusIndicator';
 
 export * from './MapSVG';
+export { RecoveryPipelineSVG } from './RecoveryPipelineSVG';
+export type { RecoveryPipelineSVGProps } from './RecoveryPipelineSVG';

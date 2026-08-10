@@ -6,3 +6,4 @@ export * from './user';
 export * from './access';
 
 export const REPOSITORY_URL = 'https://github.com/HouseCham/open-gps';
+export const REPO_ENVIRONMENT = import.meta.env.ENV;

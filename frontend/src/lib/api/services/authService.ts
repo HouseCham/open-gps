@@ -7,10 +7,13 @@ import type {
     AuthUser,
     ChangePasswordDto,
     ChangePasswordResponse,
+    ConsumePasswordRecoveryDto,
     Envelope,
     MeResponse,
     OAuthAuthorizeResponse,
     OAuthProvider,
+    RequestPasswordRecoveryDto,
+    RequestPasswordRecoveryResponse,
     SignInCredentials,
     SignUpCredentials,
     User,
@@ -45,6 +48,8 @@ import { redirectTo } from '@/lib';
  * @method getSession - Retrieves the authenticated user from the backend.
  * @method fetchProfile - Retrieves the authenticated user's full local profile (role, lastname, must_change_password, …) from /api/v1/users/me.
  * @method changePassword - Calls POST /api/v1/auth/change-password and refreshes the local profile.
+ * @method requestPasswordRecovery - Calls POST /api/v1/auth/generate-pwd-recovery-token to email a single-use reset link.
+ * @method consumePasswordRecovery - Calls POST /api/v1/auth/consume-pwd-recovery-token to rotate the password.
  * @method fetchOAuthAuthorizeUrl - Resolves the OAuth provider's authorization URL.
  * @method signInOAuth - Kicks off the OAuth2 sign-in flow.
  */
@@ -61,11 +66,27 @@ interface useAuthService {
     ) => Promise<string>;
     getSession: (showToast?: boolean) => Promise<AuthUser | null>;
     changePassword: (payload: ChangePasswordDto) => Promise<void>;
+    requestPasswordRecovery: (
+        payload: RequestPasswordRecoveryDto
+    ) => Promise<RequestPasswordRecoveryResponse['data'] | null>;
+    consumePasswordRecovery: (
+        payload: ConsumePasswordRecoveryDto
+    ) => Promise<void>;
     signInOAuth: (provider: OAuthProvider) => Promise<void>;
 }
 
 /**
  * Hooks for Authula authentication API calls.
+ */
+function reportEmptyResponse(message: string, showToast: boolean): never {
+    if (showToast) {
+        toastBus.push({ variant: 'error', title: 'Error', message });
+    }
+    handleApiError(new Error(message));
+}
+/**
+ * Returns an object with methods for interacting with the Authula authentication API.
+ * @returns {useAuthService} An object with methods for authentication.
  */
 export const useAuthService = (): useAuthService => {
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -87,12 +108,7 @@ export const useAuthService = (): useAuthService => {
                 })
             );
             if (!data) {
-                toastBus.push({
-                    variant: 'error',
-                    title: 'Error',
-                    message: 'sign-in returned an empty response',
-                });
-                handleApiError(new Error('sign-in returned an empty response'));
+                reportEmptyResponse('sign-in returned an empty response', true);
             }
             setUser(data.user);
             redirectTo(REDIRECT_AFTER_AUTH);
@@ -117,12 +133,7 @@ export const useAuthService = (): useAuthService => {
                 })
             );
             if (!data) {
-                toastBus.push({
-                    variant: 'error',
-                    title: 'Error',
-                    message: 'sign-up returned an empty response',
-                });
-                handleApiError(new Error('sign-up returned an empty response'));
+                reportEmptyResponse('sign-up returned an empty response', true);
             }
             setUser(data.user);
             redirectTo(REDIRECT_AFTER_AUTH);
@@ -172,14 +183,7 @@ export const useAuthService = (): useAuthService => {
                 authClient<MeResponse | null>('/me', { method: 'GET' })
             );
             if (!data) {
-                if (showToast) {
-                    toastBus.push({
-                        variant: 'error',
-                        title: 'Error',
-                        message: 'me returned an empty response',
-                    });
-                }
-                handleApiError(new Error('me returned an empty response'));
+                reportEmptyResponse('me returned an empty response', showToast);
             }
             return data?.user ?? null;
         } catch (_err) {
@@ -229,12 +233,7 @@ export const useAuthService = (): useAuthService => {
             }
             const user = data?.data;
             if (!user) {
-                toastBus.push({
-                    variant: 'error',
-                    title: 'Error',
-                    message: 'profile returned an empty response',
-                });
-                handleApiError(new Error('profile returned an empty response'));
+                reportEmptyResponse('profile returned an empty response', true);
             }
             setProfile(user);
             return user;
@@ -268,13 +267,9 @@ export const useAuthService = (): useAuthService => {
                 )
             );
             if (!data || !data.authUrl) {
-                toastBus.push({
-                    variant: 'error',
-                    title: 'Error',
-                    message: 'oauth authorize returned an empty response',
-                });
-                handleApiError(
-                    new Error('oauth authorize returned an empty response')
+                reportEmptyResponse(
+                    'oauth authorize returned an empty response',
+                    true
                 );
             }
             return data.authUrl;
@@ -331,6 +326,49 @@ export const useAuthService = (): useAuthService => {
         await fetchProfile();
     }
     /**
+     * Calls POST /api/v1/auth/generate-pwd-recovery-token to email the
+     * user a single-use reset link. The endpoint always answers 202 —
+     * unknown emails and rate-limited requests are indistinguishable
+     * from a successful dispatch — so this function never throws on
+     * the "address doesn't exist" path. Returns the envelope's `data`
+     * (with Resend's `message_id`, or empty when the request was
+     * dropped silently) so the calling screen can show its own
+     * confirmation copy.
+     * @param {RequestPasswordRecoveryDto} payload - Email, locale, and the URL prefix the reset link should land on.
+     * @returns {Promise<RequestPasswordRecoveryResponse['data'] | null>}
+     */
+    async function requestPasswordRecovery(
+        payload: RequestPasswordRecoveryDto
+    ): Promise<RequestPasswordRecoveryResponse['data'] | null> {
+        const { data } = await withApiErrorToast(() =>
+            apiClient<Envelope<RequestPasswordRecoveryResponse['data']> | null>(
+                '/auth/generate-pwd-recovery-token',
+                { method: 'POST', body: payload }
+            )
+        );
+        return data?.data ?? null;
+    }
+    /**
+     * Calls POST /api/v1/auth/consume-pwd-recovery-token to validate
+     * the email link and rotate the password. Throws on the server's
+     * `400 invalid or expired token` so the calling screen can render
+     * its own "link is no longer valid" copy. Backend anti-enumeration
+     * means unknown / expired / already-used tokens are
+     * indistinguishable on the wire.
+     * @param {ConsumePasswordRecoveryDto} payload - Raw token + new password.
+     * @returns {Promise<void>}
+     */
+    async function consumePasswordRecovery(
+        payload: ConsumePasswordRecoveryDto
+    ): Promise<void> {
+        await withApiErrorToast(() =>
+            apiClient<Envelope<boolean> | null>(
+                '/auth/consume-pwd-recovery-token',
+                { method: 'POST', body: payload }
+            )
+        );
+    }
+    /**
      * Kicks off the OAuth flow by asking Authula for the provider's
      * authorize URL, then hands the browser off to it. The callback URL
      * is the current page's origin; the backend redirects back there
@@ -374,6 +412,8 @@ export const useAuthService = (): useAuthService => {
         fetchOAuthAuthorizeUrl,
         getSession,
         changePassword,
+        requestPasswordRecovery,
+        consumePasswordRecovery,
         signInOAuth,
     };
 };

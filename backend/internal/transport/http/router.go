@@ -19,22 +19,23 @@ import (
 )
 
 type RouterDeps struct {
-	HealthHandler    *handlers.HealthHandler
-	DevicesHandler   *handlers.DevicesHandler
-	UsersHandler     *handlers.UsersHandler
-	AccessHandler    *handlers.AccessHandler
-	APIKeysHandler   *handlers.APIKeysHandler
-	LocationsHandler *handlers.LocationsHandler
-	EmailHandler     *handlers.EmailHandler
-	BootstrapHandler *handlers.BootstrapHandler
-	AccessService    *access.AccessService
-	UsersService     *users.Service
-	Queries          *postgres.Queries
-	AuthHandler      http.Handler
-	SessionCookieName string
-	AuthSession      ports.SessionAuthenticator
-	AuthUserLookup   ports.UserLookup
-	SessionManager   ports.SessionManager
+	HealthHandler         *handlers.HealthHandler
+	DevicesHandler        *handlers.DevicesHandler
+	UsersHandler          *handlers.UsersHandler
+	AccessHandler         *handlers.AccessHandler
+	APIKeysHandler        *handlers.APIKeysHandler
+	LocationsHandler      *handlers.LocationsHandler
+	EmailHandler          *handlers.EmailHandler
+	PasswordResetHandler  *handlers.PasswordResetHandler
+	BootstrapHandler      *handlers.BootstrapHandler
+	AccessService         *access.AccessService
+	UsersService          *users.Service
+	Queries               *postgres.Queries
+	AuthHandler           http.Handler
+	SessionCookieName     string
+	AuthSession           ports.SessionAuthenticator
+	AuthUserLookup        ports.UserLookup
+	SessionManager        ports.SessionManager
 	// CORSOrigins enables the CORS middleware when non-empty. Each
 	// entry is an allowed origin (e.g. "http://localhost:4321"). When
 	// the frontend and backend share an origin (reverse-proxied or
@@ -277,6 +278,22 @@ func NewRouter(deps RouterDeps) *fiber.App {
 		middleware.RequireUserRole(domain.UserRoleSuperAdmin),
 		middleware.ValidateRequestBody[dto.SendWelcomeEmailRequest](),
 		deps.EmailHandler.SendWelcome,
+	)
+
+	// === Password recovery (public) ===
+	// Two endpoints, both unauthenticated: a user who has lost their
+	// password cannot sign in to recover it. RequireInitialized still
+	// applies (the user would be sent to the bootstrap page otherwise),
+	// so the reset flow is only reachable after the first user exists.
+	// Both endpoints live under /api/v1/auth/* so they share a path
+	// group with /change-password above.
+	authAPI.Post("/generate-pwd-recovery-token",
+		middleware.ValidateRequestBody[dto.GeneratePasswordRecoveryTokenRequest](),
+		deps.PasswordResetHandler.GenerateRecoveryToken,
+	)
+	authAPI.Post("/consume-pwd-recovery-token",
+		middleware.ValidateRequestBody[dto.ConsumePasswordRecoveryTokenRequest](),
+		deps.PasswordResetHandler.ConsumeRecoveryToken,
 	)
 
 	return app

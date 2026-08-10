@@ -23,6 +23,12 @@ func PgtypeTimestamptz(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
 }
 
+// PgtypeInterval converts a time.Duration to a pgtype.Interval so it
+// can be bound to a Postgres INTERVAL parameter.
+func PgtypeInterval(d time.Duration) pgtype.Interval {
+	return pgtype.Interval{Microseconds: d.Microseconds(), Valid: true}
+}
+
 // UuidFromPgtype is the inverse of PgtypeUUID: returns uuid.Nil when
 // the pgtype value is SQL NULL.
 func UuidFromPgtype(p pgtype.UUID) uuid.UUID {
