@@ -1,6 +1,7 @@
 import type {
     ChangePasswordStrings,
     LoginFormStrings,
+    PasswordForgottenFormStrings,
     SignupFormStrings,
 } from '@/types/components';
 import type { Translation } from '@/i18n';
@@ -27,6 +28,7 @@ export function parseLoginStrings(auth: Translation['auth']): LoginFormStrings {
         orContinueWith: auth.orContinueWith,
         rememberDevice: auth.rememberDevice,
         forgotPassword: auth.forgotPassword,
+        resetPassword: auth.resetPassword,
         noAccount: auth.noAccount,
         createOne: auth.createOne,
         firstAdminBadge: auth.firstAdminBadge,
@@ -128,5 +130,54 @@ export function parseChangePasswordStrings(
         strengthGood: auth.strengthGood,
         strengthStrong: auth.strengthStrong,
         passwordHelp: auth.passwordHelp,
+    };
+}
+/**
+ * Parse the password-recovery strings from the translation object.
+ * @param {Translation['auth']} auth - The translation object.
+ * @returns {PasswordForgottenFormStrings} The parsed password-recovery strings.
+ */
+export function parsePasswordForgottenStrings(
+    auth: Translation['auth']
+): PasswordForgottenFormStrings {
+    const r = auth.passwordRecovery;
+    return {
+        badge: r.badge,
+        sentBadge: r.sentBadge,
+        title: r.title,
+        sentTitle: r.sentTitle,
+        subtitle: r.subtitle,
+        sentSubtitle: r.sentSubtitle,
+        emailLabel: r.emailLabel,
+        emailHelp: r.emailHelp,
+        submit: r.submit,
+        submitting: r.submitting,
+        backToLogin: r.backToLogin,
+        sentTitlePrefix: r.sentTitlePrefix,
+        copyEmail: r.copyEmail,
+        copiedEmail: r.copiedEmail,
+        useDifferentEmail: r.useDifferentEmail,
+        expiresIn: r.expiresIn,
+        singleUseToken: r.singleUseToken,
+        resendPrompt: r.resendPrompt,
+        resendCta: r.resendCta,
+        resendResent: r.resendResent,
+        resendCooldown: r.resendCooldown,
+        mailHelper: r.mailHelper,
+        mailApple: r.mailApple,
+        mailGmail: r.mailGmail,
+        mailOutlook: r.mailOutlook,
+        identityFrom: r.identityFrom,
+        identityFromValue: r.identityFromValue,
+        identityFromBadge: r.identityFromBadge,
+        identitySubject: r.identitySubject,
+        identitySubjectValue: r.identitySubjectValue,
+        identityReplyTo: r.identityReplyTo,
+        identityReplyToValue: r.identityReplyToValue,
+        emailRequired: r.emailRequired,
+        emailInvalid: r.emailInvalid,
+        requestFailed: r.requestFailed,
+        apiInspectorBody: r.apiInspectorBody,
+        rateLimitNote: r.rateLimitNote,
     };
 }

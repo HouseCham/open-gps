@@ -157,6 +157,7 @@ export const es: Translation = {
         // Cadenas adicionales del LoginForm
         rememberDevice: 'Recordar este dispositivo por 30 días',
         forgotPassword: '¿Olvidaste tu contraseña?',
+        resetPassword: 'Restablecer contraseña',
         noAccount: '¿No tienes cuenta?',
         createOne: 'Crear una',
         firstAdminBadge:
@@ -219,6 +220,68 @@ export const es: Translation = {
                 'Esa contraseña es demasiado corta o débil. Usa 8+ caracteres con mayúsculas y minúsculas y un número o símbolo.',
             errorGeneric:
                 'No pudimos actualizar tu contraseña. Inténtalo de nuevo.',
+        },
+
+        // PasswordForgottenForm (solicitud → enviado)
+        passwordRecovery: {
+            badge: 'Olvidé mi contraseña',
+            title: 'Restablece tu contraseña',
+            sentTitle: 'Enlace de restablecimiento enviado',
+            subtitle:
+                'Ingresa el correo con el que te registraste. Te enviaremos un enlace de un solo uso válido por 15 minutos — nadie más podrá usarlo.',
+            sentSubtitle:
+                'Si existe una cuenta con ese correo, ya va en camino un mensaje. Ábrelo en este dispositivo para continuar.',
+            emailLabel: 'Correo de la cuenta',
+            emailHelp:
+                'El enlace se enviará solo a este correo. Nunca confirmamos si una cuenta existe.',
+            submit: 'Enviar enlace de restablecimiento',
+            submitting: 'Enviando enlace…',
+            backToLogin: '← Volver a iniciar sesión',
+            sentTitlePrefix: 'Enviamos un enlace de restablecimiento a',
+            copyEmail: 'Copiar',
+            copiedEmail: 'Copiado',
+            useDifferentEmail: 'Usar otro correo',
+            expiresIn: 'Expira en',
+            singleUseToken: 'Token de un solo uso',
+            resendPrompt: '¿No llegó? Revisa el spam y luego:',
+            resendCta: 'Reenviar el correo',
+            resendResent: 'Reenviado · revisa la bandeja',
+            resendCooldown: 'Reenviar en',
+            mailHelper: 'Abre tu app de correo:',
+            mailApple: 'Apple Mail',
+            mailGmail: 'Gmail',
+            mailOutlook: 'Outlook',
+            identityFrom: 'De',
+            identityFromValue: 'no-reply@open-gps.local',
+            identityFromBadge: 'verificado',
+            identitySubject: 'Asunto',
+            identitySubjectValue: 'Restablece tu contraseña de Open GPS',
+            identityReplyTo: 'Responder a',
+            identityReplyToValue: '— (monitoreado, no responder)',
+            emailRequired: 'El correo es obligatorio',
+            emailInvalid: 'Eso no parece un correo válido.',
+            requestFailed:
+                'No pudimos enviar el enlace de restablecimiento. Inténtalo de nuevo en un momento.',
+            apiInspectorBody: {
+                email: 'tu@empresa.com',
+                redirectPath: '/reset-password?token=',
+            },
+            rateLimitNote:
+                'Establece un cubo authula.rate_limit de corta duración (5 / hora) — misma respuesta exista o no la cuenta.',
+        },
+
+        // Panel de marca de recuperación (AuthLayout variant="recovery")
+        recoveryBrand: {
+            tagline: 'Recupera el acceso. ',
+            taglineAccent: 'Sin perder la confianza.',
+            subtitle:
+                'Los restablecimientos auto-hospedados se firman con un token de un solo uso, se auditan en auth.events, y tú controlas el TTL y las listas de IP permitidas.',
+            svgStatus: 'RECUPERACIÓN  ·  4 saltos  ·  ● token en vuelo',
+            svgTtl: 'ttl 15m',
+            footerSection: 'recuperación de cuenta',
+            step1: 'Verificar identidad',
+            step2: 'Restablecer contraseña',
+            step3: 'Iniciar sesión',
         },
     },
     profile: {

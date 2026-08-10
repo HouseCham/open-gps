@@ -152,6 +152,7 @@ export const en = {
         // LoginForm additional strings
         rememberDevice: 'Remember this device for 30 days',
         forgotPassword: 'Forgot password?',
+        resetPassword: 'Reset password',
         noAccount: "Don't have an account?",
         createOne: 'Create one',
         firstAdminBadge:
@@ -213,6 +214,68 @@ export const en = {
             errorWeakPassword:
                 'That password is too short or too weak. Use 8+ characters with mixed case and a number or symbol.',
             errorGeneric: "We couldn't update your password. Try again.",
+        },
+
+        // PasswordForgottenForm (request → sent)
+        passwordRecovery: {
+            badge: 'Forgot password',
+            title: 'Reset your password',
+            sentTitle: 'Reset link sent',
+            subtitle:
+                "Enter the email you signed up with. We'll send a single-use link that's valid for 15 minutes — no one else can use it.",
+            sentSubtitle:
+                'If an account exists for that address, an email is on its way. Open it on this device to continue.',
+            emailLabel: 'Account email',
+            emailHelp:
+                'The link will be sent only to this address. We never confirm whether an account exists.',
+            submit: 'Send reset link',
+            submitting: 'Sending reset link…',
+            backToLogin: 'Back to sign in',
+            sentTitlePrefix: 'We sent a reset link to',
+            copyEmail: 'Copy',
+            copiedEmail: 'Copied',
+            useDifferentEmail: 'Use a different email',
+            expiresIn: 'Expires in',
+            singleUseToken: 'Single-use token',
+            resendPrompt: "Didn't get it? Check spam, then:",
+            resendCta: 'Resend the email',
+            resendResent: 'Resent · check inbox',
+            resendCooldown: 'Resend in',
+            mailHelper: 'Open your mail app:',
+            mailApple: 'Apple Mail',
+            mailGmail: 'Gmail',
+            mailOutlook: 'Outlook',
+            identityFrom: 'From',
+            identityFromValue: 'no-reply@open-gps.local',
+            identityFromBadge: 'verified',
+            identitySubject: 'Subject',
+            identitySubjectValue: 'Reset your Open GPS password',
+            identityReplyTo: 'Reply-to',
+            identityReplyToValue: '— (monitored, do not reply)',
+            emailRequired: 'Email is required',
+            emailInvalid: "That doesn't look like an email.",
+            requestFailed:
+                "We couldn't send the reset link. Try again in a moment.",
+            apiInspectorBody: {
+                email: 'you@company.com',
+                redirectPath: '/reset-password?token=',
+            },
+            rateLimitNote:
+                'Sets a short-lived authula.rate_limit bucket (5 / hour) — same response whether or not the account exists.',
+        },
+
+        // Recovery brand panel variant (AuthLayout variant="recovery")
+        recoveryBrand: {
+            tagline: 'Recover access. ',
+            taglineAccent: 'Without losing trust.',
+            subtitle:
+                'Self-hosted password resets are signed with a single-use token, audited in auth.events, and you control TTL and IP allow-lists.',
+            svgStatus: 'RECOVERY  ·  4 hops  ·  ● token in flight',
+            svgTtl: 'ttl 15m',
+            footerSection: 'account recovery',
+            step1: 'Verify identity',
+            step2: 'Reset password',
+            step3: 'Sign in',
         },
     },
     profile: {
