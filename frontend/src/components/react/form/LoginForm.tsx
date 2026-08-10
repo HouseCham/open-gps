@@ -22,7 +22,11 @@ import {
 //-- Icons
 import { AlertCircle, ArrowRight, Mail } from 'lucide-react';
 //-- Lazy components
-const ApiInspector = lazy(() => import("@/components/react/form/shared/ApiInspector").then(module => ({ default: module.ApiInspector })));
+const ApiInspector = lazy(() =>
+    import('@/components/react/form/shared/ApiInspector').then(module => ({
+        default: module.ApiInspector,
+    }))
+);
 
 /**
  * Props for the LoginForm component.
@@ -127,7 +131,11 @@ export function LoginForm({ strings, firstUser }: LoginFormProps): JSX.Element {
                         checked={remember}
                         onChange={setRemember}
                     />
-                    <a href="#" className="mono forgot-link">
+                    <a
+                        href="#"
+                        className="mono forgot-link"
+                        onClick={() => redirectTo('/forgot-password')}
+                    >
                         {strings.forgotPassword}
                     </a>
                 </div>
@@ -163,33 +171,21 @@ export function LoginForm({ strings, firstUser }: LoginFormProps): JSX.Element {
                     <GoogleLogo />
                     {strings.signInWithGoogle}
                 </button>
-
-                <div className="alt">
-                    {strings.forgotPassword}{' '}
-                    <a
-                        className="linkish"
-                        onClick={() => redirectTo('/forgot-password')}
-                    >
-                        {strings.resetPassword}
-                    </a>
-                </div>
             </form>
 
             {/* Dev API inspector */}
-            {
-                REPO_ENVIRONMENT === 'development' && (
-                    <ApiInspector
-                        method="POST"
-                        path="/api/auth/email-password/sign-in"
-                        body={{
-                            email: email || strings.emailPlaceholder,
-                            password: password ? '••••••••' : '…',
-                        }}
-                        title={strings.apiInspectorTitle}
-                        cookieNote={strings.apiInspectorCookieNote}
-                    />
-                )
-            }
+            {REPO_ENVIRONMENT === 'development' && (
+                <ApiInspector
+                    method="POST"
+                    path="/api/auth/email-password/sign-in"
+                    body={{
+                        email: email || strings.emailPlaceholder,
+                        password: password ? '••••••••' : '…',
+                    }}
+                    title={strings.apiInspectorTitle}
+                    cookieNote={strings.apiInspectorCookieNote}
+                />
+            )}
         </>
     );
 }

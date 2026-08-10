@@ -167,7 +167,7 @@ export function UsersPage({
                     name: `${user.name} ${user.lastname}`.trim(),
                 }),
             });
-        // otherwise, show the temporary password in the modal
+            // otherwise, show the temporary password in the modal
         } else {
             setCreatedUser(user);
         }

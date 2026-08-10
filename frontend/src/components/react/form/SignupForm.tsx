@@ -26,7 +26,11 @@ import {
 //-- Icons
 import { AlertCircle, ArrowRight, Info, Mail, User } from 'lucide-react';
 //-- Lazy components
-const ApiInspector = lazy(() => import("@/components/react/form/shared/ApiInspector").then(module => ({ default: module.ApiInspector })));
+const ApiInspector = lazy(() =>
+    import('@/components/react/form/shared/ApiInspector').then(module => ({
+        default: module.ApiInspector,
+    }))
+);
 
 /**
  * Props for the SignupForm component.
@@ -256,26 +260,24 @@ export function SignupForm({
             </form>
 
             {/* Dev API inspector */}
-            {
-                REPO_ENVIRONMENT === 'development' && (
-                    <ApiInspector
-                        method="POST"
-                        path="/api/auth/email-password/sign-up"
-                        body={{
-                            email: email || strings.emailPlaceholder,
-                            password: pw ? '••••••••' : '…',
-                        }}
-                        title={strings.apiInspectorTitle}
-                        cookieNote={strings.apiInspectorCookieNote}
-                        extra={
-                            <div className="note">
-                                <Info className="icon-14" />
-                                {strings.autoSignInNote}
-                            </div>
-                        }
-                    />
-                )
-            }
+            {REPO_ENVIRONMENT === 'development' && (
+                <ApiInspector
+                    method="POST"
+                    path="/api/auth/email-password/sign-up"
+                    body={{
+                        email: email || strings.emailPlaceholder,
+                        password: pw ? '••••••••' : '…',
+                    }}
+                    title={strings.apiInspectorTitle}
+                    cookieNote={strings.apiInspectorCookieNote}
+                    extra={
+                        <div className="note">
+                            <Info className="icon-14" />
+                            {strings.autoSignInNote}
+                        </div>
+                    }
+                />
+            )}
         </>
     );
 }

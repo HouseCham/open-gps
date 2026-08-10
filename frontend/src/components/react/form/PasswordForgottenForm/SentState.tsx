@@ -1,8 +1,12 @@
+//-- Types
+import type { JSX } from 'react/jsx-runtime';
+import type { PasswordForgottenFormStrings } from '@/types/components';
+//-- Constants
+import { REPO_ENVIRONMENT } from '@/constants';
+//-- Utils
+import { maskEmail } from '@/lib';
 //-- Components
 import { Alert } from '@/components/react/ui/Alert';
-import { REPO_ENVIRONMENT } from '@/constants';
-import { maskEmail } from '@/lib';
-import type { PasswordForgottenFormStrings } from '@/types/components';
 //-- Icons
 import {
     AlertCircle,
@@ -13,7 +17,6 @@ import {
     Inbox,
     Send,
 } from 'lucide-react';
-import type { JSX } from 'react/jsx-runtime';
 
 /**
  * Props for the internal sent-state view.
@@ -66,11 +69,12 @@ export function SentState({
 
     return (
         <>
+            {/* Heading */}
             <div className="heading">
                 <h1>{strings.sentTitle}</h1>
                 <div className="sub">{strings.sentSubtitle}</div>
             </div>
-
+            {/* Error message */}
             {err && (
                 <Alert
                     tone="danger"
@@ -78,7 +82,7 @@ export function SentState({
                     icon={<AlertCircle size={14} aria-hidden="true" />}
                 />
             )}
-
+            {/* Sent card */}
             <div className="sent-card" role="status">
                 <div className="glyph">
                     <Send size={18} strokeWidth={1.6} aria-hidden="true" />
@@ -125,7 +129,7 @@ export function SentState({
                     </div>
                 </div>
             </div>
-
+            {/* Resend prompt */}
             <div className="resend" aria-live="polite">
                 <span>{strings.resendPrompt}</span>
                 <button
@@ -148,16 +152,14 @@ export function SentState({
                     )}
                 </button>
             </div>
-
+            {/* Mail helper */}
             <div className="mail-helper">
                 <Inbox size={14} strokeWidth={1.6} aria-hidden="true" />
                 <span>{strings.mailHelper}</span>
                 <div className="apps">
                     <button
                         type="button"
-                        onClick={() =>
-                            window.location.assign('mailto:')
-                        }
+                        onClick={() => window.location.assign('mailto:')}
                     >
                         {strings.mailApple}
                     </button>
@@ -167,7 +169,7 @@ export function SentState({
                             window.open(
                                 'https://mail.google.com',
                                 '_blank',
-                                'noopener',
+                                'noopener'
                             )
                         }
                     >
@@ -179,7 +181,7 @@ export function SentState({
                             window.open(
                                 'https://outlook.live.com/mail',
                                 '_blank',
-                                'noopener',
+                                'noopener'
                             )
                         }
                     >
@@ -188,40 +190,39 @@ export function SentState({
                 </div>
             </div>
 
-            {
-                REPO_ENVIRONMENT === 'development' && (
-                    <div
-                        className="identity-list"
-                        aria-label={strings.identitySubject}
-                    >
-                        <div className="row">
-                            <span className="k">{strings.identityFrom}</span>
-                            <span className="v">
-                                {strings.identityFromValue}{' '}
-                                <span className="pill">
-                                    {strings.identityFromBadge}
-                                </span>
+            {REPO_ENVIRONMENT === 'development' && (
+                <div
+                    className="identity-list"
+                    aria-label={strings.identitySubject}
+                >
+                    <div className="row">
+                        <span className="k">{strings.identityFrom}</span>
+                        <span className="v">
+                            {strings.identityFromValue}{' '}
+                            <span className="pill">
+                                {strings.identityFromBadge}
                             </span>
-                        </div>
-                        <div className="row">
-                            <span className="k">{strings.identitySubject}</span>
-                            <span className="v">
-                                {strings.identitySubjectValue}
-                            </span>
-                        </div>
-                        <div className="row">
-                            <span className="k">{strings.identityReplyTo}</span>
-                            <span className="v mono">
-                                {strings.identityReplyToValue}
-                            </span>
-                        </div>
+                        </span>
                     </div>
-                )
-            }
+                    <div className="row">
+                        <span className="k">{strings.identitySubject}</span>
+                        <span className="v">
+                            {strings.identitySubjectValue}
+                        </span>
+                    </div>
+                    <div className="row">
+                        <span className="k">{strings.identityReplyTo}</span>
+                        <span className="v mono">
+                            {strings.identityReplyToValue}
+                        </span>
+                    </div>
+                </div>
+            )}
 
             <div className="alt">
                 <a
                     href="#"
+                    className="linkish mono"
                     onClick={e => {
                         e.preventDefault();
                         onEdit();

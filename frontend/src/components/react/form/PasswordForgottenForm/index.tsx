@@ -1,8 +1,10 @@
 import '@/styles/components/form/password-forgotten-form.css';
-
 import { useEffect, useState, lazy } from 'react';
 //-- Types
-import type { PasswordForgottenFormStrings, PasswordRecoveryPhase } from '@/types/components';
+import type {
+    PasswordForgottenFormStrings,
+    PasswordRecoveryPhase,
+} from '@/types/components';
 import type { FormEvent, JSX } from 'react';
 import type { Language } from '@/types';
 //-- Constants
@@ -16,7 +18,9 @@ import { isApiError } from '@/lib/api/api-utils';
 //-- Services
 import { useAuthService } from '@/lib/api/services';
 //-- Lazy components
-const SentState = lazy(() => import('./SentState').then(module => ({ default: module.SentState })));
+const SentState = lazy(() =>
+    import('./SentState').then(module => ({ default: module.SentState }))
+);
 
 /**
  * Props for the PasswordForgottenForm component.
@@ -60,7 +64,7 @@ export function PasswordForgottenForm({
         if (cooldown <= 0) return;
         const id = window.setInterval(
             () => setCooldown(c => Math.max(0, c - 1)),
-            1000,
+            1000
         );
         return (): void => window.clearInterval(id);
     }, [cooldown]);
@@ -95,9 +99,7 @@ export function PasswordForgottenForm({
             setCooldown(PASSWORD_RECOVERY_RESEND_COOLDOWN_SECONDS);
             setPhase('sent');
         } catch (error) {
-            setErr(
-                isApiError(error) ? error.message : strings.requestFailed,
-            );
+            setErr(isApiError(error) ? error.message : strings.requestFailed);
         } finally {
             setLoading(false);
         }
@@ -119,9 +121,7 @@ export function PasswordForgottenForm({
             setResent(true);
             setCooldown(PASSWORD_RECOVERY_RESEND_COOLDOWN_SECONDS);
         } catch (error) {
-            setErr(
-                isApiError(error) ? error.message : strings.requestFailed,
-            );
+            setErr(isApiError(error) ? error.message : strings.requestFailed);
         } finally {
             setLoading(false);
         }

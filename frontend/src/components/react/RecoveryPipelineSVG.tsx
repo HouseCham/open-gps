@@ -102,14 +102,32 @@ export function RecoveryPipelineSVG({
                         )}
                         {node.glyph === 'server' && (
                             <>
-                                <rect x="1" y="1.5" width="10" height="4.5" rx="1" />
-                                <rect x="1" y="7.5" width="10" height="4.5" rx="1" />
+                                <rect
+                                    x="1"
+                                    y="1.5"
+                                    width="10"
+                                    height="4.5"
+                                    rx="1"
+                                />
+                                <rect
+                                    x="1"
+                                    y="7.5"
+                                    width="10"
+                                    height="4.5"
+                                    rx="1"
+                                />
                                 <path d="M3 3.7h.01M3 9.7h.01" />
                             </>
                         )}
                         {node.glyph === 'mail' && (
                             <>
-                                <rect x="1" y="2" width="10" height="9" rx="1.2" />
+                                <rect
+                                    x="1"
+                                    y="2"
+                                    width="10"
+                                    height="9"
+                                    rx="1.2"
+                                />
                                 <path d="M1 3.5l5 3.5 5-3.5" />
                             </>
                         )}
