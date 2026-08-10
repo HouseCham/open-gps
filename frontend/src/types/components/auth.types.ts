@@ -263,6 +263,38 @@ export interface PasswordForgottenFormStrings {
     apiInspectorBody: { email: string; redirectPath: string };
     rateLimitNote: string;
 }
+
+export interface ResetPasswordFormStrings {
+    badge: string;
+    title: string;
+    subtitle: string;
+    newPassword: string;
+    newPasswordPlaceholder: string;
+    confirmPassword: string;
+    confirmPasswordPlaceholder: string;
+    submit: string;
+    submitting: string;
+    successTitle: string;
+    successMessage: string;
+    missingTokenTitle: string;
+    missingTokenMessage: string;
+    invalidTokenTitle: string;
+    invalidTokenMessage: string;
+    resetFailed: string;
+    backToLogin: string;
+    passwordsDoNotMatch: string;
+    pickStrongerPassword: string;
+    passwordRequired: string;
+    passwordHelp: string;
+    showPassword: string;
+    hidePassword: string;
+    strengthLabel: string;
+    strengthTooShort: string;
+    strengthWeak: string;
+    strengthFair: string;
+    strengthGood: string;
+    strengthStrong: string;
+}
 /**
  * @typedef PasswordRecoveryPhase
  * @type {('request' | 'sent')}

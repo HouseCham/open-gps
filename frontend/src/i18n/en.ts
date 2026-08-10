@@ -262,6 +262,30 @@ export const en = {
             },
             rateLimitNote:
                 'Sets a short-lived authula.rate_limit bucket (5 / hour) — same response whether or not the account exists.',
+            reset: {
+                badge: 'Choose a new password',
+                title: 'Set a new password',
+                subtitle:
+                    'Use a strong password to protect your Open GPS account.',
+                newPassword: 'New password',
+                newPasswordPlaceholder: 'Choose a new password',
+                confirmPassword: 'Confirm new password',
+                confirmPasswordPlaceholder: 'Type the new password again',
+                submit: 'Reset password',
+                submitting: 'Resetting password…',
+                successTitle: 'Password reset successful',
+                successMessage:
+                    'Your password has been updated. You will be redirected to the login page in 3 seconds.',
+                missingTokenTitle: 'Oops, no reset link was found',
+                missingTokenMessage:
+                    'This page needs the reset link from your email. Request a new one to continue.',
+                invalidTokenTitle: 'Oops, this reset link is no longer valid',
+                invalidTokenMessage:
+                    'The link may have expired or already been used. Request a new reset link to continue.',
+                resetFailed:
+                    "We couldn't reset your password right now. Try again in a moment.",
+                backToLogin: 'Back to sign in',
+            },
         },
 
         // Recovery brand panel variant (AuthLayout variant="recovery")

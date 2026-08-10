@@ -268,6 +268,32 @@ export const es: Translation = {
             },
             rateLimitNote:
                 'Establece un cubo authula.rate_limit de corta duración (5 / hora) — misma respuesta exista o no la cuenta.',
+            reset: {
+                badge: 'Elige una nueva contraseña',
+                title: 'Establece una nueva contraseña',
+                subtitle:
+                    'Usa una contraseña segura para proteger tu cuenta de Open GPS.',
+                newPassword: 'Nueva contraseña',
+                newPasswordPlaceholder: 'Elige una nueva contraseña',
+                confirmPassword: 'Confirma la nueva contraseña',
+                confirmPasswordPlaceholder: 'Escribe la contraseña otra vez',
+                submit: 'Restablecer contraseña',
+                submitting: 'Restableciendo contraseña…',
+                successTitle: 'Contraseña restablecida',
+                successMessage:
+                    'Tu contraseña se actualizó. Serás redirigido a la página de inicio de sesión en 3 segundos.',
+                missingTokenTitle:
+                    'Vaya, no encontramos el enlace de restablecimiento',
+                missingTokenMessage:
+                    'Esta página necesita el enlace recibido por correo. Solicita uno nuevo para continuar.',
+                invalidTokenTitle:
+                    'Vaya, este enlace de restablecimiento ya no es válido',
+                invalidTokenMessage:
+                    'El enlace puede haber expirado o ya se utilizó. Solicita un nuevo enlace para continuar.',
+                resetFailed:
+                    'No pudimos restablecer tu contraseña. Inténtalo de nuevo en un momento.',
+                backToLogin: 'Volver a iniciar sesión',
+            },
         },
 
         // Panel de marca de recuperación (AuthLayout variant="recovery")

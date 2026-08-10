@@ -2,6 +2,7 @@ import type {
     ChangePasswordStrings,
     LoginFormStrings,
     PasswordForgottenFormStrings,
+    ResetPasswordFormStrings,
     SignupFormStrings,
 } from '@/types/components';
 import type { Translation } from '@/i18n';
@@ -179,5 +180,26 @@ export function parsePasswordForgottenStrings(
         requestFailed: r.requestFailed,
         apiInspectorBody: r.apiInspectorBody,
         rateLimitNote: r.rateLimitNote,
+    };
+}
+
+export function parseResetPasswordStrings(
+    auth: Translation['auth']
+): ResetPasswordFormStrings {
+    const r = auth.passwordRecovery.reset;
+    return {
+        ...r,
+        passwordsDoNotMatch: auth.passwordsDoNotMatch,
+        pickStrongerPassword: auth.pickStrongerPassword,
+        passwordRequired: auth.passwordRequired,
+        passwordHelp: auth.passwordHelp,
+        showPassword: auth.showPassword,
+        hidePassword: auth.hidePassword,
+        strengthLabel: auth.strengthLabel,
+        strengthTooShort: auth.strengthTooShort,
+        strengthWeak: auth.strengthWeak,
+        strengthFair: auth.strengthFair,
+        strengthGood: auth.strengthGood,
+        strengthStrong: auth.strengthStrong,
     };
 }

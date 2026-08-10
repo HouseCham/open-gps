@@ -84,7 +84,10 @@ function reportEmptyResponse(message: string, showToast: boolean): never {
     }
     handleApiError(new Error(message));
 }
-
+/**
+ * Returns an object with methods for interacting with the Authula authentication API.
+ * @returns {useAuthService} An object with methods for authentication.
+ */
 export const useAuthService = (): useAuthService => {
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
