@@ -118,8 +118,8 @@ PREFER:
 | `*.tsx`, `*.jsx`              | React        | `docs/skills/react.md`          |
 | `*.astro`                     | AstroJS      | `docs/skills/astro.md`          |
 | `*.css`, `*.module.css`       | CSS          | `docs/skills/css.md`            |
-| `*.test.*`, `*.spec.*`        | Testing      | `docs/skills/testing.md`        |
 | `astro.config.*`              | AstroJS      | `docs/skills/astro.md`          |
+| `*.go`                        | Golang       | `docs/skills/golang.md`         |
 
 ---
 
