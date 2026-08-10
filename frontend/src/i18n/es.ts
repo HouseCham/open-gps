@@ -226,7 +226,7 @@ export const es: Translation = {
         passwordRecovery: {
             badge: 'Olvidé mi contraseña',
             title: 'Restablece tu contraseña',
-            sentTitle: 'Enlace de restablecimiento enviado',
+            sentTitle: 'Enlace de recuperación enviado',
             subtitle:
                 'Ingresa el correo con el que te registraste. Te enviaremos un enlace de un solo uso válido por 15 minutos — nadie más podrá usarlo.',
             sentSubtitle:
@@ -234,10 +234,10 @@ export const es: Translation = {
             emailLabel: 'Correo de la cuenta',
             emailHelp:
                 'El enlace se enviará solo a este correo. Nunca confirmamos si una cuenta existe.',
-            submit: 'Enviar enlace de restablecimiento',
+            submit: 'Enviar enlace de recuperación',
             submitting: 'Enviando enlace…',
-            backToLogin: '← Volver a iniciar sesión',
-            sentTitlePrefix: 'Enviamos un enlace de restablecimiento a',
+            backToLogin: 'Volver a iniciar sesión',
+            sentTitlePrefix: 'Enviamos un enlace de recuperación a',
             copyEmail: 'Copiar',
             copiedEmail: 'Copiado',
             useDifferentEmail: 'Usar otro correo',
@@ -261,7 +261,7 @@ export const es: Translation = {
             emailRequired: 'El correo es obligatorio',
             emailInvalid: 'Eso no parece un correo válido.',
             requestFailed:
-                'No pudimos enviar el enlace de restablecimiento. Inténtalo de nuevo en un momento.',
+                'No pudimos enviar el enlace de recuperación. Inténtalo de nuevo en un momento.',
             apiInspectorBody: {
                 email: 'tu@empresa.com',
                 redirectPath: '/reset-password?token=',
@@ -275,7 +275,7 @@ export const es: Translation = {
             tagline: 'Recupera el acceso. ',
             taglineAccent: 'Sin perder la confianza.',
             subtitle:
-                'Los restablecimientos auto-hospedados se firman con un token de un solo uso, se auditan en auth.events, y tú controlas el TTL y las listas de IP permitidas.',
+                'Los recuperacións auto-hospedados se firman con un token de un solo uso, se auditan en auth.events, y tú controlas el TTL y las listas de IP permitidas.',
             svgStatus: 'RECUPERACIÓN  ·  4 saltos  ·  ● token en vuelo',
             svgTtl: 'ttl 15m',
             footerSection: 'recuperación de cuenta',

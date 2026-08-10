@@ -186,8 +186,8 @@ export interface ChangePasswordStrings {
 }
 /**
  * @interface PasswordForgottenFormStrings
+ * @property {string} emailPlaceholder - Placeholder for the email field.
  * @property {string} badge - Heading chip on the request form.
- * @property {string} sentBadge - Heading chip on the confirmation card.
  * @property {string} title - Heading on the request form.
  * @property {string} sentTitle - Heading on the confirmation card.
  * @property {string} subtitle - Body copy on the request form.
@@ -225,8 +225,8 @@ export interface ChangePasswordStrings {
  * @property {string} rateLimitNote - Note rendered under the inspector explaining the rate-limit bucket.
  */
 export interface PasswordForgottenFormStrings {
+    emailPlaceholder: string;
     badge: string;
-    sentBadge: string;
     title: string;
     sentTitle: string;
     subtitle: string;

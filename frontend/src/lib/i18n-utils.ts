@@ -142,8 +142,8 @@ export function parsePasswordForgottenStrings(
 ): PasswordForgottenFormStrings {
     const r = auth.passwordRecovery;
     return {
+        emailPlaceholder: auth.emailPlaceholder,
         badge: r.badge,
-        sentBadge: r.sentBadge,
         title: r.title,
         sentTitle: r.sentTitle,
         subtitle: r.subtitle,
