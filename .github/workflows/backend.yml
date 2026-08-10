@@ -5,6 +5,10 @@ on:
     branches:
       - main
       - dev
+  push:
+    branches:
+      - main
+      - dev
 
 jobs:
   backend-test:
@@ -36,9 +40,17 @@ jobs:
 
   backend-docker:
     needs: [backend-build]
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+
+      - name: Log in to Docker Hub
+        run: |
+          echo "::group::Docker login"
+          docker login -u chamito -p ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          echo "::endgroup::"
+
       - name: Build docker image
         working-directory: backend
         run: |
@@ -46,10 +58,20 @@ jobs:
           docker build -t chamito/open-gps-api:dev .
           echo "::endgroup::"
 
-      - name: Push docker image
-        working-directory: backend
+      - name: Push API image
         run: |
-          echo "::group::Push docker image"
-          docker login -u chamito -p ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          echo "::group::Push API image"
           docker push chamito/open-gps-api:dev
+          echo "::endgroup::"
+
+      - name: Build migrate image
+        run: |
+          echo "::group::Build migrate image"
+          docker build --pull -t chamito/open-gps-migrate:dev migrate
+          echo "::endgroup::"
+
+      - name: Push migrate image
+        run: |
+          echo "::group::Push migrate image"
+          docker push chamito/open-gps-migrate:dev
           echo "::endgroup::"
