@@ -61,6 +61,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+
+      - name: Log in to Docker Hub
+        run: |
+          echo "::group::Docker login"
+          docker login -u chamito -p ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          echo "::endgroup::"
+
       - name: Build docker image
         working-directory: frontend
         run: |
@@ -68,10 +75,20 @@ jobs:
           docker build -t chamito/open-gps-frontend:dev .
           echo "::endgroup::"
 
-      - name: Push docker image
-        working-directory: frontend
+      - name: Push frontend image
         run: |
-          echo "::group::Push docker image"
-          docker login -u chamito -p ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          echo "::group::Push frontend image"
           docker push chamito/open-gps-frontend:dev
+          echo "::endgroup::"
+
+      - name: Build nginx image with current frontend
+        run: |
+          echo "::group::Build nginx image"
+          docker build --pull --no-cache -t chamito/open-gps-nginx:dev nginx
+          echo "::endgroup::"
+
+      - name: Push nginx image
+        run: |
+          echo "::group::Push nginx image"
+          docker push chamito/open-gps-nginx:dev
           echo "::endgroup::"
