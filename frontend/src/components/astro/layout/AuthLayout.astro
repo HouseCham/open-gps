@@ -10,9 +10,10 @@ import {
     AuthProvider,
     PublicOnlyRoute
 } from '@/components/react/auth';
-import { ToastProvider } from '@/components/react/ui';
+import { LanguageToggle, ToastProvider } from '@/components/react/ui';
 import { ThemeToggle } from '@/components/react/ui/ThemeToggle';
 import { MapSVG, RecoveryPipelineSVG } from '@/components/react';
+import { REPO_ENVIRONMENT } from '@/constants';
 
 /**
  * Brand-panel variants. `default` keeps the fleet-route visual used by
@@ -39,7 +40,7 @@ interface Props {
 }
 
 const {
-    locale = 'en',
+    locale = (Astro.params.lan as Language | undefined) ?? 'en',
     title = 'Open GPS',
     class: className,
     isLoginPage,
@@ -116,6 +117,7 @@ const brand = isRecovery
                         <aside class="auth-brand">
                             <div class="brand-controls">
                                 <ThemeToggle client:idle />
+                                <LanguageToggle client:idle locale={locale} />
                             </div>
 
                             <div class="mark">
@@ -133,6 +135,7 @@ const brand = isRecovery
                                 </div>
                             </div>
 
+                            {/* SVG */}
                             <div class="visual" aria-hidden="true">
                                 {isRecovery ? (
                                     <RecoveryPipelineSVG
@@ -148,7 +151,7 @@ const brand = isRecovery
                                 )}
                             </div>
 
-                            {isRecovery && (
+                            {REPO_ENVIRONMENT === 'development' && isRecovery && (
                                 <div class="step-rail" aria-label="Step 1 of 3">
                                     <span class="dot active" aria-hidden="true"></span>
                                     <span class="lbl now">{brand.step1}</span>
@@ -201,6 +204,9 @@ const brand = isRecovery
         position: absolute;
         top: var(--s-3);
         right: var(--s-4);
+        display: flex;
+        align-items: center;
+        gap: var(--s-2);
     }
 
     .auth-layout .sub {
