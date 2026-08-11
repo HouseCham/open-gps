@@ -4,6 +4,9 @@
 
 #include "location_payload.h"
 
+#define XPOWERS_CHIP_AXP2101
+#include <XPowersLib.h>
+
 // Single-class wrapper around the LilyGo T-SIM7080G-S3 GPS bring-up:
 // PMU prologue, modem power-on, AT handshake, GNSS enable, fix poll.
 // Owns one TinyGsm instance backed by Serial1 (UART1) and one XPowersPMU
@@ -38,3 +41,8 @@ private:
     uint32_t _usat = 0;
     uint32_t _vsat = 0;
 };
+
+// Global accessor for the singleton XPowersPMU owned by gps_board.cpp.
+// Lets other translation units (e.g. telemetry.cpp) drive the AXP2101
+// (charging LED, rail telemetry) without exposing the instance globally.
+XPowersPMU& board_pmu();
