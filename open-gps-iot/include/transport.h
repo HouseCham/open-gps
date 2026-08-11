@@ -12,6 +12,14 @@
 struct Secrets;
 struct LocationPayload;
 
+enum class TransportResult : uint8_t {
+    SENT,
+    WIFI_DISCONNECTED,
+    TRANSPORT_ERROR,
+    HTTP_ERROR,
+    CONFIG_ERROR
+};
+
 // Stage 3 transport: WiFi + HTTPS POST.
 //
 // transport_begin() initialises the ESP32's WiFi stack and blocks until
@@ -47,8 +55,6 @@ size_t transport_build_url(const char* api_host,
 // stays connected for the lifetime of the firmware.
 bool transport_begin(const Secrets& s);
 
-// POSTs the payload to the backend. Returns true on HTTP 201, false on
-// any other status or transport-level failure (after one retry). On
-// non-recoverable failure, the next cycle will retry with the same
-// recorded_at (DB-level idempotency makes this safe).
-bool transport_post_locations(const LocationPayload& p, const Secrets& s);
+// POSTs the payload to the backend. Distinguishes an accepted request,
+// transport failure, HTTP rejection, and invalid local request data.
+TransportResult transport_post_locations(const LocationPayload& p, const Secrets& s);

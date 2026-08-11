@@ -32,6 +32,10 @@ static bool pmuInit() {
         return false;
     }
 
+    // Earliest visible heartbeat: if this never lights on battery, the ESP32
+    // did not complete PMU I2C initialization or the PMU LED path is unpowered.
+    PMU.setChargingLedMode(XPOWERS_CHG_LED_ON);
+
     // Rationale: Explicitly disable all non-essential rails immediately.
     PMU.disableDC2(); PMU.disableDC4(); PMU.disableDC5();
     PMU.disableALDO1(); PMU.disableALDO2(); PMU.disableALDO3(); PMU.disableALDO4();

@@ -21,10 +21,15 @@ void setup() {
     // Rationale: Immediate PMU configuration block to collapse default high-draw states.
     if (!board.begin()) {
         WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); // Restore BOD before halting
+        telemetry_set_state(SystemState::ERR_BOARD);
         Serial.begin(115200);
         Serial.println(F("[HALT] Hardware bring-up failed; rebooting in 5 s"));
         Serial.flush();
-        delay(5000);
+        const unsigned long restartAt = millis() + 5000;
+        while ((long)(millis() - restartAt) < 0) {
+            telemetry_tick();
+            delay(10);
+        }
         ESP.restart();
     }
 
@@ -82,16 +87,23 @@ void loop() {
         lastPoll = now;
         if (board.pollFixPayload(lastFix)) {
             hasFix = true;
+            if (wifi_up) telemetry_set_state(SystemState::GNSS_FIX_READY);
             Serial.printf("[FIX ] sats=%lu  lat=%.6f  lon=%.6f  alt=%.1fm\n",
                           (unsigned long)board.satellitesUsed(),
                           lastFix.latitude, lastFix.longitude, lastFix.altitude);
-        } else if (now - lastIdle >= 10000) {
-            lastIdle = now;
-            String s = board.rawGnssState();
-            if (s.length() == 0) {
-                Serial.println(F("[....] modem returned no +CGNSINF"));
-            } else {
-                Serial.print(F("[STAT] ")); Serial.println(s);
+        } else {
+            hasFix = false;
+            if (wifi_up) telemetry_set_state(SystemState::WAITING_GNSS_FIX);
+            if (now - lastIdle >= 10000) {
+                lastIdle = now;
+                String s = board.rawGnssState();
+                if (s.length() == 0) {
+                    if (wifi_up) telemetry_set_state(SystemState::GNSS_NO_RESPONSE);
+                    Serial.println(F("[....] modem returned no +CGNSINF"));
+                } else {
+                    if (wifi_up) telemetry_set_state(SystemState::WAITING_GNSS_FIX);
+                    Serial.print(F("[STAT] ")); Serial.println(s);
+                }
             }
         }
     }
@@ -102,11 +114,29 @@ void loop() {
 
     telemetry_set_state(SystemState::UPLOADING_API);
 
-    if (transport_post_locations(lastFix, secrets)) {
-        Serial.println(F("[UP  ] location sent"));
-        telemetry_set_state(SystemState::WAITING_GNSS_FIX);
-    } else {
-        Serial.println(F("[ERR ] upload failed; remaining in ERR_API_FAIL until reset"));
-        telemetry_set_state(SystemState::ERR_API_FAIL);
+    const TransportResult result = transport_post_locations(lastFix, secrets);
+    switch (result) {
+        case TransportResult::SENT:
+            Serial.println(F("[UP  ] location sent"));
+            telemetry_set_state(SystemState::WAITING_GNSS_FIX);
+            telemetry_pulse_success();
+            break;
+        case TransportResult::WIFI_DISCONNECTED:
+            Serial.println(F("[ERR ] WiFi disconnected; uploads stopped until reset"));
+            wifi_up = false;
+            telemetry_set_state(SystemState::ERR_NETWORK);
+            break;
+        case TransportResult::TRANSPORT_ERROR:
+            Serial.println(F("[ERR ] API transport failed; retrying next cycle"));
+            telemetry_set_state(SystemState::ERR_API_TRANSPORT);
+            break;
+        case TransportResult::HTTP_ERROR:
+            Serial.println(F("[ERR ] API returned an HTTP error; retrying next cycle"));
+            telemetry_set_state(SystemState::ERR_API_HTTP);
+            break;
+        case TransportResult::CONFIG_ERROR:
+            Serial.println(F("[ERR ] API request could not be built"));
+            telemetry_set_state(SystemState::ERR_API_CONFIG);
+            break;
     }
 }

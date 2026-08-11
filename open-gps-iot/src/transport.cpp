@@ -52,8 +52,8 @@ static const char* http_error_name(int code) {
     }
 }
 
-static bool post_once(const char* url, const char* api_key,
-                      const char* json_body) {
+static TransportResult post_once(const char* url, const char* api_key,
+                                 const char* json_body) {
     Serial.printf("[POST] %u-byte body, "
                   "time=%lu free_heap=%u\n",
                   (unsigned)strlen(json_body),
@@ -81,14 +81,17 @@ static bool post_once(const char* url, const char* api_key,
 
     const int code = http.POST((uint8_t*)json_body, strlen(json_body));
 
-    bool ok = (code == 201);
-    if (ok) {
+    if (code == 201) {
         Serial.printf("[POST] 201 OK (%u bytes)\n",
                       (unsigned)http.getSize());
+        http.end();
+        return TransportResult::SENT;
     } else if (code > 0) {
         // HTTP responded but with an error status. Read the body for context.
         String body = http.getString();
         Serial.printf("[ERR ] HTTP %d: %s\n", code, body.c_str());
+        http.end();
+        return TransportResult::HTTP_ERROR;
     } else {
         // code < 0: transport-level failure (DNS, TLS, connection refused).
         // The underlying mbedtls error code is NOT exposed by HTTPClient.
@@ -112,17 +115,17 @@ static bool post_once(const char* url, const char* api_key,
                              "If setInsecure() is already on, this is a DNS, TCP, "
                              "or cipher mismatch — not a cert issue"));
         }
-    }
 
-    http.end();
-    return ok;
+        http.end();
+        return TransportResult::TRANSPORT_ERROR;
+    }
 }
 
-bool transport_post_locations(const LocationPayload& p, const Secrets& s) {
+TransportResult transport_post_locations(const LocationPayload& p, const Secrets& s) {
     const wl_status_t ws = WiFi.status();
     if (ws != WL_CONNECTED) {
         Serial.printf("[ERR ] WiFi not connected (status=%d); skipping upload\n", (int)ws);
-        return false;
+        return TransportResult::WIFI_DISCONNECTED;
     }
     Serial.printf("[NET ] wifi rssi=%d dBm chan=%d\n",
                   (int)WiFi.RSSI(), (int)WiFi.channel());
@@ -131,18 +134,19 @@ bool transport_post_locations(const LocationPayload& p, const Secrets& s) {
     if (transport_build_url(API_HOST, 0, s.uuid,
                             url, sizeof(url)) == 0) {
         Serial.println(F("[ERR ] URL overflow"));
-        return false;
+        return TransportResult::CONFIG_ERROR;
     }
 
     char body[256];
     const size_t bn = location_payload_to_json(p, body, sizeof(body));
     if (bn == 0) {
         Serial.println(F("[ERR ] JSON overflow"));
-        return false;
+        return TransportResult::CONFIG_ERROR;
     }
 
     Serial.printf("[POST] -> %s\n", url);
-    if (post_once(url, s.api_key, body)) return true;
+    TransportResult result = post_once(url, s.api_key, body);
+    if (result != TransportResult::TRANSPORT_ERROR) return result;
 
     Serial.printf("[RETRY] backing off %u ms\n",
                   (unsigned)UPLOAD_RETRY_DELAY_MS);
