@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 //-- Types
 import type { Language } from '@/types';
 import type { JSX } from 'react/jsx-runtime';
-//-- Icons
-import { Globe } from 'lucide-react';
+//-- Styles
+import '@/styles/language-toggle.css';
 /**
  * Props for the LanguageToggle component
  * @interface LanguageToggleProps
@@ -20,22 +20,20 @@ interface LanguageToggleProps {
  * @returns {JSX.Element} The rendered button.
  */
 export function LanguageToggle({ locale }: LanguageToggleProps): JSX.Element {
-    const [currentLocale, setCurrentLocale] = useState<Language>(() => {
-        if (typeof document === 'undefined') return locale;
-        // Safe: localStorage.getItem returns string | null; the next guard
-        // narrows the value to 'en' | 'es' with an explicit equality check.
-        const stored = localStorage.getItem('language') as Language | null;
-        if (stored === 'en' || stored === 'es') return stored;
-        const browser = navigator.language.toLowerCase();
-        return browser.startsWith('es') ? 'es' : 'en';
-    });
-
+    const [currentLocale, setCurrentLocale] = useState<Language>(locale);
     useEffect(() => {
-        localStorage.setItem('language', currentLocale);
-    }, [currentLocale]);
+        if (locale === currentLocale) return;
+        setCurrentLocale(locale);
+        localStorage.setItem('language', locale);
+    }, [locale]);
 
-    const toggleLanguage = (): void => {
-        const next: Language = currentLocale === 'en' ? 'es' : 'en';
+    /**
+     * Toggles the language between English and Spanish, updates the current locale state and redirects to the new URL with the appropriate language prefix.
+     * @param {Language} locale - The target locale to switch to.
+     * @returns {void}
+     */
+    const toggleLanguage = (next: Language): void => {
+        if (next === currentLocale) return;
         setCurrentLocale(next);
         const pathname = window.location.pathname;
         const newPath = pathname.replace(/^\/(en|es)/, `/${next}`);
@@ -43,22 +41,36 @@ export function LanguageToggle({ locale }: LanguageToggleProps): JSX.Element {
     };
 
     return (
-        <button
-            type="button"
-            className="chrome-icon-btn"
-            onClick={toggleLanguage}
-            aria-label={
-                currentLocale === 'en'
-                    ? 'Cambiar a español'
-                    : 'Switch to English'
-            }
-            title={
-                currentLocale === 'en'
-                    ? 'Cambiar a español'
-                    : 'Switch to English'
-            }
+        <div
+            className="lang-toggle"
+            role="group"
+            aria-label="Language switcher"
         >
-            <Globe size={16} strokeWidth={1.6} />
-        </button>
+            <div className="lang-toggle__track">
+                <span
+                    className={`lang-toggle__pill lang-toggle__pill--${currentLocale}`}
+                    aria-hidden="true"
+                />
+                <button
+                    type="button"
+                    className={`lang-toggle__opt${currentLocale === 'en' ? ' is-active' : ''}`}
+                    aria-pressed={currentLocale === 'en'}
+                    data-lang="en"
+                    onClick={() => toggleLanguage('en')}
+                >
+                    EN
+                </button>
+                <button
+                    type="button"
+                    className={`lang-toggle__opt${currentLocale === 'es' ? ' is-active' : ''}`}
+                    aria-label="Cambiar a español"
+                    aria-pressed={currentLocale === 'es'}
+                    data-lang="es"
+                    onClick={() => toggleLanguage('es')}
+                >
+                    ES
+                </button>
+            </div>
+        </div>
     );
 }

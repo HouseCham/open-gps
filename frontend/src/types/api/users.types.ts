@@ -43,6 +43,51 @@ export interface ChangePasswordResponse {
     data: boolean;
 }
 
+/**
+ * Payload sent to POST /api/v1/auth/generate-pwd-recovery-token. The
+ * server embeds the freshly-generated reset token in the URL it sends
+ * by email, so the frontend only ships the prefix (typically
+ * `${origin}/reset?token=`). The endpoint always answers 202 —
+ * unknown emails and rate-limited requests are indistinguishable
+ * from a successful dispatch.
+ * @interface RequestPasswordRecoveryDto
+ * @property {string} email - The user's email address.
+ * @property {string} locale - Template locale (`"en"` or `"es"`).
+ * @property {string} reset_password_url - URL prefix the reset link should land on.
+ */
+export interface RequestPasswordRecoveryDto {
+    email: string;
+    locale: 'en' | 'es';
+    reset_password_url: string;
+}
+
+/**
+ * Envelope returned by POST /api/v1/auth/generate-pwd-recovery-token.
+ * `data.message_id` echoes Resend's id when dispatch actually
+ * happened; it is the empty string when the request was silently
+ * dropped (unknown email or rate-limit hit).
+ * @interface RequestPasswordRecoveryResponse
+ * @property {number} status_code - The HTTP status code echoed back.
+ * @property {string} message - Human-readable confirmation.
+ * @property {{ message_id: string }} data - Resend's email id, or empty.
+ */
+export interface RequestPasswordRecoveryResponse {
+    status_code: number;
+    message: string;
+    data: { message_id: string };
+}
+
+/**
+ * Payload sent to POST /api/v1/auth/consume-pwd-recovery-token.
+ * @interface ConsumePasswordRecoveryDto
+ * @property {string} token - The raw token extracted from the reset URL.
+ * @property {string} new_password - The replacement password (≥ 8 chars, server-enforced).
+ */
+export interface ConsumePasswordRecoveryDto {
+    token: string;
+    new_password: string;
+}
+
 export interface UserWithDevices extends User {
     devices: Array<{
         id: string;

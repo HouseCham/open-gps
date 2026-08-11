@@ -10,6 +10,7 @@ export * from './layout-utils';
 export * from './copy-to-clipboard';
 export * from './number-utils';
 export * from './i18n-utils';
+export * from './email-utils';
 
 /**
  * Interpolate the given template with the given variables.

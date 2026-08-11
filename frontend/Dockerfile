@@ -8,8 +8,12 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-ARG PUBLIC_API_URL
-ENV PUBLIC_API_URL=${PUBLIC_API_URL}
+ARG PUBLIC_ENV=production
+ARG PUBLIC_API_URL=
+ARG PUBLIC_APP_ORIGIN=
+ENV PUBLIC_ENV=${PUBLIC_ENV} \
+    PUBLIC_API_URL=${PUBLIC_API_URL} \
+    PUBLIC_APP_ORIGIN=${PUBLIC_APP_ORIGIN}
 
 COPY package.json pnpm-lock.yaml .npmrc pnpm-workspace.yaml ./
 RUN corepack enable pnpm && pnpm install --frozen-lockfile

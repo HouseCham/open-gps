@@ -1,7 +1,7 @@
 import '@/styles/components/form/signup-form.css';
 import '@/styles/components/form/password-strength.css';
 
-import { useState } from 'react';
+import { useState, lazy } from 'react';
 //-- Types
 import type { SignupFormStrings } from '@/types/components';
 import type { ChangeEvent, FormEvent, JSX } from 'react';
@@ -9,13 +9,14 @@ import type { ChangeEvent, FormEvent, JSX } from 'react';
 import { isApiError } from '@/lib/api/api-utils';
 //-- Services
 import { useAuthService } from '@/lib/api/services';
+//-- Constants
+import { REPO_ENVIRONMENT } from '@/constants';
 //-- Components
 import { Alert } from '@/components/react/ui/Alert';
 import { Badge } from '@/components/react/ui/Badge';
 import { Button } from '@/components/react/ui/button';
 import { Checkbox, Field, Input } from '@/components/react/form/ui';
 import {
-    ApiInspector,
     GoogleLogo,
     OrDivider,
     PasswordField,
@@ -24,6 +25,12 @@ import {
 } from '@/components/react/form/shared';
 //-- Icons
 import { AlertCircle, ArrowRight, Info, Mail, User } from 'lucide-react';
+//-- Lazy components
+const ApiInspector = lazy(() =>
+    import('@/components/react/form/shared/ApiInspector').then(module => ({
+        default: module.ApiInspector,
+    }))
+);
 
 /**
  * Props for the SignupForm component.
@@ -252,22 +259,25 @@ export function SignupForm({
                 </div>
             </form>
 
-            <ApiInspector
-                method="POST"
-                path="/api/auth/email-password/sign-up"
-                body={{
-                    email: email || strings.emailPlaceholder,
-                    password: pw ? '••••••••' : '…',
-                }}
-                title={strings.apiInspectorTitle}
-                cookieNote={strings.apiInspectorCookieNote}
-                extra={
-                    <div className="note">
-                        <Info className="icon-14" />
-                        {strings.autoSignInNote}
-                    </div>
-                }
-            />
+            {/* Dev API inspector */}
+            {REPO_ENVIRONMENT === 'development' && (
+                <ApiInspector
+                    method="POST"
+                    path="/api/auth/email-password/sign-up"
+                    body={{
+                        email: email || strings.emailPlaceholder,
+                        password: pw ? '••••••••' : '…',
+                    }}
+                    title={strings.apiInspectorTitle}
+                    cookieNote={strings.apiInspectorCookieNote}
+                    extra={
+                        <div className="note">
+                            <Info className="icon-14" />
+                            {strings.autoSignInNote}
+                        </div>
+                    }
+                />
+            )}
         </>
     );
 }

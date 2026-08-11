@@ -1,4 +1,4 @@
-import type { Language } from "./i18n";
+import type { Language } from './i18n';
 
 /**
  * Data to send in the welcome email

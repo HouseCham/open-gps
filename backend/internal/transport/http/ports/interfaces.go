@@ -21,6 +21,7 @@ type UserLookup interface {
 
 type PasswordUpdater interface {
 	UpdatePassword(ctx context.Context, authulaUserID, oldPassword, newPassword string) error
+	ResetPassword(ctx context.Context, authulaUserID, newPassword string) error
 }
 
 type SessionManager interface {

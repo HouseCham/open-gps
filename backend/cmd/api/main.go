@@ -14,6 +14,7 @@ import (
 	"github.com/HouseCham/gps-tracker/backend/internal/app/apikeys"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/devices"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/locations"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/passwordreset"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/users"
 	"github.com/HouseCham/gps-tracker/backend/internal/auth"
 	"github.com/HouseCham/gps-tracker/backend/internal/config"
@@ -126,7 +127,21 @@ func main() {
 	emailService := email.New(resendClient, emailCfg.From, map[string]string{
 		"en": emailCfg.TemplateWelcome.EN,
 		"es": emailCfg.TemplateWelcome.ES,
+	}, map[string]string{
+		"en": emailCfg.TemplatePasswordReset.EN,
+		"es": emailCfg.TemplatePasswordReset.ES,
 	})
+
+	//-- password recovery
+	passwordResetTokens := postgres.NewPasswordResetTokensAdapter(pool)
+	passwordResetService := passwordreset.New(
+		passwordResetTokens,
+		passwordResetTokens,
+		usersService,
+		authInstance.NewPasswordUpdater(),
+		emailService,
+		nil, // default clock = time.Now
+	)
 
 	//-- queries pool — kept separate so the IoT auth middleware can
 	//   use it without taking a service dependency.
@@ -142,16 +157,18 @@ func main() {
 	apiKeysHandler := handlers.NewAPIKeysHandler(apiKeysService)
 	locationsHandler := handlers.NewLocationsHandler(locationsService)
 	emailHandler := handlers.NewEmailHandler(emailService)
+	passwordResetHandler := handlers.NewPasswordResetHandler(passwordResetService)
 
 	app := http.NewRouter(http.RouterDeps{
-		HealthHandler:     healthHandler,
-		DevicesHandler:    devicesHandler,
-		UsersHandler:      usersHandler,
-		AccessHandler:     accessHandler,
-		APIKeysHandler:    apiKeysHandler,
-		LocationsHandler:  locationsHandler,
-		EmailHandler:      emailHandler,
-		BootstrapHandler:  handlers.NewBootstrapHandler(usersService),
+		HealthHandler:        healthHandler,
+		DevicesHandler:       devicesHandler,
+		UsersHandler:         usersHandler,
+		AccessHandler:        accessHandler,
+		APIKeysHandler:       apiKeysHandler,
+		LocationsHandler:     locationsHandler,
+		EmailHandler:         emailHandler,
+		PasswordResetHandler: passwordResetHandler,
+		BootstrapHandler:     handlers.NewBootstrapHandler(usersService),
 		AccessService:     accessService,
 		UsersService:      usersService,
 		Queries:           queries,
