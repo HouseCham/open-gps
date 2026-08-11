@@ -270,15 +270,15 @@ func (a *Auth) NewUserLookup() authulaservices.UserService {
 // NewUserCreator returns a creator backed by the live Authula services.
 func (a *Auth) NewUserCreator() authulaUserCreator {
 	return authulaUserCreator{
-		userService:    a.userService,
-		accountService: a.accountService,
+		userService:     a.userService,
+		accountService:  a.accountService,
 		passwordService: a.passwordService,
 	}
 }
 
 type authulaUserCreator struct {
-	userService    authulaservices.UserService
-	accountService authulaservices.AccountService
+	userService     authulaservices.UserService
+	accountService  authulaservices.AccountService
 	passwordService authulaservices.PasswordService
 }
 
@@ -344,11 +344,20 @@ func (u authulaPasswordUpdater) UpdatePassword(ctx context.Context, authulaUserI
 // must_change_password flag is NOT touched here — the caller (the
 // passwordreset service) clears it on the local users table.
 func (u authulaPasswordUpdater) ResetPassword(ctx context.Context, authulaUserID, newPassword string) error {
+	account, err := u.accountService.GetByUserIDAndProvider(ctx, authulaUserID, models.AuthProviderEmail.String())
+	if err != nil {
+		return fmt.Errorf("auth: get email account: %w", err)
+	}
+	if account == nil {
+		return fmt.Errorf("auth: email account not found for user %s", authulaUserID)
+	}
+
 	hash, err := u.passwordService.Hash(newPassword)
 	if err != nil {
 		return fmt.Errorf("auth: hash password: %w", err)
 	}
-	if err := u.accountService.UpdateFields(ctx, authulaUserID, map[string]any{"password": hash}); err != nil {
+	account.Password = &hash
+	if _, err := u.accountService.Update(ctx, account); err != nil {
 		return fmt.Errorf("auth: update account password: %w", err)
 	}
 	return nil
@@ -404,7 +413,10 @@ func (a sessionAuthenticator) Authenticate(ctx context.Context, sessionToken str
 	}
 	hashed := a.tokenSvc.Hash(sessionToken)
 	session, err := a.sessionSvc.GetByToken(ctx, hashed)
-	if err != nil || session == nil {
+	if err != nil {
+		return nil, fmt.Errorf("session lookup: %w", err)
+	}
+	if session == nil {
 		return nil, nil
 	}
 	if session.ExpiresAt.Before(timeNow()) {

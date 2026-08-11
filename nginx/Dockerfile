@@ -1,4 +1,4 @@
-FROM chamito/open-gps-frontend:dev AS frontend
+FROM frontend AS frontend
 
 FROM nginx:alpine
 RUN rm -rf /etc/nginx/conf.d/default.conf

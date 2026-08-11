@@ -68,12 +68,16 @@ services:
     build:
       context: ./frontend
       args:
-        PUBLIC_API_URL: ${PUBLIC_API_URL}
+        PUBLIC_ENV: ${PUBLIC_ENV:-development}
+        PUBLIC_API_URL: ${PUBLIC_API_URL:-}
+        PUBLIC_APP_ORIGIN: ${PUBLIC_APP_ORIGIN:-https://localhost}
     image: open-gps-frontend
     container_name: open-gps-frontend
     restart: unless-stopped
     expose:
       - "80"
+    volumes:
+      - frontend_dist:/app/dist
     depends_on:
       - api
 
@@ -81,7 +85,7 @@ services:
     build:
       context: ./nginx
       additional_contexts:
-        - frontend=./frontend
+        - frontend=service:frontend
       args:
         PUBLIC_API_URL: ${PUBLIC_API_URL}
     image: open-gps-nginx
@@ -93,5 +97,10 @@ services:
     volumes:
       - ./nginx/certs:/etc/nginx/certs:ro
       - ./nginx/nginx.local.conf:/etc/nginx/conf.d/default.conf:ro
+      - frontend_dist:/var/www/html:ro
     depends_on:
       - api
+      - frontend
+
+volumes:
+  frontend_dist:

@@ -9,10 +9,9 @@ import { Button } from '@/components/react/ui/button';
 //-- Icons
 import { AlertCircle, ArrowLeft, Send } from 'lucide-react';
 //-- Utils
-import { redirectTo } from '@/lib';
 //-- Constants
 import { LOGIN_PATH } from '@/constants/auth';
-import { REPO_ENVIRONMENT } from '@/constants';
+import { APP_ORIGIN, REPO_ENVIRONMENT } from '@/constants';
 //-- Lazy components
 const ApiInspector = lazy(() =>
     import('@/components/react/form/shared/ApiInspector').then(module => ({
@@ -23,13 +22,19 @@ const ApiInspector = lazy(() =>
 /**
  * Props for the internal request-state view.
  * @interface RequestStateProps
+ * @prop {PasswordForgottenFormStrings} strings - The form strings.
+ * @prop {string} email - The email address.
+ * @prop {string | null} err - An error message, if any.
+ * @prop {boolean} loading - Whether the request is in flight.
+ * @prop {Language} locale - The current locale.
+ * @prop {(value: string) => void} onChange - Callback for the email input.
+ * @prop {(e: FormEvent<HTMLFormElement>) => Promise<void>} onSubmit - Callback for the form submit event.
  */
 interface RequestStateProps {
     strings: PasswordForgottenFormStrings;
     email: string;
     err: string | null;
     loading: boolean;
-    origin: string;
     locale: Language;
     onChange: (value: string) => void;
     onSubmit: (e: FormEvent<HTMLFormElement>) => Promise<void>;
@@ -45,7 +50,6 @@ export function RequestState({
     email,
     err,
     loading,
-    origin,
     locale,
     onChange,
     onSubmit,
@@ -106,8 +110,8 @@ export function RequestState({
                 {/* Back to login link */}
                 <div className="alt">
                     <a
+                        href={`/${locale}${LOGIN_PATH}`}
                         className="linkish mono"
-                        onClick={() => redirectTo(LOGIN_PATH)}
                     >
                         <ArrowLeft size={12} aria-hidden="true" />{' '}
                         {strings.backToLogin}
@@ -122,7 +126,7 @@ export function RequestState({
                     body={{
                         email: email || strings.apiInspectorBody.email,
                         locale,
-                        reset_password_url: `${origin}${strings.apiInspectorBody.redirectPath}`,
+                        reset_password_url: `${APP_ORIGIN}${strings.apiInspectorBody.redirectPath}`,
                     }}
                     title={strings.badge}
                     cookieNote={strings.rateLimitNote}
