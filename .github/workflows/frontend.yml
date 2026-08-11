@@ -73,9 +73,8 @@ jobs:
         run: |
           echo "::group::Build docker image"
           docker build \
-            --build-arg PUBLIC_ENV=${{ vars.FRONTEND_ENV }} \
-            --build-arg PUBLIC_API_URL=${{ vars.PUBLIC_API_URL }} \
-            --build-arg PUBLIC_APP_ORIGIN=${{ vars.APP_ORIGIN }} \
+            --build-arg PUBLIC_ENV=${{ vars.PUBLIC_ENV }} \
+            --build-arg PUBLIC_APP_ORIGIN=${{ vars.PUBLIC_APP_ORIGIN }} \
             -t chamito/open-gps-frontend:dev .
           echo "::endgroup::"
 
