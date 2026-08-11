@@ -53,6 +53,13 @@ void telemetry_set_state(SystemState state) {
     blinkStep = 0;
     successPulse = false;
     applyStateLed();
+
+    static const char* names[] = {
+        "BOOTING", "CONNECTING_NETWORK", "WAITING_GNSS_FIX", "GNSS_FIX_READY",
+        "GNSS_NO_RESPONSE", "UPLOADING_API", "ERR_BOARD", "ERR_SECRETS",
+        "ERR_NETWORK", "ERR_API_TRANSPORT", "ERR_API_HTTP", "ERR_API_CONFIG"
+    };
+    Serial.printf("[%8lu][STATE] %s\n", millis(), names[static_cast<int>(state)]);
 }
 
 void telemetry_pulse_success() {
