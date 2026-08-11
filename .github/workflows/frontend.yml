@@ -72,7 +72,11 @@ jobs:
         working-directory: frontend
         run: |
           echo "::group::Build docker image"
-          docker build -t chamito/open-gps-frontend:dev .
+          docker build \
+            --build-arg PUBLIC_ENV=${{ vars.FRONTEND_ENV }} \
+            --build-arg PUBLIC_API_URL=${{ vars.PUBLIC_API_URL }} \
+            --build-arg PUBLIC_APP_ORIGIN=${{ vars.APP_ORIGIN }} \
+            -t chamito/open-gps-frontend:dev .
           echo "::endgroup::"
 
       - name: Push frontend image
@@ -84,7 +88,9 @@ jobs:
       - name: Build nginx image with current frontend
         run: |
           echo "::group::Build nginx image"
-          docker build --pull --no-cache -t chamito/open-gps-nginx:dev nginx
+          docker build \
+            --build-context frontend=docker-image://chamito/open-gps-frontend:dev \
+            --pull --no-cache -t chamito/open-gps-nginx:dev nginx
           echo "::endgroup::"
 
       - name: Push nginx image

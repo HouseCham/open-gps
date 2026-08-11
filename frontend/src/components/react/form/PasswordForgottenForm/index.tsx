@@ -27,16 +27,12 @@ const SentState = lazy(() =>
  * @interface PasswordForgottenFormProps
  * @prop {PasswordForgottenFormStrings} strings - i18n strings.
  * @prop {Language} locale - Locale code forwarded to the recovery API.
- * @prop {string} resetPasswordUrlPrefix - URL prefix for the reset link
- *   (the backend appends `?token=…`). Built by the .astro page.
- * @prop {string} origin - Absolute origin used to render the dev API
- *   inspector body. SSR-safe because it's a string, not `window`.
+ * @prop {string} resetPasswordUrlPrefix - URL prefix for the reset link (the backend appends `?token=…`). Built by the .astro page.
  */
 export interface PasswordForgottenFormProps {
     strings: PasswordForgottenFormStrings;
     locale: Language;
     resetPasswordUrlPrefix: string;
-    origin: string;
 }
 
 /**
@@ -49,7 +45,6 @@ export function PasswordForgottenForm({
     strings,
     locale,
     resetPasswordUrlPrefix,
-    origin,
 }: PasswordForgottenFormProps): JSX.Element {
     const { requestPasswordRecovery } = useAuthService();
     const [phase, setPhase] = useState<PasswordRecoveryPhase>('request');
@@ -164,7 +159,6 @@ export function PasswordForgottenForm({
             email={email}
             err={err}
             loading={loading}
-            origin={origin}
             locale={locale}
             onChange={setEmail}
             onSubmit={submit}
