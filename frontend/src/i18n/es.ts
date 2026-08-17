@@ -578,8 +578,7 @@ export const es: Translation = {
                 signal: 'Señal',
                 recorded: 'Registrado',
             },
-            goLive: 'En directo',
-            stopLive: 'Detener directo',
+            goLive: 'Ver en directo',
             liveWaiting: 'Esperando el primer paquete…',
             connectionLost: 'Conexión perdida',
             connectionLostMessage:

@@ -565,7 +565,6 @@ export const en = {
                 recorded: 'Recorded',
             },
             goLive: 'Go Live',
-            stopLive: 'Stop Live',
             liveWaiting: 'Waiting for the first packet…',
             connectionLost: 'Connection lost',
             connectionLostMessage:
