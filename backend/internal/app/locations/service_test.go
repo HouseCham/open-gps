@@ -29,12 +29,18 @@ func (m *mockWriter) Insert(_ context.Context, loc domain.Location) error {
 // never touches the read path. The GetLatest tests swap in their own
 // reader to control the returned location / error.
 type mockReader struct {
-	loc domain.Location
-	err error
+	loc     domain.Location
+	err     error
+	history []domain.Location
+	total   int
 }
 
 func (m *mockReader) GetLatest(_ context.Context, _ uuid.UUID) (domain.Location, error) {
 	return m.loc, m.err
+}
+
+func (m *mockReader) GetHistory(context.Context, uuid.UUID, time.Time, time.Time, int, int) ([]domain.Location, int, error) {
+	return m.history, m.total, nil
 }
 
 func validBase() domain.Location {
