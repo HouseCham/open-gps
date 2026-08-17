@@ -29,9 +29,9 @@ import { formatRelativeTime } from '@/lib';
  * @prop {Translation['device']} translations - Translations.
  * @prop {Translation['date']} date - Date-related translation strings.
  * @prop {() => void} onBack - Callback for the back button.
- * @prop {() => void} onShare - Callback for the share button.
- * @prop {() => void} onEdit - Callback for the edit button.
- * @prop {() => void} onDelete - Callback for the delete button.
+ * @prop {() => void | undefined} [onShare] - Callback for the share button.
+ * @prop {() => void | undefined} [onEdit] - Callback for the edit button.
+ * @prop {() => void | undefined} [onDelete] - Callback for the delete button.
  */
 interface VehicleDetailHeaderProps {
     device: DeviceDetail;
@@ -40,9 +40,9 @@ interface VehicleDetailHeaderProps {
     translations: Translation['device'];
     date: Translation['date'];
     onBack: () => void;
-    onShare: () => void;
-    onEdit: () => void;
-    onDelete: () => void;
+    onShare?: () => void;
+    onEdit?: () => void;
+    onDelete?: () => void;
 }
 /**
  * VehicleDetailHeader component
@@ -94,6 +94,7 @@ export function VehicleDetailHeader({
                     <span className="dd-sub-item">
                         <Clock3 size={12} />
                         {t.lastPing}{' '}
+                        {' - '}
                         {formatRelativeTime(device.last_seen_at, locale, date)}
                     </span>
                     <span className="dd-sub-item">
@@ -103,33 +104,45 @@ export function VehicleDetailHeader({
                 </div>
             </div>
             <div className="dd-actions">
-                <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    icon={<Users size={14} />}
-                    onClick={onShare}
-                >
-                    {t.share}
-                </Button>
-                <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    icon={<Pencil size={14} />}
-                    onClick={onEdit}
-                >
-                    {t.edit}
-                </Button>
-                <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    icon={<Trash2 size={14} />}
-                    onClick={onDelete}
-                >
-                    {t.delete}
-                </Button>
+                {
+                    onShare && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            icon={<Users size={14} />}
+                            onClick={onShare}
+                        >
+                            {t.share}
+                        </Button>        
+                    )
+                }
+                {
+                    onEdit && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            icon={<Pencil size={14} />}
+                            onClick={onEdit}
+                        >
+                            {t.edit}
+                        </Button>
+                    )
+                }
+                {
+                    onDelete && (
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            icon={<Trash2 size={14} />}
+                            onClick={onDelete}
+                        >
+                            {t.delete}
+                        </Button>
+                    )
+                }
             </div>
         </header>
     );

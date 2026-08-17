@@ -17,7 +17,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { MapPin, Radio, RefreshCw } from 'lucide-react';
 //-- Utils
 import { useEffect, useRef } from 'react';
-import { formatRelativeTime } from '@/lib';
+import { formatRelativeTime, redirectTo } from '@/lib';
 import {
     MAP_COORDINATE_DECIMALS,
     MAP_DEVICE_ZOOM,
@@ -40,6 +40,7 @@ import {
  * @prop {boolean} loading - Loading state.
  * @prop {() => void} onRefresh - Callback for the refresh button.
  * @prop {() => void} onGoLive - Callback for the go live / stop live toggle.
+ * @prop {string} deviceId - Device ID.
  * @prop {boolean} liveMode - Whether live polling is active.
  */
 interface MapCardProps {
@@ -48,9 +49,8 @@ interface MapCardProps {
     translations: Translation['device'];
     date: Translation['date'];
     loading: boolean;
+    deviceId: string;
     onRefresh: () => void;
-    onGoLive: () => void;
-    liveMode: boolean;
 }
 /**
  * MapCard component
@@ -63,9 +63,8 @@ export function MapCard({
     translations,
     date,
     loading,
+    deviceId,
     onRefresh,
-    onGoLive,
-    liveMode,
 }: MapCardProps): JSX.Element {
     const t = translations.detail;
     const hasLocation = location !== null;
@@ -116,12 +115,11 @@ export function MapCard({
                         type="button"
                         variant="secondary"
                         size="sm"
-                        className={liveMode ? 'dd-go-live-active' : undefined}
+                        className={'dd-go-live-active'}
                         icon={<Radio size={MAP_GO_LIVE_ICON_SIZE} />}
-                        onClick={onGoLive}
-                        aria-pressed={liveMode}
+                        onClick={() => redirectTo(`/devices/live?id=${deviceId}`)}
                     >
-                        {liveMode ? t.stopLive : t.goLive}
+                        {t.goLive}
                     </Button>
                 </div>
             </div>
@@ -159,12 +157,6 @@ export function MapCard({
                         </Marker>
                     )}
                 </MapLibreMap>
-                {liveMode && (
-                    <div className="dd-map-live">
-                        <span className="dd-map-live-dot" />
-                        {t.liveTracking}
-                    </div>
-                )}
                 {hasLocation && (
                     <div className="dd-map-coords">
                         {location.latitude.toFixed(MAP_COORDINATE_DECIMALS)}°,{' '}
