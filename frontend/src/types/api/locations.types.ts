@@ -1,3 +1,5 @@
+import type { PaginationMeta } from './devices.types';
+
 /**
  * One location row as returned by the read-side locations endpoints.
  * Field names mirror the backend `LocationResponse` shape (snake_case)
@@ -27,6 +29,17 @@ export interface LocationPoint {
     accuracy: number | null;
     battery_voltage: number | null;
     signal_strength: number | null;
+}
+
+/**
+ * Response shape for the History API endpoint, which returns a paginated list of location points.
+ * @interface LocationHistoryResponse
+ * @property {LocationPoint[]} items - Array of location points.
+ * @property {PaginationMeta} pagination - Pagination metadata.
+ */
+export interface LocationHistoryResponse {
+    items: LocationPoint[];
+    pagination: PaginationMeta;
 }
 
 /**

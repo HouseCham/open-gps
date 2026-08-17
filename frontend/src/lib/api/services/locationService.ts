@@ -1,6 +1,12 @@
 import { useState } from 'react';
 //-- Types
-import type { ApiError, Envelope, LocationPoint } from '@/types/api';
+import type {
+    ApiError,
+    Envelope,
+    LocationHistoryResponse,
+    LocationPoint,
+    PaginationMeta,
+} from '@/types/api';
 //-- Utils
 import { toApiError, withApiErrorToast } from '@/lib/api/api-utils';
 import { toastBus } from '@/lib/stores/toast.store';
@@ -13,19 +19,30 @@ import { apiClient } from '@/lib/api/client';
  * @property {boolean} isLoading - Whether the service is currently fetching.
  * @property {ApiError | null} error - The error from the last failed call, if any.
  * @property {LocationPoint | null} latest - The device's most recent location, if any has been fetched.
+ * @property {LocationPoint[]} history - The current page of historical locations.
+ * @property {PaginationMeta | null} historyPagination - Pagination metadata for the history page.
  * @method getLatestLocation - Fetches the device's most recent location.
+ * @method getLocationHistory - Fetches a page of locations in a local-time range.
  */
 interface ILocationService {
     isLoading: boolean;
     error: ApiError | null;
     latest: LocationPoint | null;
+    history: LocationPoint[];
+    historyPagination: PaginationMeta | null;
     getLatestLocation: (deviceId: string) => Promise<void>;
+    getLocationHistory: (
+        deviceId: string,
+        from: string,
+        to: string,
+        timeZone: string,
+        page?: number,
+        pageSize?: number
+    ) => Promise<void>;
 }
 
 /**
- * Hook that wraps the locations read endpoints. Scope today is the
- * "latest" lookup that drives the device-detail map preview; the
- * paginated history endpoint lands with the LivePreview component.
+ * Hook that wraps the locations read endpoints.
  *
  * Mirrors the shape of `useDeviceService`: `isLoading` flips during
  * the request, `latest` holds the last fetched row, `error` surfaces
@@ -38,6 +55,9 @@ export const useLocationService = (): ILocationService => {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<ApiError | null>(null);
     const [latest, setLatest] = useState<LocationPoint | null>(null);
+    const [history, setHistory] = useState<LocationPoint[]>([]);
+    const [historyPagination, setHistoryPagination] =
+        useState<PaginationMeta | null>(null);
 
     /**
      * Fetches the device's most recent location. The backend's
@@ -105,11 +125,83 @@ export const useLocationService = (): ILocationService => {
         }
     }
 
+    /**
+     * Fetches a page of historical locations. `from` and `to` are local
+     * wall-clock values in `timeZone`; the backend converts them to UTC.
+     * @param {string} deviceId - UUID of the device to query.
+     * @param {string} from - Local start time in YYYY-MM-DDTHH:mm:ss format.
+     * @param {string} to - Local end time in YYYY-MM-DDTHH:mm:ss format.
+     * @param {string} timeZone - IANA timezone, such as America/Mexico_City.
+     * @param {number} [page=1] - The page number to retrieve.
+     * @param {number} [pageSize=20] - The number of items to retrieve.
+     * @returns {Promise<void>} Resolves once the request settles.
+     */
+    async function getLocationHistory(
+        deviceId: string,
+        from: string,
+        to: string,
+        timeZone: string,
+        page: number = 1,
+        pageSize: number = 20
+    ): Promise<void> {
+        setIsLoading(true);
+        setError(null);
+        setHistory([]);
+        setHistoryPagination(null);
+        try {
+            const { data: response } = await withApiErrorToast(() =>
+                apiClient<Envelope<LocationHistoryResponse> | null>(
+                    `/devices/${deviceId}/locations`,
+                    {
+                        method: 'GET',
+                        query: {
+                            from,
+                            to,
+                            'time-zone': timeZone,
+                            page,
+                            page_size: pageSize,
+                        },
+                    }
+                )
+            );
+            if (!response) {
+                setError(toApiError(new Error('empty response')));
+                return;
+            }
+            if (response.status_code !== 200) {
+                const apiError = {
+                    status: response.status_code,
+                    message: response.message,
+                };
+                setError(apiError);
+                toastBus.push({
+                    variant: 'error',
+                    title: 'Error',
+                    message: response.message,
+                });
+                return;
+            }
+            setHistory(response.data.items);
+            setHistoryPagination(response.data.pagination);
+        } catch (err) {
+            setError(
+                err && typeof err === 'object' && 'status' in err
+                    ? (err as ApiError)
+                    : toApiError(err)
+            );
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
     return {
         isLoading,
         error,
         latest,
+        history,
+        historyPagination,
         //-- actions
         getLatestLocation,
+        getLocationHistory,
     };
 };
