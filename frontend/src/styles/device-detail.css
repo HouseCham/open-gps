@@ -716,6 +716,10 @@
     z-index: 2;
 }
 
+.dd-marker--disconnected .dd-marker-dot {
+    background: #808080;
+}
+
 .dd-marker-pulse {
     position: absolute;
     inset: 0;

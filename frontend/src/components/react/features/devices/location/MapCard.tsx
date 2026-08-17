@@ -17,7 +17,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { MapPin, Radio, RefreshCw } from 'lucide-react';
 //-- Utils
 import { useEffect, useRef } from 'react';
-import { formatRelativeTime, redirectTo } from '@/lib';
+import { deriveDeviceStatus, formatRelativeTime, redirectTo } from '@/lib';
 import {
     MAP_COORDINATE_DECIMALS,
     MAP_DEVICE_ZOOM,
@@ -41,6 +41,7 @@ import {
  * @prop {() => void} onRefresh - Callback for the refresh button.
  * @prop {() => void} onGoLive - Callback for the go live / stop live toggle.
  * @prop {string} deviceId - Device ID.
+ * @prop {boolean} showGoLive - Whether to show the go live button.
  * @prop {boolean} liveMode - Whether live polling is active.
  */
 interface MapCardProps {
@@ -50,6 +51,7 @@ interface MapCardProps {
     date: Translation['date'];
     loading: boolean;
     deviceId: string;
+    showGoLive: boolean;
     onRefresh: () => void;
 }
 /**
@@ -64,6 +66,7 @@ export function MapCard({
     date,
     loading,
     deviceId,
+    showGoLive,
     onRefresh,
 }: MapCardProps): JSX.Element {
     const t = translations.detail;
@@ -72,6 +75,7 @@ export function MapCard({
         ? { latitude: location.latitude, longitude: location.longitude }
         : MAP_FALLBACK_CENTER;
     const mapRef = useRef<MapRef | null>(null);
+    const status = deriveDeviceStatus(location?.recorded_at ?? null, translations);
 
     // ponytail: initialViewState only applies on first mount; the device
     // location usually arrives *after* that. Animate to it once data loads.
@@ -111,18 +115,22 @@ export function MapCard({
                         {t.refresh}
                     </Button>
                     {/* Go live / stop live button */}
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className={'dd-go-live-active'}
-                        icon={<Radio size={MAP_GO_LIVE_ICON_SIZE} />}
-                        onClick={() =>
-                            redirectTo(`/devices/live?id=${deviceId}`)
-                        }
-                    >
-                        {t.goLive}
-                    </Button>
+                    {
+                        showGoLive && (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                className={'dd-go-live-active'}
+                                icon={<Radio size={MAP_GO_LIVE_ICON_SIZE} />}
+                                onClick={() =>
+                                    redirectTo(`/devices/live?id=${deviceId}`)
+                                }
+                            >
+                                {t.goLive}
+                            </Button>
+                        )
+                    }
                 </div>
             </div>
             <div className="dd-map" aria-label={t.mapLabel}>
@@ -152,8 +160,13 @@ export function MapCard({
                             longitude={location.longitude}
                             anchor="center"
                         >
-                            <div className="dd-marker" aria-hidden="true">
-                                <span className="dd-marker-pulse" />
+                            <div
+                                className={`dd-marker${status.dot === 'success' ? '' : ' dd-marker--disconnected'}`}
+                                aria-hidden="true"
+                            >
+                                {status.dot === 'success' && (
+                                    <span className="dd-marker-pulse" />
+                                )}
                                 <span className="dd-marker-dot" />
                             </div>
                         </Marker>

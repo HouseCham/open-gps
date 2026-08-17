@@ -261,6 +261,7 @@ export function DeviceDetailPage({
 
             {/* GPS Telemetry Section */}
             <GpsTelemetrySection
+                showGoLive
                 title={t.detail.gpsTelemetry}
                 description={t.detail.gpsTelemetryDescription}
                 latest={

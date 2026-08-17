@@ -21,6 +21,7 @@ import { GpsTelemetrySectionSkeleton } from '@/components/react/skeleton';
  * @prop {Translation['date']} date - Date-related translation strings.
  * @prop {boolean} loading - Loading state.
  * @prop {string} deviceId - Device ID.
+ * @prop {boolean} [showGoLive] - Whether to show the go live button.
  * @prop {() => Promise<void>} getLatestLocation - Function to get the latest location.
  */
 interface GpsTelemetrySectionProps {
@@ -32,6 +33,7 @@ interface GpsTelemetrySectionProps {
     date: Translation['date'];
     loading: boolean;
     deviceId: string;
+    showGoLive?: boolean;
     getLatestLocation: (deviceId: string) => Promise<void>;
 }
 /**
@@ -48,6 +50,7 @@ export function GpsTelemetrySection({
     date,
     loading,
     deviceId,
+    showGoLive = false,
     getLatestLocation,
 }: GpsTelemetrySectionProps): JSX.Element {
     if (!latest) {
@@ -69,6 +72,7 @@ export function GpsTelemetrySection({
                     date={date}
                     loading={loading}
                     deviceId={deviceId}
+                    showGoLive={showGoLive}
                     onRefresh={() => {
                         if (deviceId) void getLatestLocation(deviceId);
                     }}
