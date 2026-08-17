@@ -30,10 +30,9 @@ type IngestLocationRequest struct {
 	SignalStrength *int     `json:"signal_strength" validate:"omitempty,gte=0,lte=31"`
 }
 
-// LocationResponse is the body returned by GET /api/v1/devices/:id/locations/latest.
-// One row — the device's most recent location — projected for the dashboard's
-// "last location" preview. Nullable telemetry fields stay as *T so a missing
-// sensor reading surfaces as JSON null rather than a misleading zero.
+// LocationResponse is one location row returned by the read-side endpoints.
+// Nullable telemetry fields stay as *T so a missing sensor reading surfaces as
+// JSON null rather than a misleading zero.
 //
 // Times are serialised to RFC 3339 by Go's time.Time JSON marshaller; the
 // frontend's `formatDate` helper parses the same shape.
@@ -47,6 +46,11 @@ type LocationResponse struct {
 	Accuracy       *float64  `json:"accuracy"`
 	BatteryVoltage *float64  `json:"battery_voltage"`
 	SignalStrength *int      `json:"signal_strength"`
+}
+
+type LocationListResponse struct {
+	Items      []LocationResponse `json:"items"`
+	Pagination PaginationMeta     `json:"pagination"`
 }
 
 // LocationFromDomain projects a domain.Location into the wire shape

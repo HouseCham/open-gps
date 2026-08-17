@@ -17,6 +17,8 @@ import (
 	"github.com/HouseCham/gps-tracker/backend/utils"
 )
 
+const locationQueryTimeLayout = "2006-01-02T15:04:05"
+
 type LocationsHandler struct {
 	service *locations.Service
 }
@@ -115,6 +117,92 @@ func (h *LocationsHandler) Latest(c fiber.Ctx) error {
 		Message:    "latest location retrieved",
 		Data:       dto.LocationFromDomain(loc),
 	})
+}
+
+// History handles GET /api/v1/devices/:id/locations.
+// from and to are local wall-clock values interpreted in the supplied IANA
+// time zone, then converted to UTC before the database query.
+func (h *LocationsHandler) History(c fiber.Ctx) error {
+	const operation = "LocationsHandler:History"
+	log.Debug(operation, "request received")
+
+	if _, ok := middleware.GetRequestUser(c); !ok {
+		log.Error(operation, "err", fiber.ErrUnauthorized)
+		return middleware.UnauthorizedResponse(c)
+	}
+
+	deviceID, err := middleware.ParseUUIDParam(c, "id")
+	if err != nil {
+		log.Error(operation, "err", err, "param", "id")
+		return middleware.BadRequestResponse(c, "invalid device id")
+	}
+
+	from, to, err := parseLocationRange(c)
+	if err != nil {
+		log.Error(operation, "err", err, "deviceID", deviceID)
+		return middleware.BadRequestResponse(c, err.Error())
+	}
+
+	page, pageSize := parsePagination(c, defaultPageSize)
+	log.Debug(operation, "executing use case", "deviceID", deviceID, "from", from, "to", to, "page", page, "pageSize", pageSize)
+	items, total, err := h.service.GetHistory(c.Context(), deviceID, from, to, page, pageSize)
+	if err != nil {
+		log.Error(operation, "err", err, "deviceID", deviceID)
+		return fmt.Errorf("LocationsHandler.History: %w", err)
+	}
+
+	locations := make([]dto.LocationResponse, 0, len(items))
+	for i := range items {
+		locations = append(locations, dto.LocationFromDomain(items[i]))
+	}
+
+	totalPages := total / pageSize
+	if total%pageSize > 0 {
+		totalPages++
+	}
+
+	log.Info(operation, "location history retrieved", "deviceID", deviceID, "count", len(locations), "total", total)
+	return c.Status(fiber.StatusOK).JSON(response.HTTPResponse[dto.LocationListResponse]{
+		StatusCode: fiber.StatusOK,
+		Message:    "location history retrieved",
+		Data: dto.LocationListResponse{
+			Items: locations,
+			Pagination: dto.PaginationMeta{
+				Page:       page,
+				PageSize:   pageSize,
+				Total:      total,
+				TotalPages: totalPages,
+			},
+		},
+	})
+}
+
+func parseLocationRange(c fiber.Ctx) (time.Time, time.Time, error) {
+	fromValue := c.Query("from")
+	toValue := c.Query("to")
+	timeZone := c.Query("time-zone")
+	if fromValue == "" || toValue == "" || timeZone == "" {
+		return time.Time{}, time.Time{}, errors.New("from, to, and time-zone are required")
+	}
+
+	location, err := time.LoadLocation(timeZone)
+	if err != nil {
+		return time.Time{}, time.Time{}, errors.New("invalid time-zone")
+	}
+
+	from, err := time.ParseInLocation(locationQueryTimeLayout, fromValue, location)
+	if err != nil {
+		return time.Time{}, time.Time{}, errors.New("invalid from")
+	}
+	to, err := time.ParseInLocation(locationQueryTimeLayout, toValue, location)
+	if err != nil {
+		return time.Time{}, time.Time{}, errors.New("invalid to")
+	}
+	if !from.Before(to) {
+		return time.Time{}, time.Time{}, errors.New("from must be before to")
+	}
+
+	return from.UTC(), to.UTC(), nil
 }
 
 // toDomainIngest projects the validated DTO into a domain.Location.

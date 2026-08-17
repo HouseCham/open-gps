@@ -11,6 +11,28 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countLocationsForDevice = `-- name: CountLocationsForDevice :one
+SELECT COUNT(*)::bigint AS count
+FROM locations
+WHERE device_id = $1
+  AND recorded_at >= $2
+  AND recorded_at < $3
+`
+
+type CountLocationsForDeviceParams struct {
+	DeviceID     pgtype.UUID
+	RecordedAt   pgtype.Timestamptz
+	RecordedAt_2 pgtype.Timestamptz
+}
+
+// Returns the number of location rows in a device's time range.
+func (q *Queries) CountLocationsForDevice(ctx context.Context, arg CountLocationsForDeviceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countLocationsForDevice, arg.DeviceID, arg.RecordedAt, arg.RecordedAt_2)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getLatestLocationForDevice = `-- name: GetLatestLocationForDevice :one
 SELECT device_id, recorded_at, latitude, longitude,
        altitude, speed, accuracy, battery_voltage, signal_strength
@@ -47,12 +69,15 @@ WHERE device_id = $1
   AND recorded_at >= $2
   AND recorded_at < $3
 ORDER BY recorded_at DESC
+LIMIT $4 OFFSET $5
 `
 
 type GetLocationsForDeviceParams struct {
 	DeviceID     pgtype.UUID
 	RecordedAt   pgtype.Timestamptz
 	RecordedAt_2 pgtype.Timestamptz
+	Limit        int32
+	Offset       int32
 }
 
 // Returns the location history for a single device in a time range.
@@ -60,7 +85,13 @@ type GetLocationsForDeviceParams struct {
 // that fall outside the [$2, $3) range. Critical for performance as data grows.
 // $2 is the inclusive lower bound, $3 is the exclusive upper bound.
 func (q *Queries) GetLocationsForDevice(ctx context.Context, arg GetLocationsForDeviceParams) ([]Location, error) {
-	rows, err := q.db.Query(ctx, getLocationsForDevice, arg.DeviceID, arg.RecordedAt, arg.RecordedAt_2)
+	rows, err := q.db.Query(ctx, getLocationsForDevice,
+		arg.DeviceID,
+		arg.RecordedAt,
+		arg.RecordedAt_2,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}

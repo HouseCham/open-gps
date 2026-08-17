@@ -219,8 +219,13 @@ func NewRouter(deps RouterDeps) *fiber.App {
 	// Session-cookie + per-device RBAC (viewer or higher). Lives on
 	// the `devices` group so the standard authSession +
 	// RequireDeviceRole pipeline applies. The paginated history
-	// endpoint lands in the same follow-up PR as the LivePreview
-	// component — see project-gps-tracker status row.
+	// endpoint accepts a local time range and IANA timezone.
+	devices.Get("/:id/locations",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleViewer, deps.AccessService),
+		deps.LocationsHandler.History,
+	)
 	devices.Get("/:id/locations/latest",
 		authSession,
 		requirePasswordChanged,

@@ -3,6 +3,7 @@ package locations
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -82,4 +83,14 @@ func (s *Service) GetLatest(ctx context.Context, deviceID uuid.UUID) (domain.Loc
 		return domain.Location{}, fmt.Errorf("Service.GetLatest: %w", err)
 	}
 	return loc, nil
+}
+
+// GetHistory returns a page of locations in the half-open [from, to) range.
+func (s *Service) GetHistory(ctx context.Context, deviceID uuid.UUID, from, to time.Time, page, pageSize int) ([]domain.Location, int, error) {
+	offset := (page - 1) * pageSize
+	items, total, err := s.reader.GetHistory(ctx, deviceID, from, to, pageSize, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("Service.GetHistory: %w", err)
+	}
+	return items, total, nil
 }

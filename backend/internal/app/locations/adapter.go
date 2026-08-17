@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -67,6 +68,38 @@ func (a *Adapter) GetLatest(ctx context.Context, deviceID uuid.UUID) (domain.Loc
 		return domain.Location{}, fmt.Errorf("Adapter.GetLatest: %w", err)
 	}
 	return locationFromRow(row), nil
+}
+
+// GetHistory returns a page of locations in the half-open [from, to) range.
+func (a *Adapter) GetHistory(ctx context.Context, deviceID uuid.UUID, from, to time.Time, limit, offset int) ([]domain.Location, int, error) {
+	queries := postgres.New(a.pool)
+	params := postgres.GetLocationsForDeviceParams{
+		DeviceID:     postgres.PgtypeUUID(deviceID),
+		RecordedAt:   postgres.PgtypeTimestamptz(from),
+		RecordedAt_2: postgres.PgtypeTimestamptz(to),
+		Limit:        int32(limit),
+		Offset:       int32(offset),
+	}
+
+	total, err := queries.CountLocationsForDevice(ctx, postgres.CountLocationsForDeviceParams{
+		DeviceID:     params.DeviceID,
+		RecordedAt:   params.RecordedAt,
+		RecordedAt_2: params.RecordedAt_2,
+	})
+	if err != nil {
+		return nil, 0, postgres.WrapPgError(err)
+	}
+
+	rows, err := queries.GetLocationsForDevice(ctx, params)
+	if err != nil {
+		return nil, 0, postgres.WrapPgError(err)
+	}
+
+	items := make([]domain.Location, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, locationFromRow(row))
+	}
+	return items, int(total), nil
 }
 
 // locationFromRow projects a sqlc Location row into the domain.Location

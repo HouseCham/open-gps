@@ -23,7 +23,16 @@ FROM locations
 WHERE device_id = $1
   AND recorded_at >= $2
   AND recorded_at < $3
-ORDER BY recorded_at DESC;
+ORDER BY recorded_at DESC
+LIMIT $4 OFFSET $5;
+
+-- name: CountLocationsForDevice :one
+-- Returns the number of location rows in a device's time range.
+SELECT COUNT(*)::bigint AS count
+FROM locations
+WHERE device_id = $1
+  AND recorded_at >= $2
+  AND recorded_at < $3;
 
 -- name: GetLatestLocationForDevice :one
 -- Returns the most recent location for a device. Used by the live map view.
