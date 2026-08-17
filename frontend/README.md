@@ -160,11 +160,11 @@ pnpm format     # Prettier — formats all files
 
 ## Environment Variables
 
-| Variable         | Default      | Description                                                                       |
-| ---------------- | ------------ | --------------------------------------------------------------------------------- |
-| `PUBLIC_ENV`     | `production` | Build environment; enables development-only UI when set to `development`          |
-| `PUBLIC_API_URL` | empty        | Optional API origin; leave empty when nginx serves frontend and API on one origin |
-| `PUBLIC_APP_ORIGIN` | empty     | Public frontend origin used to build absolute password-reset links                |
+| Variable            | Default      | Description                                                                       |
+| ------------------- | ------------ | --------------------------------------------------------------------------------- |
+| `PUBLIC_ENV`        | `production` | Build environment; enables development-only UI when set to `development`          |
+| `PUBLIC_API_URL`    | empty        | Optional API origin; leave empty when nginx serves frontend and API on one origin |
+| `PUBLIC_APP_ORIGIN` | empty        | Public frontend origin used to build absolute password-reset links                |
 
 These values are compile-time variables for the static Astro build. Passing
 them as runtime container environment variables does not change an already

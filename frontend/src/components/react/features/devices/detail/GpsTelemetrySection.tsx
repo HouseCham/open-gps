@@ -1,11 +1,14 @@
 //-- Types
-import type { JSX } from "react/jsx-runtime";
-import type { LocationPoint } from "@/types/api";
-import type { Language } from "@/types";
-import type { Translation } from "@/i18n";
+import type { JSX } from 'react/jsx-runtime';
+import type { LocationPoint } from '@/types/api';
+import type { Language } from '@/types';
+import type { Translation } from '@/i18n';
 //-- Components
-import { MapCard, TelemetryCard } from "@/components/react/features/devices/location";
-import { GpsTelemetrySectionSkeleton } from "@/components/react/skeleton";
+import {
+    MapCard,
+    TelemetryCard,
+} from '@/components/react/features/devices/location';
+import { GpsTelemetrySectionSkeleton } from '@/components/react/skeleton';
 
 /**
  * Props for the GpsTelemetrySection component
@@ -30,8 +33,7 @@ interface GpsTelemetrySectionProps {
     loading: boolean;
     deviceId: string;
     getLatestLocation: (deviceId: string) => Promise<void>;
-
-};
+}
 /**
  * The GPS telemetry section of the device detail page
  * @param {GpsTelemetrySectionProps} props - The props for the component
@@ -80,4 +82,4 @@ export function GpsTelemetrySection({
             </div>
         </section>
     );
-};
+}

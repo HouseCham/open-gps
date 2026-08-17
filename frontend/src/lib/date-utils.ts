@@ -75,7 +75,7 @@ export function formatDateTime(
         timeStyle: 'short',
         timeZone: 'UTC',
     }).format(date);
-};
+}
 
 /**
  * Returns a date range based on the given kind
@@ -93,7 +93,7 @@ export function getDateRange(kind: 'today' | '24h' | '7d'): DateRange {
         );
     }
     return { from: toLocalInputValue(from), to: toLocalInputValue(to) };
-};
+}
 
 /**
  * Converts an ISO date string to an API date string
@@ -102,7 +102,7 @@ export function getDateRange(kind: 'today' | '24h' | '7d'): DateRange {
  */
 export function toApiDate(value: string): string {
     return value.length === 16 ? `${value}:00` : value;
-};
+}
 
 /**
  * Converts a date to a local input value
@@ -111,7 +111,7 @@ export function toApiDate(value: string): string {
  */
 function toLocalInputValue(date: Date): string {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
+}
 
 /**
  * Pads a number with leading zeros
@@ -120,7 +120,7 @@ function toLocalInputValue(date: Date): string {
  */
 function pad(value: number): string {
     return String(value).padStart(2, '0');
-};
+}
 
 /**
  * Converts an ISO date string to a formatted date string
@@ -135,7 +135,7 @@ export function formatHistoryTime(iso: string, locale: Language): string {
         dateStyle: 'short',
         timeStyle: 'medium',
     }).format(date);
-};
+}
 
 /**
  * Formats a metric value

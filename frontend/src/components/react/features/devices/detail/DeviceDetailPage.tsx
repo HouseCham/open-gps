@@ -116,7 +116,9 @@ export function DeviceDetailPage({
         latestRef.current = latest;
     }, [latest]);
 
-    const status = device ? deriveDeviceStatus(latest?.recorded_at ?? null, t) : null;
+    const status = device
+        ? deriveDeviceStatus(latest?.recorded_at ?? null, t)
+        : null;
     /**
      * Go back to the devices page
      * @returns {void}
@@ -258,7 +260,7 @@ export function DeviceDetailPage({
             )}
 
             {/* GPS Telemetry Section */}
-            <GpsTelemetrySection 
+            <GpsTelemetrySection
                 title={t.detail.gpsTelemetry}
                 description={t.detail.gpsTelemetryDescription}
                 latest={

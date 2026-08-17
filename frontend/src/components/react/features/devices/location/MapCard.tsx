@@ -117,7 +117,9 @@ export function MapCard({
                         size="sm"
                         className={'dd-go-live-active'}
                         icon={<Radio size={MAP_GO_LIVE_ICON_SIZE} />}
-                        onClick={() => redirectTo(`/devices/live?id=${deviceId}`)}
+                        onClick={() =>
+                            redirectTo(`/devices/live?id=${deviceId}`)
+                        }
                     >
                         {t.goLive}
                     </Button>
