@@ -1,0 +1,26 @@
+---
+import { getTranslation } from '@/i18n';
+import type { GetStaticPaths } from 'astro';
+import type { Language } from '@/types';
+import MainLayout from '@/components/astro/layout/MainLayout.astro';
+import { LiveTrackingPage } from '@/components/react/features/devices/live';
+
+export const getStaticPaths: GetStaticPaths = () => [
+    { params: { lan: 'en' } },
+    { params: { lan: 'es' } },
+];
+
+const locale = Astro.params.lan as Language;
+const translation = getTranslation(locale);
+const title = `${translation.page.liveTracking.title} · ${translation.layout.appName}`;
+---
+
+<MainLayout locale={locale} title={title} pageLabel={translation.page.liveTracking.title}>
+    <LiveTrackingPage
+        client:load
+        locale={locale}
+        translations={translation.device}
+        dateTranslations={translation.date}
+        pageLabel={translation.page.devices.title}
+    />
+</MainLayout>
