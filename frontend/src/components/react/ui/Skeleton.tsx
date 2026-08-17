@@ -8,12 +8,14 @@ import type { CSSProperties, JSX } from 'react';
  * @prop {'text' | 'text-sm' | 'block' | 'card' | 'row'} variant - Shape variant. Default: 'text'.
  * @prop {number | string} width - Width override.
  * @prop {number | string} height - Height override.
+ * @prop {string} className - Additional CSS class names.
  * @prop {CSSProperties} style - Additional inline styles.
  */
 export interface SkeletonProps {
     variant?: 'text' | 'text-sm' | 'block' | 'card' | 'row';
     width?: number | string;
     height?: number | string;
+    className?: string;
     style?: CSSProperties;
 }
 
@@ -26,6 +28,7 @@ export function Skeleton({
     variant = 'text',
     width,
     height,
+    className,
     style,
 }: SkeletonProps): JSX.Element {
     if (variant === 'card') {
@@ -56,7 +59,7 @@ export function Skeleton({
     }
     return (
         <span
-            className={`skeleton skel-${variant}`}
+            className={`skeleton skel-${variant}${className ? ` ${className}` : ''}`}
             style={{ width, height, ...style }}
         />
     );

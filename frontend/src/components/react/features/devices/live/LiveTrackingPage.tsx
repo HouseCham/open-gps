@@ -1,34 +1,43 @@
 import '@/styles/device-detail.css';
 import '@/styles/live-tracking.css';
-
 import { useEffect, useRef, useState, type JSX } from 'react';
-import {
-    Download,
-    Info,
-    RefreshCw,
-    Route,
-} from 'lucide-react';
-
+//-- Types
 import type { Translation } from '@/i18n';
 import type { LocationPoint } from '@/types/api';
 import type { DateRange, Language } from '@/types';
+//-- Services
 import { useDeviceService } from '@/lib/api/services/deviceService';
 import { useLocationService } from '@/lib/api/services/locationService';
+//-- Utils
 import { deriveDeviceStatus } from '@/lib/device-utils';
-import { downloadCsv, formatDateMetric, formatHistoryTime, getDateRange, readDeviceIdFromUrl, redirectTo, toApiDate } from '@/lib';
+import {
+    downloadCsv,
+    formatDateMetric,
+    formatHistoryTime,
+    getDateRange,
+    readDeviceIdFromUrl,
+    redirectTo,
+    toApiDate,
+} from '@/lib';
 import { toastBus } from '@/lib/stores/toast.store';
+//-- Constants
 import {
     LIVE_POLL_INTERVAL_MS,
     LIVE_STALE_RETRIES,
     LIVE_STALE_THRESHOLD_MS,
+    LOCATION_HISTORY_PAGE_SIZE,
 } from '@/constants/components';
+//-- Components
 import { Breadcrumbs, EmptyState, Pagination } from '@/components/react/ui';
 import { Button } from '@/components/react/ui/button';
-import { DeviceDetailError } from '../detail/DeviceDetailError';
-import { KpiStrip, VehicleDetailHeader } from '../detail';
-import { GpsTelemetrySection } from '../detail/GpsTelemetrySection';
-
-const HISTORY_PAGE_SIZE = 20;
+import {
+    KpiStrip,
+    VehicleDetailHeader,
+    GpsTelemetrySection,
+    DeviceDetailError,
+} from '@/components/react/features/devices/detail';
+//-- Icons
+import { Download, Info, RefreshCw, Route } from 'lucide-react';
 
 /**
  * Props for the LiveTrackingPage component
@@ -43,7 +52,7 @@ interface LiveTrackingPageProps {
     translations: Translation['device'];
     dateTranslations: Translation['date'];
     pageLabel: string;
-};
+}
 
 /**
  * The LiveTrackingPage component
@@ -73,11 +82,8 @@ export function LiveTrackingPage({
     } = useLocationService();
     const [deviceId, setDeviceId] = useState<string | null | undefined>();
     const [liveMode, setLiveMode] = useState(false);
-    const [liveEntries, setLiveEntries] = useState<LocationPoint[]>([]);
     const [range, setRange] = useState<DateRange>(() => getDateRange('today'));
-    const [countdown, setCountdown] = useState(LIVE_POLL_INTERVAL_MS / 1000);
     const latestRef = useRef<LocationPoint | null>(null);
-    const lastLiveRecordedRef = useRef<string | null>(null);
 
     useEffect(() => {
         const id = readDeviceIdFromUrl();
@@ -97,17 +103,7 @@ export function LiveTrackingPage({
 
     useEffect(() => {
         latestRef.current = latest;
-        if (
-            !liveMode ||
-            !latest ||
-            lastLiveRecordedRef.current === latest.recorded_at
-        )
-            return;
-        lastLiveRecordedRef.current = latest.recorded_at;
-        setLiveEntries(entries =>
-            [latest, ...entries].slice(0, HISTORY_PAGE_SIZE)
-        );
-    }, [latest, liveMode]);
+    }, [latest]);
 
     useEffect(() => {
         if (!liveMode || !deviceId) return;
@@ -117,7 +113,7 @@ export function LiveTrackingPage({
             const recordedAt = latestRef.current?.recorded_at;
             return recordedAt
                 ? Date.now() - new Date(recordedAt).getTime() >
-                LIVE_STALE_THRESHOLD_MS
+                      LIVE_STALE_THRESHOLD_MS
                 : false;
         };
         const poll = async (): Promise<void> => {
@@ -141,7 +137,6 @@ export function LiveTrackingPage({
                 });
                 return;
             }
-            setCountdown(LIVE_POLL_INTERVAL_MS / 1000);
             timer = setTimeout(() => void poll(), LIVE_POLL_INTERVAL_MS);
         };
         void poll();
@@ -150,18 +145,6 @@ export function LiveTrackingPage({
             if (timer) clearTimeout(timer);
         };
     }, [deviceId, liveMode]);
-
-    useEffect(() => {
-        if (!liveMode) return;
-        const timer = setInterval(
-            () =>
-                setCountdown(value =>
-                    value > 0 ? value - 1 : LIVE_POLL_INTERVAL_MS / 1000
-                ),
-            1000
-        );
-        return (): void => clearInterval(timer);
-    }, [liveMode]);
 
     const loadHistory = (nextRange: DateRange, page = 1): void => {
         if (!deviceId) return;
@@ -172,7 +155,7 @@ export function LiveTrackingPage({
             toApiDate(nextRange.to),
             Intl.DateTimeFormat().resolvedOptions().timeZone,
             page,
-            HISTORY_PAGE_SIZE
+            LOCATION_HISTORY_PAGE_SIZE
         );
     };
     /**
@@ -180,13 +163,17 @@ export function LiveTrackingPage({
      * @param {{ preventDefault: () => void }} event - The form submission event
      * @returns {void}
      */
-    const handleHistorySubmit = (event: { preventDefault: () => void }): void => {
+    const handleHistorySubmit = (event: {
+        preventDefault: () => void;
+    }): void => {
         event.preventDefault();
         loadHistory(range);
     };
     const goBack = (): void =>
         redirectTo(`/devices/detail?id=${deviceId ?? ''}`);
-    const status = device ? deriveDeviceStatus(latest?.recorded_at ?? '', t) : null;
+    const status = device
+        ? deriveDeviceStatus(latest?.recorded_at ?? '', t)
+        : null;
 
     if (deviceId === undefined || deviceLoading)
         return (
@@ -232,7 +219,10 @@ export function LiveTrackingPage({
                 items={[
                     { label: t.detail.workspace, href: `/${locale}/` },
                     { label: pageLabel, href: `/${locale}/devices/` },
-                    { label: device.name, href: `/${locale}/devices/detail?id=${deviceId}` },
+                    {
+                        label: device.name,
+                        href: `/${locale}/devices/detail?id=${deviceId}`,
+                    },
                     { label: t.live.title },
                 ]}
             />

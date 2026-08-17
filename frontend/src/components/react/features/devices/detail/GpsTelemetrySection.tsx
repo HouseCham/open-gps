@@ -5,6 +5,7 @@ import type { Language } from "@/types";
 import type { Translation } from "@/i18n";
 //-- Components
 import { MapCard, TelemetryCard } from "@/components/react/features/devices/location";
+import { GpsTelemetrySectionSkeleton } from "@/components/react/skeleton";
 
 /**
  * Props for the GpsTelemetrySection component
@@ -47,6 +48,9 @@ export function GpsTelemetrySection({
     deviceId,
     getLatestLocation,
 }: GpsTelemetrySectionProps): JSX.Element {
+    if (!latest) {
+        return <GpsTelemetrySectionSkeleton />;
+    }
     return (
         <section className="dd-section">
             <div className="dd-section-head">

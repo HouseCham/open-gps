@@ -87,8 +87,7 @@ const DEFAULT_MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
  */
 export const MAP_STYLE_URL: string =
     // in case the env var is not set, fallback to the default style
-    (import.meta.env.PUBLIC_MAP_STYLE_URL as string | undefined) ??
-    DEFAULT_MAP_STYLE;
+    import.meta.env.PUBLIC_MAP_STYLE_URL ?? DEFAULT_MAP_STYLE;
 /**
  * @constant {number}
  * @description Online threshold in milliseconds. A reading older than
@@ -158,3 +157,9 @@ export const LIVE_STALE_THRESHOLD_MS = 30_000;
  * detecting a stale packet before giving up and stopping live mode.
  */
 export const LIVE_STALE_RETRIES = 2;
+/**
+ * @constant {number}
+ * @description Page size for the location history table. Used in both
+ * the device detail and live tracking pages.
+ */
+export const LOCATION_HISTORY_PAGE_SIZE = 20;
