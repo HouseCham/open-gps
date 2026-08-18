@@ -122,6 +122,38 @@ Nullable telemetry fields (`altitude`, `speed`, `accuracy`, `battery_voltage`, `
 
 ---
 
+## GET /api/v1/devices/:id/locations/route
+
+Returns a chronological route suitable for map rendering. The route is
+bounded to at most `max_points` samples (default and maximum `1000`). Large
+ranges are sampled server-side while preserving the first and last location;
+the paginated history endpoint remains the source for the exact table data.
+
+**Authorization:** Session cookie (Authula) + `viewer` (or higher) access on the device.
+
+**Query Parameters:** The same `from`, `to`, and `time-zone` parameters as the
+history endpoint, plus optional `max_points`.
+
+**Response `200 OK`**
+
+```json
+{
+  "status_code": 200,
+  "message": "location route retrieved",
+  "data": {
+    "items": [ /* chronological LocationResponse values */ ],
+    "total_points": 2500,
+    "returned": 1001,
+    "sampled": true
+  }
+}
+```
+
+The frontend can split segments when adjacent timestamps exceed the expected
+ingestion interval, avoiding a misleading line across a reporting gap.
+
+---
+
 ## POST /api/v1/devices/:uuid_firmware/locations
 
 Persists one GPS + telemetry fix reported by the device. Called once per ~30 s cycle. The handler enforces numeric range checks on top of the DTO's `validate_struct` validation; idempotency on `(device_id, recorded_at)` is enforced at the database layer via `ON CONFLICT DO NOTHING` — clients can retry safely without producing duplicates.

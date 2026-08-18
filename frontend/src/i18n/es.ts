@@ -685,6 +685,7 @@ export const es: Translation = {
             detectiveMode: 'Modo detective',
             detectiveDescription:
                 'Reproduce la ruta del dispositivo eligiendo un intervalo de tiempo.',
+            routeWindow: 'Ruta desde {from} hasta {to}',
             pointsAvailable: 'puntos disponibles',
             from: 'Desde',
             to: 'Hasta',

@@ -666,6 +666,7 @@ export const en = {
             detectiveMode: 'Detective mode',
             detectiveDescription:
                 "Replay the device's route by choosing a time window.",
+            routeWindow: 'Route from {from} to {to}',
             pointsAvailable: 'points available',
             from: 'From',
             to: 'To',

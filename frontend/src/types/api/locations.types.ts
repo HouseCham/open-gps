@@ -43,6 +43,16 @@ export interface LocationHistoryResponse {
 }
 
 /**
+ * Bounded chronological route returned by the detective-mode route endpoint.
+ */
+export interface LocationRouteResponse {
+    items: LocationPoint[];
+    total_points: number;
+    returned: number;
+    sampled: boolean;
+}
+
+/**
  * Type alias for the connection state of a device.
  * @typedef ConnectionState
  */
