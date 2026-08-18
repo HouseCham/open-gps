@@ -1,13 +1,12 @@
 import '@/styles/device-detail.css';
 import '@/styles/devices.css';
 
-import { useEffect, useRef, useState, lazy, type JSX, Suspense } from 'react';
+import { useEffect, useState, lazy, type JSX, Suspense } from 'react';
 //-- Types
 import type {
     DeviceAccessListItem,
     DeviceDetail,
     DeviceVehicleType,
-    LocationPoint,
 } from '@/types/api';
 import type { Language } from '@/types';
 import type { Translation } from '@/i18n';
@@ -86,8 +85,8 @@ export function DeviceDetailPage({
     } = useDeviceService();
     const {
         latest,
-        isLoading: locationLoading,
-        error: locationError,
+        latestLoading: locationLoading,
+        latestError: locationError,
         getLatestLocation,
     } = useLocationService();
     const [deviceId, setDeviceId] = useState<string | undefined>();
@@ -96,7 +95,6 @@ export function DeviceDetailPage({
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [revokeTarget, setRevokeTarget] =
         useState<DeviceAccessListItem | null>(null);
-    const latestRef = useRef<LocationPoint | null>(null);
 
     useEffect(() => {
         setDeviceId(
@@ -111,10 +109,6 @@ export function DeviceDetailPage({
             getLatestLocation(deviceId),
         ]);
     }, [deviceId]);
-
-    useEffect(() => {
-        latestRef.current = latest;
-    }, [latest]);
 
     const status = device
         ? deriveDeviceStatus(latest?.recorded_at ?? null, t)

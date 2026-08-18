@@ -51,10 +51,10 @@ export function TelemetryCard({
               {
                   icon: <Gauge size={14} />,
                   label: t.telemetry.speed,
-                  value: 
-                    location.speed == null
-                        ? '0 m/s'
-                        : `${renderNumberWithUnit(location.speed, t.units.speed, 1)} ${t.units.speed}`,
+                  value:
+                      location.speed == null
+                          ? '0 m/s'
+                          : `${renderNumberWithUnit(location.speed, t.units.speed, 1)} ${t.units.speed}`,
               },
               {
                   icon: <Crosshair size={14} />,
@@ -67,16 +67,21 @@ export function TelemetryCard({
               {
                   icon: <Battery size={14} />,
                   label: t.telemetry.battery,
-                  value: location.battery_voltage == null 
-                            ? '—' 
-                            : renderNumberWithUnit(location.battery_voltage, 'V', 2),
+                  value:
+                      location.battery_voltage == null
+                          ? '—'
+                          : renderNumberWithUnit(
+                                location.battery_voltage,
+                                'V',
+                                2
+                            ),
               },
               {
                   icon: <Signal size={14} />,
                   label: t.telemetry.signal,
                   value:
                       location.signal_strength == null
-                          ? '0 dBm'
+                          ? '—'
                           : `${location.signal_strength}/31`,
               },
               {

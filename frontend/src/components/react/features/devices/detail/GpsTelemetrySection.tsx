@@ -1,6 +1,7 @@
 //-- Types
 import type { JSX } from 'react/jsx-runtime';
 import type { LocationPoint } from '@/types/api';
+import type { DeviceStatus } from '@/types/components';
 import type { Language } from '@/types';
 import type { Translation } from '@/i18n';
 //-- Components
@@ -35,6 +36,8 @@ interface GpsTelemetrySectionProps {
     deviceId: string;
     showGoLive?: boolean;
     getLatestLocation: (deviceId: string) => Promise<void>;
+    routeSegments?: LocationPoint[][];
+    displayStatus?: DeviceStatus;
 }
 /**
  * The GPS telemetry section of the device detail page
@@ -52,6 +55,8 @@ export function GpsTelemetrySection({
     deviceId,
     showGoLive = false,
     getLatestLocation,
+    routeSegments,
+    displayStatus,
 }: GpsTelemetrySectionProps): JSX.Element {
     if (!latest) {
         return <GpsTelemetrySectionSkeleton />;
@@ -76,6 +81,8 @@ export function GpsTelemetrySection({
                     onRefresh={() => {
                         if (deviceId) void getLatestLocation(deviceId);
                     }}
+                    routeSegments={routeSegments}
+                    displayStatus={displayStatus}
                 />
                 <TelemetryCard
                     location={latest}

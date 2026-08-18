@@ -1,15 +1,14 @@
 import '@/styles/device-detail.css';
 import '@/styles/live-tracking.css';
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
 //-- Types
 import type { Translation } from '@/i18n';
-import type { LocationPoint } from '@/types/api';
 import type { DateRange, Language } from '@/types';
+import type { DeviceStatus } from '@/types/components';
 //-- Services
 import { useDeviceService } from '@/lib/api/services/deviceService';
 import { useLocationService } from '@/lib/api/services/locationService';
 //-- Utils
-import { deriveDeviceStatus } from '@/lib/device-utils';
 import {
     downloadCsv,
     formatDateMetric,
@@ -17,13 +16,12 @@ import {
     getDateRange,
     readDeviceIdFromUrl,
     redirectTo,
+    splitLocationRoute,
     toApiDate,
 } from '@/lib';
-import { toastBus } from '@/lib/stores/toast.store';
 //-- Constants
 import {
     LIVE_POLL_INTERVAL_MS,
-    LIVE_STALE_RETRIES,
     LIVE_STALE_THRESHOLD_MS,
     LOCATION_HISTORY_PAGE_SIZE,
 } from '@/constants/components';
@@ -75,68 +73,53 @@ export function LiveTrackingPage({
         latest,
         history,
         historyPagination,
-        isLoading: locationLoading,
-        error: locationError,
+        route,
+        latestLoading,
+        historyLoading,
+        routeLoading,
+        latestError,
+        historyError,
+        routeError,
         getLatestLocation,
         getLocationHistory,
+        getLocationRoute,
     } = useLocationService();
     const [deviceId, setDeviceId] = useState<string | null | undefined>();
-    const [liveMode, setLiveMode] = useState(false);
     const [range, setRange] = useState<DateRange>(() => getDateRange('today'));
-    const latestRef = useRef<LocationPoint | null>(null);
 
     useEffect(() => {
         const id = readDeviceIdFromUrl();
         setDeviceId(id);
-        if (!id) return;
-        void Promise.all([
-            getDeviceById(id),
-            getLatestLocation(id),
-            getLocationHistory(
-                id,
-                toApiDate(range.from),
-                toApiDate(range.to),
-                Intl.DateTimeFormat().resolvedOptions().timeZone
-            ),
-        ]);
     }, []);
 
     useEffect(() => {
-        latestRef.current = latest;
-    }, [latest]);
+        if (!deviceId) return;
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        void Promise.all([
+            getDeviceById(deviceId),
+            getLocationHistory(
+                deviceId,
+                toApiDate(range.from),
+                toApiDate(range.to),
+                timeZone
+            ),
+            getLocationRoute(
+                deviceId,
+                toApiDate(range.from),
+                toApiDate(range.to),
+                timeZone
+            ),
+        ]);
+    }, [deviceId]);
 
     useEffect(() => {
-        if (!liveMode || !deviceId) return;
+        if (!deviceId) return;
         let cancelled = false;
         let timer: ReturnType<typeof setTimeout> | null = null;
-        const isStale = (): boolean => {
-            const recordedAt = latestRef.current?.recorded_at;
-            return recordedAt
-                ? Date.now() - new Date(recordedAt).getTime() >
-                      LIVE_STALE_THRESHOLD_MS
-                : false;
-        };
         const poll = async (): Promise<void> => {
             if (cancelled) return;
-            await getLatestLocation(deviceId);
+            await getLatestLocation(deviceId, true);
             if (cancelled) return;
-            for (
-                let retry = 0;
-                retry < LIVE_STALE_RETRIES && isStale();
-                retry += 1
-            ) {
-                await getLatestLocation(deviceId);
-                if (cancelled) return;
-            }
-            if (isStale()) {
-                setLiveMode(false);
-                toastBus.push({
-                    variant: 'warning',
-                    title: t.live.deviceNotLiveTitle,
-                    message: t.live.deviceNotLiveMessage,
-                });
-                return;
-            }
             timer = setTimeout(() => void poll(), LIVE_POLL_INTERVAL_MS);
         };
         void poll();
@@ -144,19 +127,30 @@ export function LiveTrackingPage({
             cancelled = true;
             if (timer) clearTimeout(timer);
         };
-    }, [deviceId, liveMode]);
+    }, [deviceId]);
 
     const loadHistory = (nextRange: DateRange, page = 1): void => {
         if (!deviceId) return;
+        const rangeChanged =
+            nextRange.from !== range.from || nextRange.to !== range.to;
         setRange(nextRange);
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         void getLocationHistory(
             deviceId,
             toApiDate(nextRange.from),
             toApiDate(nextRange.to),
-            Intl.DateTimeFormat().resolvedOptions().timeZone,
+            timeZone,
             page,
             LOCATION_HISTORY_PAGE_SIZE
         );
+        if (page === 1 || rangeChanged) {
+            void getLocationRoute(
+                deviceId,
+                toApiDate(nextRange.from),
+                toApiDate(nextRange.to),
+                timeZone
+            );
+        }
     };
     /**
      * Handle the form submission for the history date range
@@ -171,9 +165,55 @@ export function LiveTrackingPage({
     };
     const goBack = (): void =>
         redirectTo(`/devices/detail?id=${deviceId ?? ''}`);
-    const status = device
-        ? deriveDeviceStatus(latest?.recorded_at ?? '', t)
+    const rangeTo = new Date(range.to).getTime();
+    const includesPresent = rangeTo + 60_000 >= Date.now();
+    const isLatestOnline = latest
+        ? Date.now() - new Date(latest.recorded_at).getTime() <=
+          LIVE_STALE_THRESHOLD_MS
+        : false;
+    const offlineStatus: DeviceStatus = {
+        key: 'offline',
+        label: t.offline,
+        dot: 'danger',
+    };
+    const status: DeviceStatus | null = device
+        ? includesPresent && isLatestOnline
+            ? { key: 'online', label: t.online, dot: 'success' }
+            : offlineStatus
         : null;
+    const routePoints = route?.items ?? history;
+    const latestTime = latest
+        ? new Date(latest.recorded_at).getTime()
+        : Number.NaN;
+    const rangeFrom = new Date(range.from).getTime();
+    const latestInRange =
+        includesPresent &&
+        Number.isFinite(latestTime) &&
+        latestTime >= rangeFrom &&
+        latestTime <= rangeTo + 60_000;
+    const routePath =
+        latestInRange && latest ? [...routePoints, latest] : routePoints;
+    const routeSegments =
+        routePath.length > 2 ? splitLocationRoute(routePath) : [];
+    const historicalLocation = route?.items.at(-1) ?? history[0] ?? null;
+    const historicalDisplayLocation = historicalLocation
+        ? {
+              ...historicalLocation,
+              battery_voltage: null,
+              signal_strength: null,
+          }
+        : null;
+    const displayLocation = includesPresent
+        ? (latest ?? historicalDisplayLocation)
+        : historicalDisplayLocation;
+    const locationError = latestError ?? historyError ?? routeError;
+    const routeWindowLabel = t.live.routeWindow
+        .replace('{from}', formatHistoryTime(range.from, locale))
+        .replace('{to}', formatHistoryTime(range.to, locale));
+    const retryLocations = (): void => {
+        if (latestError && deviceId) void getLatestLocation(deviceId);
+        if (historyError || routeError) loadHistory(range);
+    };
 
     if (deviceId === undefined || deviceLoading)
         return (
@@ -244,14 +284,14 @@ export function LiveTrackingPage({
             {locationError && (
                 <DeviceDetailError
                     message={locationError.message}
-                    onRetry={() => void getLatestLocation(deviceId)}
+                    onRetry={retryLocations}
                     retryLabel={t.live.retry}
                 />
             )}
             {/* KPI Cards */}
             <KpiStrip
                 device={device}
-                location={latest}
+                location={displayLocation}
                 status={status}
                 locale={locale}
                 translations={t}
@@ -301,7 +341,7 @@ export function LiveTrackingPage({
                         <Button
                             type="submit"
                             variant="primary"
-                            loading={locationLoading}
+                            loading={historyLoading || routeLoading}
                             icon={<RefreshCw size={14} />}
                         >
                             {t.live.applyWindow}
@@ -342,21 +382,16 @@ export function LiveTrackingPage({
             {/* GPS Telemetry Section */}
             <GpsTelemetrySection
                 title={t.detail.gpsTelemetry}
-                description={t.detail.gpsTelemetryDescription}
-                latest={
-                    latest
-                        ? {
-                              ...latest,
-                              recorded_at: device.created_at,
-                          }
-                        : null
-                }
+                description={routeWindowLabel}
+                latest={displayLocation}
                 locale={locale}
                 translations={t}
                 date={date}
-                loading={locationLoading}
+                loading={latestLoading}
                 deviceId={deviceId}
                 getLatestLocation={getLatestLocation}
+                routeSegments={routeSegments}
+                displayStatus={status}
             />
 
             {/* History Table */}
@@ -434,7 +469,7 @@ export function LiveTrackingPage({
                         </table>
                         {history.length === 0 && (
                             <div className="live-empty">
-                                {locationLoading
+                                {historyLoading
                                     ? t.live.loadingHistory
                                     : t.live.noHistory}
                             </div>

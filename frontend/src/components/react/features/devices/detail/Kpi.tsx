@@ -141,7 +141,7 @@ export function KpiStrip({
                 label={t.kpi.signal}
                 value={
                     location?.signal_strength == null
-                        ? '0 dBm'
+                        ? '—'
                         : `${location.signal_strength}/31`
                 }
                 hint={signalPercent == null ? '—' : `${signalPercent}%`}
@@ -152,10 +152,16 @@ export function KpiStrip({
                 icon={<Gauge size={15} />}
                 label={t.kpi.speed}
                 value={
-                    speed == null ? '0 m/s' : `${speed.toFixed(1)} ${t.units.speed}`
+                    speed == null
+                        ? '0 m/s'
+                        : `${speed.toFixed(1)} ${t.units.speed}`
                 }
                 hint={
-                    speed == null ? '0 m/s' : speed === 0 ? t.stationary : t.moving
+                    speed == null
+                        ? '0 m/s'
+                        : speed === 0
+                          ? t.stationary
+                          : t.moving
                 }
                 percent={speedPercent}
                 tone={
