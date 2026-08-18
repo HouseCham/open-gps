@@ -21,6 +21,7 @@ type Writer interface {
 type Reader interface {
 	GetLatest(ctx context.Context, deviceID uuid.UUID) (domain.Location, error)
 	GetHistory(ctx context.Context, deviceID uuid.UUID, from, to time.Time, limit, offset int) ([]domain.Location, int, error)
+	GetRoute(ctx context.Context, deviceID uuid.UUID, from, to time.Time, maxPoints int) ([]domain.Location, int, bool, error)
 }
 
 // Errors returned by the ingest service. The handlers translate these

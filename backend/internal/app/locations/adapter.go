@@ -102,6 +102,48 @@ func (a *Adapter) GetHistory(ctx context.Context, deviceID uuid.UUID, from, to t
 	return items, int(total), nil
 }
 
+// GetRoute returns a chronological, bounded route for the requested range.
+func (a *Adapter) GetRoute(ctx context.Context, deviceID uuid.UUID, from, to time.Time, maxPoints int) ([]domain.Location, int, bool, error) {
+	queries := postgres.New(a.pool)
+	params := postgres.CountLocationsForDeviceParams{
+		DeviceID:     postgres.PgtypeUUID(deviceID),
+		RecordedAt:   postgres.PgtypeTimestamptz(from),
+		RecordedAt_2: postgres.PgtypeTimestamptz(to),
+	}
+	total, err := queries.CountLocationsForDevice(ctx, params)
+	if err != nil {
+		return nil, 0, false, postgres.WrapPgError(err)
+	}
+	rows, err := queries.GetRouteForDevice(ctx, postgres.GetRouteForDeviceParams{
+		DeviceID:     postgres.PgtypeUUID(deviceID),
+		RecordedAt:   postgres.PgtypeTimestamptz(from),
+		RecordedAt_2: postgres.PgtypeTimestamptz(to),
+		Ntile:        int32(maxPoints),
+	})
+	if err != nil {
+		return nil, 0, false, postgres.WrapPgError(err)
+	}
+	if len(rows) == 0 {
+		return []domain.Location{}, 0, false, nil
+	}
+
+	items := make([]domain.Location, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, locationFromRow(postgres.Location{
+			DeviceID:       row.DeviceID,
+			RecordedAt:     row.RecordedAt,
+			Latitude:       row.Latitude,
+			Longitude:      row.Longitude,
+			Altitude:       row.Altitude,
+			Speed:          row.Speed,
+			Accuracy:       row.Accuracy,
+			BatteryVoltage: row.BatteryVoltage,
+			SignalStrength: row.SignalStrength,
+		}))
+	}
+	return items, int(total), int(total) > maxPoints, nil
+}
+
 // locationFromRow projects a sqlc Location row into the domain.Location
 // the application layer reads through. signal_strength arrives as *int32
 // (sqlc's choice for Postgres smallint); we widen back to *int at the

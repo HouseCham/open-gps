@@ -226,6 +226,12 @@ func NewRouter(deps RouterDeps) *fiber.App {
 		middleware.RequireDeviceRole(domain.AccessRoleViewer, deps.AccessService),
 		deps.LocationsHandler.History,
 	)
+	devices.Get("/:id/locations/route",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleViewer, deps.AccessService),
+		deps.LocationsHandler.Route,
+	)
 	devices.Get("/:id/locations/latest",
 		authSession,
 		requirePasswordChanged,

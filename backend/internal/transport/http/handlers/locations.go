@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -18,6 +19,11 @@ import (
 )
 
 const locationQueryTimeLayout = "2006-01-02T15:04:05"
+
+const (
+	defaultRouteMaxPoints = 1000
+	maxRouteMaxPoints     = 1000
+)
 
 type LocationsHandler struct {
 	service *locations.Service
@@ -175,6 +181,65 @@ func (h *LocationsHandler) History(c fiber.Ctx) error {
 			},
 		},
 	})
+}
+
+// Route handles GET /api/v1/devices/:id/locations/route.
+// It returns a chronological, bounded route for map rendering.
+func (h *LocationsHandler) Route(c fiber.Ctx) error {
+	const operation = "LocationsHandler:Route"
+	log.Debug(operation, "request received")
+
+	if _, ok := middleware.GetRequestUser(c); !ok {
+		log.Error(operation, "err", fiber.ErrUnauthorized)
+		return middleware.UnauthorizedResponse(c)
+	}
+
+	deviceID, err := middleware.ParseUUIDParam(c, "id")
+	if err != nil {
+		log.Error(operation, "err", err, "param", "id")
+		return middleware.BadRequestResponse(c, "invalid device id")
+	}
+
+	from, to, err := parseLocationRange(c)
+	if err != nil {
+		log.Error(operation, "err", err, "deviceID", deviceID)
+		return middleware.BadRequestResponse(c, err.Error())
+	}
+
+	maxPoints := parseRouteMaxPoints(c)
+	items, total, sampled, err := h.service.GetRoute(c.Context(), deviceID, from, to, maxPoints)
+	if err != nil {
+		log.Error(operation, "err", err, "deviceID", deviceID)
+		return fmt.Errorf("LocationsHandler.Route: %w", err)
+	}
+
+	locations := make([]dto.LocationResponse, 0, len(items))
+	for i := range items {
+		locations = append(locations, dto.LocationFromDomain(items[i]))
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.HTTPResponse[dto.LocationRouteResponse]{
+		StatusCode: fiber.StatusOK,
+		Message:    "location route retrieved",
+		Data: dto.LocationRouteResponse{
+			Items:       locations,
+			TotalPoints: total,
+			Returned:    len(locations),
+			Sampled:     sampled,
+		},
+	})
+}
+
+func parseRouteMaxPoints(c fiber.Ctx) int {
+	raw := c.Query("max_points")
+	if raw == "" {
+		return defaultRouteMaxPoints
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 2 || value > maxRouteMaxPoints {
+		return defaultRouteMaxPoints
+	}
+	return value
 }
 
 func parseLocationRange(c fiber.Ctx) (time.Time, time.Time, error) {

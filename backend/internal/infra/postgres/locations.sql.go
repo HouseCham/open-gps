@@ -96,7 +96,7 @@ func (q *Queries) GetLocationsForDevice(ctx context.Context, arg GetLocationsFor
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Location
+	items := make([]Location, 0, arg.Limit)
 	for rows.Next() {
 		var i Location
 		if err := rows.Scan(
@@ -155,9 +155,101 @@ func (q *Queries) GetLocationsForUser(ctx context.Context, arg GetLocationsForUs
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Location
+	items := make([]Location, 0, 64)
 	for rows.Next() {
 		var i Location
+		if err := rows.Scan(
+			&i.DeviceID,
+			&i.RecordedAt,
+			&i.Latitude,
+			&i.Longitude,
+			&i.Altitude,
+			&i.Speed,
+			&i.Accuracy,
+			&i.BatteryVoltage,
+			&i.SignalStrength,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRouteForDevice = `-- name: GetRouteForDevice :many
+WITH ranked AS (
+  SELECT l.device_id, l.recorded_at, l.latitude, l.longitude,
+         l.altitude, l.speed, l.accuracy, l.battery_voltage, l.signal_strength,
+         NTILE($4) OVER (ORDER BY l.recorded_at ASC) AS bucket
+  FROM locations l
+  WHERE l.device_id = $1
+    AND l.recorded_at >= $2
+    AND l.recorded_at < $3
+), sampled AS (
+  SELECT DISTINCT ON (bucket)
+         device_id, recorded_at, latitude, longitude,
+         altitude, speed, accuracy, battery_voltage, signal_strength
+  FROM ranked
+  ORDER BY bucket, recorded_at ASC
+), last_point AS (
+  SELECT l.device_id, l.recorded_at, l.latitude, l.longitude,
+         l.altitude, l.speed, l.accuracy, l.battery_voltage, l.signal_strength
+  FROM locations l
+  WHERE l.device_id = $1
+    AND l.recorded_at >= $2
+    AND l.recorded_at < $3
+  ORDER BY l.recorded_at DESC
+  LIMIT 1
+)
+SELECT route.device_id, route.recorded_at, route.latitude, route.longitude,
+       route.altitude, route.speed, route.accuracy, route.battery_voltage, route.signal_strength
+FROM (
+  SELECT device_id, recorded_at, latitude, longitude, altitude, speed, accuracy, battery_voltage, signal_strength FROM sampled
+  UNION
+  SELECT device_id, recorded_at, latitude, longitude, altitude, speed, accuracy, battery_voltage, signal_strength FROM last_point
+) route
+ORDER BY route.recorded_at ASC
+`
+
+type GetRouteForDeviceParams struct {
+	DeviceID     pgtype.UUID
+	RecordedAt   pgtype.Timestamptz
+	RecordedAt_2 pgtype.Timestamptz
+	Ntile        int32
+}
+
+type GetRouteForDeviceRow struct {
+	DeviceID       pgtype.UUID
+	RecordedAt     pgtype.Timestamptz
+	Latitude       float64
+	Longitude      float64
+	Altitude       *float64
+	Speed          *float64
+	Accuracy       *float64
+	BatteryVoltage *float64
+	SignalStrength *int32
+}
+
+// Returns a chronological, bounded route for a device in a time range.
+// Sampling keeps large detective-mode windows small enough for the map while
+// preserving the first and last point and the temporal order of the path.
+func (q *Queries) GetRouteForDevice(ctx context.Context, arg GetRouteForDeviceParams) ([]GetRouteForDeviceRow, error) {
+	rows, err := q.db.Query(ctx, getRouteForDevice,
+		arg.DeviceID,
+		arg.RecordedAt,
+		arg.RecordedAt_2,
+		arg.Ntile,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]GetRouteForDeviceRow, 0, arg.Ntile+1)
+	for rows.Next() {
+		var i GetRouteForDeviceRow
 		if err := rows.Scan(
 			&i.DeviceID,
 			&i.RecordedAt,

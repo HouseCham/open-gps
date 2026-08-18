@@ -94,3 +94,13 @@ func (s *Service) GetHistory(ctx context.Context, deviceID uuid.UUID, from, to t
 	}
 	return items, total, nil
 }
+
+// GetRoute returns a chronological route bounded by maxPoints. The reader
+// reports the original point count and whether it had to sample the route.
+func (s *Service) GetRoute(ctx context.Context, deviceID uuid.UUID, from, to time.Time, maxPoints int) ([]domain.Location, int, bool, error) {
+	items, total, sampled, err := s.reader.GetRoute(ctx, deviceID, from, to, maxPoints)
+	if err != nil {
+		return nil, 0, false, fmt.Errorf("Service.GetRoute: %w", err)
+	}
+	return items, total, sampled, nil
+}

@@ -44,6 +44,43 @@ WHERE device_id = $1
 ORDER BY recorded_at DESC
 LIMIT 1;
 
+-- name: GetRouteForDevice :many
+-- Returns a chronological, bounded route for a device in a time range.
+-- Sampling keeps large detective-mode windows small enough for the map while
+-- preserving the first and last point and the temporal order of the path.
+WITH ranked AS (
+  SELECT l.device_id, l.recorded_at, l.latitude, l.longitude,
+         l.altitude, l.speed, l.accuracy, l.battery_voltage, l.signal_strength,
+         NTILE($4) OVER (ORDER BY l.recorded_at ASC) AS bucket
+  FROM locations l
+  WHERE l.device_id = $1
+    AND l.recorded_at >= $2
+    AND l.recorded_at < $3
+), sampled AS (
+  SELECT DISTINCT ON (bucket)
+         device_id, recorded_at, latitude, longitude,
+         altitude, speed, accuracy, battery_voltage, signal_strength
+  FROM ranked
+  ORDER BY bucket, recorded_at ASC
+), last_point AS (
+  SELECT l.device_id, l.recorded_at, l.latitude, l.longitude,
+         l.altitude, l.speed, l.accuracy, l.battery_voltage, l.signal_strength
+  FROM locations l
+  WHERE l.device_id = $1
+    AND l.recorded_at >= $2
+    AND l.recorded_at < $3
+  ORDER BY l.recorded_at DESC
+  LIMIT 1
+)
+SELECT route.device_id, route.recorded_at, route.latitude, route.longitude,
+       route.altitude, route.speed, route.accuracy, route.battery_voltage, route.signal_strength
+FROM (
+  SELECT * FROM sampled
+  UNION
+  SELECT * FROM last_point
+) route
+ORDER BY route.recorded_at ASC;
+
 -- name: GetLocationsForUser :many
 -- Returns all locations for all devices a user has access to, in a time range.
 -- Used for the multi-device dashboard view. Joins through user_device_access

@@ -43,6 +43,10 @@ func (m *mockReader) GetHistory(context.Context, uuid.UUID, time.Time, time.Time
 	return m.history, m.total, nil
 }
 
+func (m *mockReader) GetRoute(context.Context, uuid.UUID, time.Time, time.Time, int) ([]domain.Location, int, bool, error) {
+	return m.history, m.total, false, nil
+}
+
 func validBase() domain.Location {
 	return domain.Location{
 		DeviceID:   uuid.New(),

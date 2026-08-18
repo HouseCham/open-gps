@@ -12,7 +12,7 @@ import (
 // The validate tags cover:
 //   - required:          field must be present (lat, lng, recorded_at)
 //   - gte / lte:         numeric range bounds, enforced again in the service
-//                        for cross-field / DTO-with-pointer fields
+//     for cross-field / DTO-with-pointer fields
 //   - omitempty:         nullable; absent == SQL NULL in the column
 //   - datetime:          ISO 8601 parse for recorded_at (RFC 3339)
 //
@@ -51,6 +51,13 @@ type LocationResponse struct {
 type LocationListResponse struct {
 	Items      []LocationResponse `json:"items"`
 	Pagination PaginationMeta     `json:"pagination"`
+}
+
+type LocationRouteResponse struct {
+	Items       []LocationResponse `json:"items"`
+	TotalPoints int                `json:"total_points"`
+	Returned    int                `json:"returned"`
+	Sampled     bool               `json:"sampled"`
 }
 
 // LocationFromDomain projects a domain.Location into the wire shape

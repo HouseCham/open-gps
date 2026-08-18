@@ -26,6 +26,7 @@ type historyReader struct {
 	to     time.Time
 	limit  int
 	offset int
+	max    int
 }
 
 func (r *historyReader) GetLatest(context.Context, uuid.UUID) (domain.Location, error) {
@@ -40,6 +41,11 @@ func (r *historyReader) GetHistory(_ context.Context, _ uuid.UUID, from, to time
 	return r.items, r.total, nil
 }
 
+func (r *historyReader) GetRoute(_ context.Context, _ uuid.UUID, _, _ time.Time, maxPoints int) ([]domain.Location, int, bool, error) {
+	r.max = maxPoints
+	return r.items, r.total, r.total > maxPoints, nil
+}
+
 type historyWriter struct{}
 
 func (historyWriter) Insert(context.Context, domain.Location) error { return nil }
@@ -49,6 +55,14 @@ func newHistoryApp(t *testing.T, svc *locations.Service) *fiber.App {
 	app := fiber.New()
 	dummyUser := &domain.User{ID: uuid.New(), Email: "test@example.com"}
 	app.Get(
+		"/api/v1/devices/:id/locations/route",
+		func(c fiber.Ctx) error {
+			c.Locals(middleware.LocalsKeyUser, dummyUser)
+			return c.Next()
+		},
+		handlers.NewLocationsHandler(svc).Route,
+	)
+	app.Get(
 		"/api/v1/devices/:id/locations",
 		func(c fiber.Ctx) error {
 			c.Locals(middleware.LocalsKeyUser, dummyUser)
@@ -57,6 +71,37 @@ func newHistoryApp(t *testing.T, svc *locations.Service) *fiber.App {
 		handlers.NewLocationsHandler(svc).History,
 	)
 	return app
+}
+
+func TestLocationsHandler_RouteUsesBoundedChronologicalResponse(t *testing.T) {
+	deviceID := uuid.New()
+	r := &historyReader{
+		items: []domain.Location{{DeviceID: deviceID, RecordedAt: time.Now().UTC()}},
+		total: 2500,
+	}
+	app := newHistoryApp(t, locations.New(historyWriter{}, r))
+
+	path := "/api/v1/devices/" + deviceID.String() + "/locations/route?from=2026-08-17T12:00:00&to=2026-08-17T14:00:00&time-zone=UTC&max_points=500"
+	resp, err := app.Test(httptest.NewRequest(http.MethodGet, path, nil))
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want 200", resp.StatusCode)
+	}
+	if r.max != 500 {
+		t.Fatalf("max_points=%d want 500", r.max)
+	}
+
+	var env struct {
+		Data dto.LocationRouteResponse `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if env.Data.TotalPoints != 2500 || !env.Data.Sampled || env.Data.Returned != 1 {
+		t.Errorf("route data=%+v", env.Data)
+	}
 }
 
 func TestLocationsHandler_HistoryConvertsTimezoneAndPaginates(t *testing.T) {
