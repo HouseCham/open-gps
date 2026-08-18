@@ -87,8 +87,7 @@ const DEFAULT_MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
  */
 export const MAP_STYLE_URL: string =
     // in case the env var is not set, fallback to the default style
-    (import.meta.env.PUBLIC_MAP_STYLE_URL as string | undefined) ??
-    DEFAULT_MAP_STYLE;
+    import.meta.env.PUBLIC_MAP_STYLE_URL ?? DEFAULT_MAP_STYLE;
 /**
  * @constant {number}
  * @description Online threshold in milliseconds. A reading older than
@@ -148,13 +147,16 @@ export const MAP_GO_LIVE_ICON_SIZE = 13;
 /**
  * @constant {number}
  * @description Maximum age (ms) of the most recent polled point before
- * the device is considered "not live". When a poll returns a point
- * older than this, the polling loop triggers its retry budget.
+ * the Live Tracking page displays the device as offline.
  */
-export const LIVE_STALE_THRESHOLD_MS = 30_000;
+export const LIVE_STALE_THRESHOLD_MS = 15_000;
+/**
+ * Maximum number of route samples requested for the map.
+ */
+export const LIVE_ROUTE_MAX_POINTS = 1000;
 /**
  * @constant {number}
- * @description Number of extra fetches the polling loop performs after
- * detecting a stale packet before giving up and stopping live mode.
+ * @description Page size for the location history table. Used in both
+ * the device detail and live tracking pages.
  */
-export const LIVE_STALE_RETRIES = 2;
+export const LOCATION_HISTORY_PAGE_SIZE = 20;

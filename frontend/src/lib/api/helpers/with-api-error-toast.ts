@@ -57,16 +57,21 @@ function toError(error: unknown): ApiError {
  * @throws {ApiError} Rethrows the typed `ApiError` so the caller can
  *   still render an inline error if it wants.
  */
-export async function withApiErrorToast<T>(fn: () => Promise<T>): Promise<T> {
+export async function withApiErrorToast<T>(
+    fn: () => Promise<T>,
+    notify = true
+): Promise<T> {
     try {
         return await fn();
     } catch (error: unknown) {
         const apiErr = toError(error);
-        toastBus.push({
-            variant: 'error',
-            title: titleForStatus(apiErr.status),
-            message: apiErr.message,
-        });
+        if (notify) {
+            toastBus.push({
+                variant: 'error',
+                title: titleForStatus(apiErr.status),
+                message: apiErr.message,
+            });
+        }
         throw apiErr;
     }
 }

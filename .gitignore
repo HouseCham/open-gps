@@ -28,3 +28,7 @@ Thumbs.db
 
 # Custom commands
 Makefile
+
+*.FCBak
+*.FCStd
+*.step

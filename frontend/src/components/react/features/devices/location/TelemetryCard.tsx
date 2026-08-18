@@ -18,16 +18,12 @@ import type { JSX } from 'react/jsx-runtime';
  * @prop {Language} locale - Locale.
  * @prop {Translation['device']} translations - Translations.
  * @prop {Translation['date']} date - Date-related translation strings.
- * @prop {LocationPoint[]} liveEntries - Log of points polled while live mode is on.
- * @prop {boolean} liveMode - Whether live polling is currently active.
  */
 interface TelemetryCardProps {
     location: LocationPoint | null;
     locale: Language;
     translations: Translation['device'];
     date: Translation['date'];
-    liveEntries: LocationPoint[];
-    liveMode: boolean;
 }
 /**
  * Shows telemetry information for a device.
@@ -40,8 +36,6 @@ export function TelemetryCard({
     locale,
     translations,
     date,
-    liveEntries,
-    liveMode,
 }: TelemetryCardProps): JSX.Element {
     const t = translations.detail;
     const items = location
@@ -57,20 +51,30 @@ export function TelemetryCard({
               {
                   icon: <Gauge size={14} />,
                   label: t.telemetry.speed,
-                  value: renderNumberWithUnit(location.speed, t.units.speed, 1),
+                  value:
+                      location.speed == null
+                          ? '0 m/s'
+                          : `${renderNumberWithUnit(location.speed, t.units.speed, 1)} ${t.units.speed}`,
               },
               {
                   icon: <Crosshair size={14} />,
                   label: t.telemetry.accuracy,
                   value:
                       location.accuracy == null
-                          ? '—'
+                          ? '± 0 m'
                           : `±${location.accuracy.toFixed(1)} ${t.units.meters}`,
               },
               {
                   icon: <Battery size={14} />,
                   label: t.telemetry.battery,
-                  value: renderNumberWithUnit(location.battery_voltage, 'V', 2),
+                  value:
+                      location.battery_voltage == null
+                          ? '—'
+                          : renderNumberWithUnit(
+                                location.battery_voltage,
+                                'V',
+                                2
+                            ),
               },
               {
                   icon: <Signal size={14} />,
@@ -130,40 +134,6 @@ export function TelemetryCard({
                                 </div>
                             ))}
                         </div>
-                        {/* Live mode location entries */}
-                        {liveMode && (
-                            <div className="dd-live-entries">
-                                {liveEntries.length === 0 ? (
-                                    <div className="dd-live-entries-empty">
-                                        {t.liveWaiting}
-                                    </div>
-                                ) : (
-                                    liveEntries.map((entry, i) => (
-                                        <div
-                                            className="dd-coordinates dd-coordinates--live"
-                                            key={`${entry.recorded_at}-${i}`}
-                                        >
-                                            <Crosshair size={15} />
-                                            <span>
-                                                <small>{t.latitude}</small>
-                                                {entry.latitude.toFixed(6)}
-                                            </span>
-                                            <span>
-                                                <small>{t.longitude}</small>
-                                                {entry.longitude.toFixed(6)}
-                                            </span>
-                                            <span className="dd-live-entries-time">
-                                                {formatRelativeTime(
-                                                    entry.recorded_at,
-                                                    locale,
-                                                    date
-                                                )}
-                                            </span>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        )}
                     </>
                 ) : (
                     <div className="dd-card-empty">

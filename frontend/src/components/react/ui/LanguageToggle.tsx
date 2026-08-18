@@ -35,9 +35,9 @@ export function LanguageToggle({ locale }: LanguageToggleProps): JSX.Element {
     const toggleLanguage = (next: Language): void => {
         if (next === currentLocale) return;
         setCurrentLocale(next);
-        const pathname = window.location.pathname;
-        const newPath = pathname.replace(/^\/(en|es)/, `/${next}`);
-        window.location.href = newPath;
+        const url = new URL(window.location.href);
+        url.pathname = url.pathname.replace(/^\/(en|es)/, `/${next}`);
+        window.location.href = url.toString();
     };
 
     return (

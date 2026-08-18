@@ -173,6 +173,14 @@ func (r *recordingReader) GetLatest(_ context.Context, _ uuid.UUID) (domain.Loca
 	return r.loc, r.err
 }
 
+func (r *recordingReader) GetHistory(context.Context, uuid.UUID, time.Time, time.Time, int, int) ([]domain.Location, int, error) {
+	return nil, 0, nil
+}
+
+func (r *recordingReader) GetRoute(context.Context, uuid.UUID, time.Time, time.Time, int) ([]domain.Location, int, bool, error) {
+	return nil, 0, false, nil
+}
+
 // newLatestApp wires just the Latest endpoint onto a fresh Fiber, mirroring
 // how newApp isolates Ingest. The route is mounted under
 // /api/v1/devices/:id/locations/latest — the production router adds the

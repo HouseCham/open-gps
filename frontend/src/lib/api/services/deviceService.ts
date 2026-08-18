@@ -91,6 +91,7 @@ export const useDeviceService = (): IDeviceService => {
                 handleApiError(
                     new Error('get all devices returned a null response')
                 );
+                return;
             }
             setDevices(response.data.items);
         } finally {
@@ -110,19 +111,25 @@ export const useDeviceService = (): IDeviceService => {
         setDevice(null);
         try {
             const { data: response } = await withApiErrorToast(() =>
-                apiClient<Envelope<DeviceDetail> | null>(`/devices/${id}`, {
+                apiClient<Envelope<DeviceDetail>>(`/devices/${id}`, {
                     method: 'GET',
                 })
             );
             if (!response) {
-                toastBus.push({
-                    variant: 'error',
-                    title: 'Error',
-                    message: 'get device returned a null response',
-                });
                 handleApiError(
                     new Error('get device returned a null response')
                 );
+            }
+            if (response.status_code !== 200) {
+                toastBus.push({
+                    variant: 'error',
+                    title: 'Error',
+                    message: response.message,
+                });
+                handleApiError({
+                    status: response.status_code,
+                    message: response.message,
+                });
             }
             setDevice(response.data);
         } finally {
@@ -154,6 +161,7 @@ export const useDeviceService = (): IDeviceService => {
                 handleApiError(
                     new Error('create device returned a null response')
                 );
+                return;
             }
             // Optimistically add the new device to the list as a DeviceWithAccess
             const newDeviceWithAccess: DeviceWithAccess = {
@@ -194,6 +202,7 @@ export const useDeviceService = (): IDeviceService => {
                 handleApiError(
                     new Error('update device returned a null response')
                 );
+                return;
             }
             // Update the device in the list if it is present there
             setDevices(prev =>

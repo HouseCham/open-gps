@@ -6,6 +6,65 @@ The `locations` endpoint group serves both the IoT ingestion path (write, device
 
 ---
 
+## GET /api/v1/devices/:id/locations
+
+Returns a paginated history of the device's locations within a local-time range. The `from` and `to` values are interpreted using the supplied IANA timezone and converted to UTC before querying the database.
+
+**Authorization:** Session cookie (Authula) + `viewer` (or higher) access on the device. The access check is enforced by `middleware.RequireDeviceRole(viewer)`.
+
+**Query Parameters**
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `from` | Yes | Local start time in `YYYY-MM-DDTHH:mm:ss` format. Inclusive. |
+| `to` | Yes | Local end time in `YYYY-MM-DDTHH:mm:ss` format. Exclusive. |
+| `time-zone` | Yes | IANA timezone, for example `America/Mexico_City`. |
+| `page` | No | Page number. Defaults to `1`. |
+| `page_size` | No | Items per page. Defaults to `20`, maximum `100`. |
+
+**Request**
+
+```
+GET /api/v1/devices/550e8400-e29b-41d4-a716-446655440001/locations?from=2026-08-17T12:00:00&to=2026-08-17T14:00:00&time-zone=America/Mexico_City&page=1&page_size=20
+Cookie: authula.session_token=...
+```
+
+The example requests 12:00–14:00 in Mexico City. The backend queries the corresponding UTC range, 18:00–20:00 for this date.
+
+**Response `200 OK`**
+
+```json
+{
+  "status_code": 200,
+  "message": "location history retrieved",
+  "data": {
+    "items": [
+      {
+        "device_id": "550e8400-e29b-41d4-a716-446655440001",
+        "recorded_at": "2026-08-17T19:00:00Z",
+        "latitude": 19.432608,
+        "longitude": -99.133207,
+        "altitude": 2240.5,
+        "speed": 45.3,
+        "accuracy": 4.1,
+        "battery_voltage": 3.72,
+        "signal_strength": 23
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "page_size": 20,
+      "total": 1,
+      "total_pages": 1
+    }
+  }
+}
+```
+
+An empty time range returns `200 OK` with an empty `items` array. Invalid or missing time parameters return `400 Bad Request`.
+
+---
+
 ## GET /api/v1/devices/:id/locations/latest
 
 Returns the device's most recent location — the one-row read that powers the dashboard's "last location" preview on the device-detail page.
@@ -59,7 +118,39 @@ Nullable telemetry fields (`altitude`, `speed`, `accuracy`, `battery_voltage`, `
 
 > **Why a 404 for "never reported":** `GETLatestLocationForDevice` is `LIMIT 1` on an empty result set, which surfaces as `pgx.ErrNoRows` and maps to `domain.ErrNotFound`. The handler turns it into a distinct 404 so the dashboard can render a "Never seen" badge without inspecting 5xx errors.
 
-> **Why no `?include_history=true` flag:** the paginated history endpoint (`GET /api/v1/devices/:id/locations`) is a separate, follow-up route — it lands alongside the `LivePreview` component. Combining it here would mix the latest (object) shape with the history (paginated list) shape; keeping them separate matches the "uniform envelope per endpoint" rule.
+> **Why a separate route:** the latest endpoint returns one location object, while this endpoint returns a paginated list. Keeping the shapes separate makes each endpoint predictable.
+
+---
+
+## GET /api/v1/devices/:id/locations/route
+
+Returns a chronological route suitable for map rendering. The route is
+bounded to at most `max_points` samples (default and maximum `1000`). Large
+ranges are sampled server-side while preserving the first and last location;
+the paginated history endpoint remains the source for the exact table data.
+
+**Authorization:** Session cookie (Authula) + `viewer` (or higher) access on the device.
+
+**Query Parameters:** The same `from`, `to`, and `time-zone` parameters as the
+history endpoint, plus optional `max_points`.
+
+**Response `200 OK`**
+
+```json
+{
+  "status_code": 200,
+  "message": "location route retrieved",
+  "data": {
+    "items": [ /* chronological LocationResponse values */ ],
+    "total_points": 2500,
+    "returned": 1001,
+    "sampled": true
+  }
+}
+```
+
+The frontend can split segments when adjacent timestamps exceed the expected
+ingestion interval, avoiding a misleading line across a reporting gap.
 
 ---
 
@@ -150,6 +241,6 @@ No response body. The status code conveys success; clients can read the inserted
 
 **Why does idempotency live in the DB layer?** ESP32 cellular radios have lossy links and the firmware retries every POST until it gets a response. Without idempotency a 30-second cycle can produce duplicates every time the network blips. `ON CONFLICT (device_id, recorded_at) DO NOTHING` makes retries a no-op.
 
-**Why no paginated `GET /api/v1/devices/:id/locations`?** The paginated history endpoint is a separate, follow-up route that lands alongside the `LivePreview` component. Combining it with the `latest` endpoint would mix the latest (object) shape with the history (paginated list) shape; keeping them separate matches the "uniform envelope per endpoint" rule.
+**Why are `from` and `to` local times?** The frontend sends wall-clock values without an offset and supplies the user's IANA timezone separately. The backend resolves those values to UTC before querying PostgreSQL.
 
 **Why aren't GPS-only devices rejected?** A bare GPS + ESP32 can fill in lat/lng/recorded_at/altitude/speed/accuracy; the other five fields are optional. The empty `signal_strength` case is common in indoor benches, etc.

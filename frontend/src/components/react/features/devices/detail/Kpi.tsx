@@ -130,7 +130,7 @@ export function KpiStrip({
                 value={
                     location?.battery_voltage == null
                         ? '—'
-                        : `${location.battery_voltage.toFixed(2)} V`
+                        : `${batteryPercent} %`
                 }
                 hint={batteryPercent == null ? '—' : `${batteryPercent}%`}
                 percent={batteryPercent}
@@ -152,10 +152,16 @@ export function KpiStrip({
                 icon={<Gauge size={15} />}
                 label={t.kpi.speed}
                 value={
-                    speed == null ? '—' : `${speed.toFixed(1)} ${t.units.speed}`
+                    speed == null
+                        ? '0 m/s'
+                        : `${speed.toFixed(1)} ${t.units.speed}`
                 }
                 hint={
-                    speed == null ? '—' : speed === 0 ? t.stationary : t.moving
+                    speed == null
+                        ? '0 m/s'
+                        : speed === 0
+                          ? t.stationary
+                          : t.moving
                 }
                 percent={speedPercent}
                 tone={

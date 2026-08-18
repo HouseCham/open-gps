@@ -1,13 +1,12 @@
 import '@/styles/device-detail.css';
 import '@/styles/devices.css';
 
-import { useEffect, useRef, useState, lazy, type JSX, Suspense } from 'react';
+import { useEffect, useState, lazy, type JSX, Suspense } from 'react';
 //-- Types
 import type {
     DeviceAccessListItem,
     DeviceDetail,
     DeviceVehicleType,
-    LocationPoint,
 } from '@/types/api';
 import type { Language } from '@/types';
 import type { Translation } from '@/i18n';
@@ -15,25 +14,15 @@ import type { Translation } from '@/i18n';
 import { deriveDeviceStatus } from '@/lib/device-utils';
 import { useDeviceService } from '@/lib/api/services/deviceService';
 import { useLocationService } from '@/lib/api/services/locationService';
-import { toastBus } from '@/lib/stores/toast.store';
-import {
-    LIVE_POLL_INTERVAL_MS,
-    LIVE_STALE_RETRIES,
-    LIVE_STALE_THRESHOLD_MS,
-} from '@/constants/components';
 import { redirectTo } from '@/lib';
 //-- Components
 import { Breadcrumbs, EmptyState } from '@/components/react/ui';
 import { DeviceDetailError } from './DeviceDetailError';
 import { VehicleDetailHeader } from './VehicleDetailHeader';
-import { KpiStrip } from './Kpi';
 import { DeviceInfoCard } from './DeviceInfoCard';
 import { Button } from '@/components/react/ui/button';
-import {
-    MapCard,
-    TelemetryCard,
-} from '@/components/react/features/devices/location';
 import { DeviceAccessTable } from '@/components/react/features/devices/access';
+import { GpsTelemetrySection } from './GpsTelemetrySection';
 //-- Icons
 import { AlertTriangle } from 'lucide-react';
 //-- Lazy components
@@ -96,8 +85,8 @@ export function DeviceDetailPage({
     } = useDeviceService();
     const {
         latest,
-        isLoading: locationLoading,
-        error: locationError,
+        latestLoading: locationLoading,
+        latestError: locationError,
         getLatestLocation,
     } = useLocationService();
     const [deviceId, setDeviceId] = useState<string | undefined>();
@@ -106,9 +95,6 @@ export function DeviceDetailPage({
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [revokeTarget, setRevokeTarget] =
         useState<DeviceAccessListItem | null>(null);
-    const [liveMode, setLiveMode] = useState(false);
-    const [liveEntries, setLiveEntries] = useState<LocationPoint[]>([]);
-    const latestRef = useRef<LocationPoint | null>(null);
 
     useEffect(() => {
         setDeviceId(
@@ -122,96 +108,16 @@ export function DeviceDetailPage({
             getDeviceById(deviceId),
             getLatestLocation(deviceId),
         ]);
-        setLiveMode(false);
-        setLiveEntries([]);
     }, [deviceId]);
 
-    useEffect(() => {
-        if (!liveMode) {
-            setLiveEntries([]);
-            return;
-        }
-        if (!latest) return;
-
-        // Prevent duplicate entries
-        const lastEntry = liveEntries[0];
-        if (lastEntry && lastEntry.recorded_at === latest.recorded_at) return;
-
-        // If latest.recorded_at is older that 30 seconds...
-
-        setLiveEntries(prev => [latest, ...prev]);
-    }, [latest, liveMode]);
-
-    useEffect(() => {
-        if (!liveMode || !deviceId) return;
-        let cancelled = false;
-        let timer: ReturnType<typeof setTimeout> | null = null;
-
-        const isLatestStale = (): boolean => {
-            const recorded = latestRef.current?.recorded_at;
-            if (!recorded) return false;
-            return (
-                Date.now() - new Date(recorded).getTime() >
-                LIVE_STALE_THRESHOLD_MS
-            );
-        };
-
-        const stopWithNotice = (): void => {
-            setLiveMode(false);
-            toastBus.push({
-                variant: 'warning',
-                title: t.detail.deviceNotLiveTitle,
-                message: t.detail.deviceNotLiveMessage,
-            });
-        };
-
-        const poll = async (): Promise<void> => {
-            if (cancelled) return;
-            await getLatestLocation(deviceId);
-            if (cancelled) return;
-
-            if (isLatestStale()) {
-                for (let i = 0; i < LIVE_STALE_RETRIES && !cancelled; i += 1) {
-                    await getLatestLocation(deviceId);
-                    if (cancelled) return;
-                    if (!isLatestStale()) break;
-                }
-                if (cancelled) return;
-                if (isLatestStale()) {
-                    stopWithNotice();
-                    return;
-                }
-            }
-
-            timer = setTimeout(poll, LIVE_POLL_INTERVAL_MS);
-        };
-        void poll();
-        return (): void => {
-            cancelled = true;
-            if (timer) clearTimeout(timer);
-        };
-    }, [liveMode, deviceId]);
-
-    useEffect(() => {
-        latestRef.current = latest;
-    }, [latest]);
-
-    useEffect(() => {
-        if (!liveMode || !locationError) return;
-        setLiveMode(false);
-        toastBus.push({
-            variant: 'error',
-            title: t.detail.connectionLost,
-            message: locationError.message || t.detail.connectionLostMessage,
-        });
-    }, [liveMode, locationError]);
-
-    const status = device ? deriveDeviceStatus(device.last_seen_at, t) : null;
+    const status = device
+        ? deriveDeviceStatus(latest?.recorded_at ?? null, t)
+        : null;
     /**
      * Go back to the devices page
      * @returns {void}
      */
-    const goBack = (): void => redirectTo(`/${locale}/devices/`);
+    const goBack = (): void => redirectTo(`/devices/`);
     /**
      * Reload the device and location data
      * @returns {void}
@@ -317,8 +223,13 @@ export function DeviceDetailPage({
                     { label: device.name },
                 ]}
             />
+
+            {/* Header Section */}
             <VehicleDetailHeader
-                device={device}
+                device={{
+                    ...device,
+                    last_seen_at: latest?.recorded_at ?? null,
+                }}
                 status={status}
                 locale={locale}
                 translations={t}
@@ -328,6 +239,8 @@ export function DeviceDetailPage({
                 onEdit={() => setEditOpen(true)}
                 onDelete={() => setDeleteOpen(true)}
             />
+
+            {/* Error Section */}
             {(deviceError || locationError) && (
                 <DeviceDetailError
                     message={
@@ -339,47 +252,27 @@ export function DeviceDetailPage({
                     retryLabel={t.detail.retry}
                 />
             )}
-            {/* KPI Cards */}
-            <KpiStrip
-                device={device}
-                location={latest}
-                status={status}
+
+            {/* GPS Telemetry Section */}
+            <GpsTelemetrySection
+                showGoLive
+                title={t.detail.gpsTelemetry}
+                description={t.detail.gpsTelemetryDescription}
+                latest={
+                    latest
+                        ? {
+                              ...latest,
+                              recorded_at: device.created_at,
+                          }
+                        : null
+                }
                 locale={locale}
                 translations={t}
                 date={date}
+                loading={locationLoading}
+                deviceId={deviceId}
+                getLatestLocation={getLatestLocation}
             />
-
-            {/* GPS Telemetry Section */}
-            <section className="dd-section">
-                <div className="dd-section-head">
-                    <div>
-                        <h2>{t.detail.gpsTelemetry}</h2>
-                        <div>{t.detail.gpsTelemetryDescription}</div>
-                    </div>
-                </div>
-                <div className="dd-map-grid">
-                    <MapCard
-                        location={latest}
-                        locale={locale}
-                        translations={t}
-                        date={date}
-                        loading={locationLoading}
-                        onRefresh={() => {
-                            if (deviceId) void getLatestLocation(deviceId);
-                        }}
-                        onGoLive={() => setLiveMode(v => !v)}
-                        liveMode={liveMode}
-                    />
-                    <TelemetryCard
-                        location={latest}
-                        locale={locale}
-                        translations={t}
-                        date={date}
-                        liveEntries={liveEntries}
-                        liveMode={liveMode}
-                    />
-                </div>
-            </section>
 
             {/* Device Information Section */}
             <section className="dd-section">
