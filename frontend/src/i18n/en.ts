@@ -571,7 +571,7 @@ export const en = {
                 'Live tracking stopped: the device is unreachable.',
             deviceNotLiveTitle: 'Device not live',
             deviceNotLiveMessage:
-                'Live tracking stopped: the device has not reported a new location in over 30 seconds.',
+                'Live tracking stopped: the device has not reported a new location in over 45 seconds.',
             info: {
                 title: 'Device information',
                 subtitle: 'Identity and registration metadata',
@@ -664,6 +664,12 @@ export const en = {
             accuracy: 'Accuracy',
             recorded: 'Recorded',
             detectiveMode: 'Detective mode',
+            detectiveModeLabel: 'Detective mode:',
+            on: 'On',
+            off: 'Off',
+            routeStyle: 'Route style',
+            routeLine: 'Connected line',
+            routeDots: 'Dots only',
             detectiveDescription:
                 "Replay the device's route by choosing a time window.",
             routeWindow: 'Route from {from} to {to}',
@@ -689,7 +695,7 @@ export const en = {
             noHistory: 'No locations found for this time window.',
             deviceNotLiveTitle: 'Device not live',
             deviceNotLiveMessage:
-                'Live tracking stopped: the device has not reported a new location in over 30 seconds.',
+                'Live tracking stopped: the device has not reported a new location in over 45 seconds.',
         },
     },
     user: {

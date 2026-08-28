@@ -38,6 +38,7 @@ interface GpsTelemetrySectionProps {
     getLatestLocation: (deviceId: string) => Promise<void>;
     routeSegments?: LocationPoint[][];
     displayStatus?: DeviceStatus;
+    routeStyle?: 'line' | 'dots';
 }
 /**
  * The GPS telemetry section of the device detail page
@@ -57,6 +58,7 @@ export function GpsTelemetrySection({
     getLatestLocation,
     routeSegments,
     displayStatus,
+    routeStyle,
 }: GpsTelemetrySectionProps): JSX.Element {
     if (!latest) {
         return <GpsTelemetrySectionSkeleton />;
@@ -83,6 +85,7 @@ export function GpsTelemetrySection({
                     }}
                     routeSegments={routeSegments}
                     displayStatus={displayStatus}
+                    routeStyle={routeStyle}
                 />
                 <TelemetryCard
                     location={latest}

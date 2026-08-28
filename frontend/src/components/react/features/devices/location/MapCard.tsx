@@ -72,6 +72,7 @@ interface MapCardProps {
     onRefresh: () => void;
     routeSegments?: LocationPoint[][];
     displayStatus?: DeviceStatus;
+    routeStyle?: 'line' | 'dots';
 }
 /**
  * MapCard component
@@ -89,6 +90,7 @@ export function MapCard({
     onRefresh,
     routeSegments = [],
     displayStatus,
+    routeStyle = 'line',
 }: MapCardProps): JSX.Element {
     const t = translations.detail;
     const hasLocation = location !== null;
@@ -116,6 +118,17 @@ export function MapCard({
     const routeColor =
         status.key === 'online' ? ROUTE_COLOR_ONLINE : ROUTE_COLOR_OFFLINE;
     const routePoints = routeSegments.flat();
+    const routePointsData = {
+        type: 'FeatureCollection' as const,
+        features: routePoints.map(point => ({
+            type: 'Feature' as const,
+            properties: {},
+            geometry: {
+                type: 'Point' as const,
+                coordinates: [point.longitude, point.latitude],
+            },
+        })),
+    };
     const routeKey = routePoints.map(point => point.recorded_at).join('|');
 
     // initialViewState only applies on first mount; fit the selected route
@@ -207,7 +220,7 @@ export function MapCard({
                     touchPitch={false}
                     boxZoom={false}
                 >
-                    {routeSegments.length > 0 && (
+                    {routeSegments.length > 0 && routeStyle === 'line' && (
                         <Source
                             id="device-route"
                             type="geojson"
@@ -224,6 +237,24 @@ export function MapCard({
                                     'line-color': routeColor,
                                     'line-opacity': 0.85,
                                     'line-width': 3,
+                                }}
+                            />
+                        </Source>
+                    )}
+                    {routePoints.length > 0 && routeStyle === 'dots' && (
+                        <Source
+                            id="device-route-dots"
+                            type="geojson"
+                            data={routePointsData}
+                        >
+                            <Layer
+                                id="device-route-points"
+                                type="circle"
+                                paint={{
+                                    'circle-color': routeColor,
+                                    'circle-radius': 4,
+                                    'circle-stroke-color': '#ffffff',
+                                    'circle-stroke-width': 1,
                                 }}
                             />
                         </Source>

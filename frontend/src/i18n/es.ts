@@ -585,7 +585,7 @@ export const es: Translation = {
                 'Rastreo en directo detenido: dispositivo no disponible.',
             deviceNotLiveTitle: 'Dispositivo no en directo',
             deviceNotLiveMessage:
-                'Rastreo en directo detenido: el dispositivo no ha comunicado una nueva ubicación en más de 30 segundos.',
+                'Rastreo en directo detenido: el dispositivo no ha comunicado una nueva ubicación en más de 45 segundos.',
             info: {
                 title: 'Información del dispositivo',
                 subtitle: 'Identidad y metadatos de registro',
@@ -683,6 +683,12 @@ export const es: Translation = {
             accuracy: 'Precisión',
             recorded: 'Registrado',
             detectiveMode: 'Modo detective',
+            detectiveModeLabel: 'Modo detective:',
+            on: 'Activado',
+            off: 'Desactivado',
+            routeStyle: 'Estilo de ruta',
+            routeLine: 'Línea conectada',
+            routeDots: 'Solo puntos',
             detectiveDescription:
                 'Reproduce la ruta del dispositivo eligiendo un intervalo de tiempo.',
             routeWindow: 'Ruta desde {from} hasta {to}',
@@ -709,7 +715,7 @@ export const es: Translation = {
             noHistory: 'No se encontraron ubicaciones en este intervalo.',
             deviceNotLiveTitle: 'Dispositivo no está en directo',
             deviceNotLiveMessage:
-                'El rastreo en directo se detuvo: el dispositivo no ha comunicado una ubicación nueva en más de 30 segundos.',
+                'El rastreo en directo se detuvo: el dispositivo no ha comunicado una ubicación nueva en más de 45 segundos.',
         },
     },
     user: {

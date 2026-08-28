@@ -26,7 +26,12 @@ import {
     LOCATION_HISTORY_PAGE_SIZE,
 } from '@/constants/components';
 //-- Components
-import { Breadcrumbs, EmptyState, Pagination } from '@/components/react/ui';
+import {
+    Badge,
+    Breadcrumbs,
+    EmptyState,
+    Pagination,
+} from '@/components/react/ui';
 import { Button } from '@/components/react/ui/button';
 import {
     KpiStrip,
@@ -36,6 +41,7 @@ import {
 } from '@/components/react/features/devices/detail';
 //-- Icons
 import { Download, Info, RefreshCw, Route } from 'lucide-react';
+import type { LocationPoint } from '@/types/api';
 
 /**
  * Props for the LiveTrackingPage component
@@ -86,6 +92,9 @@ export function LiveTrackingPage({
     } = useLocationService();
     const [deviceId, setDeviceId] = useState<string | null | undefined>();
     const [range, setRange] = useState<DateRange>(() => getDateRange('today'));
+    const [detectiveMode, setDetectiveMode] = useState(false);
+    const [routeStyle, setRouteStyle] = useState<'line' | 'dots'>('line');
+    const [liveRoutePoints, setLiveRoutePoints] = useState<LocationPoint[]>([]);
 
     useEffect(() => {
         const id = readDeviceIdFromUrl();
@@ -94,26 +103,14 @@ export function LiveTrackingPage({
 
     useEffect(() => {
         if (!deviceId) return;
-        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        void Promise.all([
-            getDeviceById(deviceId),
-            getLocationHistory(
-                deviceId,
-                toApiDate(range.from),
-                toApiDate(range.to),
-                timeZone
-            ),
-            getLocationRoute(
-                deviceId,
-                toApiDate(range.from),
-                toApiDate(range.to),
-                timeZone
-            ),
-        ]);
+        void getDeviceById(deviceId);
     }, [deviceId]);
 
     useEffect(() => {
         if (!deviceId) return;
+        const rangeTo = new Date(range.to).getTime();
+        const includesPresent = rangeTo + 60_000 >= Date.now();
+        if (detectiveMode && !includesPresent) return;
         let cancelled = false;
         let timer: ReturnType<typeof setTimeout> | null = null;
         const poll = async (): Promise<void> => {
@@ -127,13 +124,28 @@ export function LiveTrackingPage({
             cancelled = true;
             if (timer) clearTimeout(timer);
         };
-    }, [deviceId]);
+    }, [deviceId, detectiveMode, range.to]);
+
+    useEffect(() => {
+        if (
+            !latest ||
+            (detectiveMode &&
+                new Date(range.to).getTime() + 60_000 < Date.now())
+        )
+            return;
+        setLiveRoutePoints(points =>
+            points.some(point => point.recorded_at === latest.recorded_at)
+                ? points
+                : [...points, latest]
+        );
+    }, [latest, detectiveMode, range.to]);
 
     const loadHistory = (nextRange: DateRange, page = 1): void => {
         if (!deviceId) return;
         const rangeChanged =
             nextRange.from !== range.from || nextRange.to !== range.to;
         setRange(nextRange);
+        setLiveRoutePoints([]);
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         void getLocationHistory(
             deviceId,
@@ -191,10 +203,17 @@ export function LiveTrackingPage({
         Number.isFinite(latestTime) &&
         latestTime >= rangeFrom &&
         latestTime <= rangeTo + 60_000;
-    const routePath =
-        latestInRange && latest ? [...routePoints, latest] : routePoints;
+    const routePath = detectiveMode
+        ? [...routePoints, ...(latestInRange ? liveRoutePoints : [])]
+        : liveRoutePoints;
     const routeSegments =
-        routePath.length > 2 ? splitLocationRoute(routePath) : [];
+        routeStyle === 'dots'
+            ? routePath.length > 0
+                ? [routePath]
+                : []
+            : routePath.length > 1
+              ? splitLocationRoute(routePath)
+              : [];
     const historicalLocation = route?.items.at(-1) ?? history[0] ?? null;
     const historicalDisplayLocation = historicalLocation
         ? {
@@ -215,12 +234,18 @@ export function LiveTrackingPage({
         if (historyError || routeError) loadHistory(range);
     };
 
+    /**
+     * Render the loading state
+     */
     if (deviceId === undefined || deviceLoading)
         return (
             <div className="live-loading" role="status">
                 {t.live.loading}
             </div>
         );
+    /**
+     * If no deviceId is provided, show an empty state
+     */
     if (!deviceId)
         return (
             <EmptyState
@@ -236,6 +261,9 @@ export function LiveTrackingPage({
                 }
             />
         );
+    /**
+     * If there is an error loading the device, show an error message
+     */
     if (!device || !status)
         return (
             <>
@@ -253,6 +281,9 @@ export function LiveTrackingPage({
             </>
         );
 
+    /**
+     * Render the Live Tracking page
+     */
     return (
         <div className="live-page">
             <Breadcrumbs
@@ -305,78 +336,115 @@ export function LiveTrackingPage({
                         <h2>{t.live.detectiveMode}</h2>
                         <p>{t.live.detectiveDescription}</p>
                     </div>
+                    <div className="live-mode-controls">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                                setDetectiveMode(value => !value);
+                                setLiveRoutePoints([]);
+                            }}
+                            aria-pressed={detectiveMode}
+                        >
+                            {t.live.detectiveModeLabel}
+                        </Button>
+                        <Badge tone={detectiveMode ? 'success' : 'neutral'} dot>
+                            {detectiveMode ? t.live.on : t.live.off}
+                        </Badge>
+                        <label className="live-route-style">
+                            <span>{t.live.routeStyle}</span>
+                            <select
+                                value={routeStyle}
+                                onChange={event =>
+                                    setRouteStyle(
+                                        event.target.value as 'line' | 'dots'
+                                    )
+                                }
+                            >
+                                <option value="line">{t.live.routeLine}</option>
+                                <option value="dots">{t.live.routeDots}</option>
+                            </select>
+                        </label>
+                    </div>
                     <span className="live-available">
                         <Route size={13} />
                         {historyPagination?.total ?? 0} {t.live.pointsAvailable}
                     </span>
                 </div>
-                <div className="live-card live-detective">
-                    <form className="live-form" onSubmit={handleHistorySubmit}>
-                        <label>
-                            <span>{t.live.from}</span>
-                            <input
-                                type="datetime-local"
-                                value={range.from}
-                                onChange={event =>
-                                    setRange(value => ({
-                                        ...value,
-                                        from: event.target.value,
-                                    }))
-                                }
-                            />
-                        </label>
-                        <label>
-                            <span>{t.live.to}</span>
-                            <input
-                                type="datetime-local"
-                                value={range.to}
-                                onChange={event =>
-                                    setRange(value => ({
-                                        ...value,
-                                        to: event.target.value,
-                                    }))
-                                }
-                            />
-                        </label>
-                        <Button
-                            type="submit"
-                            variant="primary"
-                            loading={historyLoading || routeLoading}
-                            icon={<RefreshCw size={14} />}
+                {detectiveMode && (
+                    <div className="live-card live-detective">
+                        <form
+                            className="live-form"
+                            onSubmit={handleHistorySubmit}
                         >
-                            {t.live.applyWindow}
-                        </Button>
-                    </form>
-                    <div className="live-filters">
-                        {(['today', '24h', '7d'] as const).map(kind => (
+                            <label>
+                                <span>{t.live.from}</span>
+                                <input
+                                    type="datetime-local"
+                                    value={range.from}
+                                    onChange={event =>
+                                        setRange(value => ({
+                                            ...value,
+                                            from: event.target.value,
+                                        }))
+                                    }
+                                />
+                            </label>
+                            <label>
+                                <span>{t.live.to}</span>
+                                <input
+                                    type="datetime-local"
+                                    value={range.to}
+                                    onChange={event =>
+                                        setRange(value => ({
+                                            ...value,
+                                            to: event.target.value,
+                                        }))
+                                    }
+                                />
+                            </label>
+                            <Button
+                                type="submit"
+                                variant="primary"
+                                loading={historyLoading || routeLoading}
+                                icon={<RefreshCw size={14} />}
+                            >
+                                {t.live.applyWindow}
+                            </Button>
+                        </form>
+                        <div className="live-filters">
+                            {(['today', '24h', '7d'] as const).map(kind => (
+                                <button
+                                    type="button"
+                                    key={kind}
+                                    className="live-filter"
+                                    onClick={() =>
+                                        loadHistory(getDateRange(kind))
+                                    }
+                                >
+                                    {t.live.ranges[kind]}
+                                </button>
+                            ))}
                             <button
                                 type="button"
-                                key={kind}
                                 className="live-filter"
-                                onClick={() => loadHistory(getDateRange(kind))}
+                                onClick={() =>
+                                    document
+                                        .querySelector<HTMLInputElement>(
+                                            'input[type="datetime-local"]'
+                                        )
+                                        ?.focus()
+                                }
                             >
-                                {t.live.ranges[kind]}
+                                {t.live.ranges.custom}
                             </button>
-                        ))}
-                        <button
-                            type="button"
-                            className="live-filter"
-                            onClick={() =>
-                                document
-                                    .querySelector<HTMLInputElement>(
-                                        'input[type="datetime-local"]'
-                                    )
-                                    ?.focus()
-                            }
-                        >
-                            {t.live.ranges.custom}
-                        </button>
+                        </div>
+                        <div className="live-note">
+                            <Info size={14} />
+                            {t.live.detectiveNote}
+                        </div>
                     </div>
-                    <div className="live-note">
-                        <Info size={14} />
-                        {t.live.detectiveNote}
-                    </div>
-                </div>
+                )}
             </section>
 
             {/* GPS Telemetry Section */}
@@ -391,6 +459,7 @@ export function LiveTrackingPage({
                 deviceId={deviceId}
                 getLatestLocation={getLatestLocation}
                 routeSegments={routeSegments}
+                routeStyle={routeStyle}
                 displayStatus={status}
             />
 
