@@ -1,7 +1,5 @@
 import type { LocationPoint } from '@/types/api';
-import { LIVE_STALE_THRESHOLD_MS } from '@/constants/components';
-
-export const LIVE_ROUTE_GAP_THRESHOLD_MS = LIVE_STALE_THRESHOLD_MS;
+import { LIVE_ROUTE_GAP_THRESHOLD_MS } from '@/constants/components';
 
 /**
  * Splits a chronological route when the device missed an expected report.

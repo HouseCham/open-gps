@@ -175,6 +175,31 @@
     color: var(--accent);
 }
 
+.live-mode-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    flex-wrap: wrap;
+}
+
+.live-route-style {
+    display: flex;
+    align-items: center;
+    gap: var(--s-1);
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.live-route-style select {
+    height: 30px;
+    padding: 0 var(--s-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--bg-page);
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
 .live-map-grid {
     display: grid;
     grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.85fr);
