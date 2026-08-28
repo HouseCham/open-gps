@@ -4,11 +4,16 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <TinyGsmClient.h>
+#include <esp_task_wdt.h>
 
 #include "config.h"
+#include "gps_board.h"
 #include "location_payload.h"
 #include "secrets.h"  // full definitions; transport.h uses forward decls to
                        // avoid pulling <Arduino.h> into native test builds
+
+static bool cellular_up = false;
 
 bool transport_begin(const Secrets& s) {
     if (s.wifi_ssid == nullptr || s.wifi_ssid[0] == '\0') {
@@ -60,7 +65,7 @@ static TransportResult post_once(const char* url, const char* api_key,
                   (unsigned long)time(nullptr),
                   (unsigned)ESP.getFreeHeap());
 
-    WiFiClientSecure client;
+    TinyGsmClientSecure client(board_modem());
     // STAGE 3 DEV ONLY — bypass cert validation. CloudFlare's cert is
     // rejected because the ESP32's clock is unset (time=0 at boot);
     // mbedtls checks cert notBefore against time(NULL) and bails with -1.
@@ -70,27 +75,34 @@ static TransportResult post_once(const char* url, const char* api_key,
     // then switch back to setCACert(cloudflare_root_ca). Otherwise any
     // attacker on the LAN can MITM the connection (and steal the
     // X-Device-API-Key).
-    client.setInsecure();
 
-    HTTPClient http;
-    http.begin(client, url);
-
-    http.addHeader("Content-Type", "application/json");
-    http.addHeader("X-Device-API-Key", api_key);
-    http.setTimeout(5000);
-
-    const int code = http.POST((uint8_t*)json_body, strlen(json_body));
+    const char* host_start = strstr(url, "://");
+    host_start = host_start ? host_start + 3 : url;
+    const char* path = strchr(host_start, '/');
+    if (!path) path = "/";
+    char host[128];
+    const size_t host_len = static_cast<size_t>(path - host_start);
+    if (host_len == 0 || host_len >= sizeof(host)) return TransportResult::CONFIG_ERROR;
+    memcpy(host, host_start, host_len);
+    host[host_len] = '\0';
+    if (!client.connect(host, 443)) return TransportResult::TRANSPORT_ERROR;
+    client.printf("POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\n"
+                  "X-Device-API-Key: %s\r\nContent-Length: %u\r\nConnection: close\r\n\r\n%s",
+                  path, host, api_key, (unsigned)strlen(json_body), json_body);
+    const unsigned long deadline = millis() + 10000;
+    while (!client.available() && millis() < deadline) delay(10);
+    if (!client.available()) { client.stop(); return TransportResult::TRANSPORT_ERROR; }
+    char status[16] = {};
+    client.readBytesUntil(' ', status, sizeof(status) - 1);
+    client.readBytesUntil(' ', status, sizeof(status) - 1);
+    const int code = atoi(status);
+    client.stop();
 
     if (code == 201) {
-        Serial.printf("[POST] 201 OK (%u bytes)\n",
-                      (unsigned)http.getSize());
-        http.end();
+        Serial.println(F("[POST] 201 OK"));
         return TransportResult::SENT;
     } else if (code > 0) {
-        // HTTP responded but with an error status. Read the body for context.
-        String body = http.getString();
-        Serial.printf("[ERR ] HTTP %d: %s\n", code, body.c_str());
-        http.end();
+        Serial.printf("[ERR ] HTTP %d\n", code);
         return TransportResult::HTTP_ERROR;
     } else {
         // code < 0: transport-level failure (DNS, TLS, connection refused).
@@ -116,19 +128,16 @@ static TransportResult post_once(const char* url, const char* api_key,
                              "or cipher mismatch — not a cert issue"));
         }
 
-        http.end();
         return TransportResult::TRANSPORT_ERROR;
     }
 }
 
 TransportResult transport_post_locations(const LocationPayload& p, const Secrets& s) {
-    const wl_status_t ws = WiFi.status();
-    if (ws != WL_CONNECTED) {
-        Serial.printf("[ERR ] WiFi not connected (status=%d); skipping upload\n", (int)ws);
-        return TransportResult::WIFI_DISCONNECTED;
+    if (!cellular_up) {
+        Serial.println(F("[ERR ] cellular data not connected; skipping upload"));
+        return TransportResult::TRANSPORT_ERROR;
     }
-    Serial.printf("[NET ] wifi rssi=%d dBm chan=%d\n",
-                  (int)WiFi.RSSI(), (int)WiFi.channel());
+    Serial.printf("[NET ] cellular CSQ=%d\n", board_modem().getSignalQuality());
 
     char url[256];
     if (transport_build_url(API_HOST, 0, s.uuid,
@@ -152,4 +161,41 @@ TransportResult transport_post_locations(const LocationPayload& p, const Secrets
                   (unsigned)UPLOAD_RETRY_DELAY_MS);
     delay(UPLOAD_RETRY_DELAY_MS);
     return post_once(url, s.api_key, body);
+}
+bool transport_cellular_begin() {
+    TinyGsm& modem = board_modem();
+    Serial.println(F("[CELL] APN=hologram, RAT=LTE-M"));
+    modem.sendAT("+CFUN=0");
+    modem.waitResponse(5000L);
+    modem.setNetworkMode(2);
+    modem.setPreferredMode(1); // TinyGSM: 1 = Cat-M, 2 = NB-IoT, 3 = both
+    modem.sendAT("+CGDCONT=1,\"IP\",\"hologram\"");
+    modem.waitResponse(5000L);
+    modem.sendAT("+CNCFG=0,1,\"hologram\"");
+    modem.waitResponse(5000L);
+    modem.sendAT("+CFUN=1");
+    modem.waitResponse(10000L);
+    Serial.println(F("[CELL] waiting for network registration"));
+    const unsigned long registration_deadline = millis() + 600000UL;
+    bool registered = false;
+    while ((long)(millis() - registration_deadline) < 0) {
+        if (modem.waitForNetwork(10000L, true)) {
+            registered = true;
+            break;
+        }
+        Serial.printf("[CELL] still searching, CSQ=%d\n", modem.getSignalQuality());
+        esp_task_wdt_reset();
+    }
+    if (!registered) {
+        Serial.println(F("[ERR ] cellular registration failed after 10 min"));
+        return false;
+    }
+    Serial.printf("[CELL] registered, CSQ=%d\n", modem.getSignalQuality());
+    if (!modem.gprsConnect(CELLULAR_APN, "", "")) {
+        Serial.println(F("[ERR ] cellular PDP/APN activation failed"));
+        return false;
+    }
+    Serial.printf("[OK  ] cellular data IP=%s\n", modem.localIP().toString().c_str());
+    cellular_up = true;
+    return true;
 }

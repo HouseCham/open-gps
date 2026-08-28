@@ -8,6 +8,7 @@
 // Do not include a trailing slash or path — the transport module appends
 // the locations path automatically.
 constexpr const char* API_HOST = "https://gps-tracker.local";
+constexpr const char* CELLULAR_APN = "hologram";
 
 // ----- GPS polling -----
 constexpr uint32_t FIX_POLL_MS = 2000;  // how often loop() checks for a new fix

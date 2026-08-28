@@ -8,10 +8,10 @@
 #include <esp_task_wdt.h>
 
 static XPowersPMU PMU;
+static TinyGsm modem(Serial1);
 
 XPowersPMU& board_pmu() { return PMU; }
-
-static TinyGsm modem(Serial1);
+TinyGsm& board_modem() { return modem; }
 
 #ifdef WAIT_FOR_SERIAL
 #define BOARD_PRINTF(...) Serial.printf(__VA_ARGS__)
@@ -119,15 +119,11 @@ bool GpsBoard::begin() {
     }
     logLine("MODEM", "AT responsive");
 
-    logLine("GNSS", "enabling GNSS receiver");
-    if (!modem.enableGPS()) {
-        logLine("ERR", "GNSS enable command failed");
-        return false;
-    }
-    logLine("GNSS", "receiver enabled; waiting for outdoor fix");
-
     return true;
 }
+
+bool GpsBoard::enableGps() { return modem.enableGPS(); }
+bool GpsBoard::disableGps() { return modem.disableGPS(); }
 
 bool GpsBoard::pollFix(float &lat, float &lon, float &alt) {
     float spd = 0.0f, acc = 0.0f;
