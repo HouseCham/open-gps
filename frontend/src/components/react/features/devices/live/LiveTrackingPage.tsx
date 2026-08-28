@@ -5,6 +5,7 @@ import { useEffect, useState, type JSX } from 'react';
 import type { Translation } from '@/i18n';
 import type { DateRange, Language } from '@/types';
 import type { DeviceStatus } from '@/types/components';
+import type { LocationPoint } from '@/types/api';
 //-- Services
 import { useDeviceService } from '@/lib/api/services/deviceService';
 import { useLocationService } from '@/lib/api/services/locationService';
@@ -41,7 +42,6 @@ import {
 } from '@/components/react/features/devices/detail';
 //-- Icons
 import { Download, Info, RefreshCw, Route } from 'lucide-react';
-import type { LocationPoint } from '@/types/api';
 
 /**
  * Props for the LiveTrackingPage component
