@@ -54,6 +54,7 @@ size_t transport_build_url(const char* api_host,
 // configured or the timeout elapses without associating. On success, WiFi
 // stays connected for the lifetime of the firmware.
 bool transport_begin(const Secrets& s);
+bool transport_cellular_begin();
 
 // POSTs the payload to the backend. Distinguishes an accepted request,
 // transport failure, HTTP rejection, and invalid local request data.

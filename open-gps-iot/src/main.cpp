@@ -79,15 +79,19 @@ void setup() {
     secrets_print_diag(secrets);
 
     telemetry_set_state(SystemState::CONNECTING_NETWORK);
-    logLine("WIFI", "starting network connection");
-    wifi_up = transport_begin(secrets);
+    logLine("CELL", "starting Hologram cellular connection");
+    wifi_up = transport_cellular_begin();
 
     if (!wifi_up) {
-        logLine("ERR", "WiFi connect failed; remaining in ERR_NETWORK until reset");
+        logLine("ERR", "cellular connect failed; remaining in ERR_NETWORK until reset");
         telemetry_set_state(SystemState::ERR_NETWORK);
     } else {
+        if (!board.enableGps()) {
+            logLine("ERR", "GNSS enable failed");
+            wifi_up = false;
+        }
         telemetry_set_state(SystemState::WAITING_GNSS_FIX);
-        logLine("GNSS", "WiFi ready; waiting for a valid GNSS fix");
+        logLine("GNSS", "cellular ready; waiting for a valid GNSS fix");
     }
 }
 
@@ -136,7 +140,9 @@ void loop() {
 
     telemetry_set_state(SystemState::UPLOADING_API);
 
+    board.disableGps();
     const TransportResult result = transport_post_locations(lastFix, secrets);
+    board.enableGps();
     switch (result) {
         case TransportResult::SENT:
             Serial.println(F("[UP  ] location sent"));

@@ -6,6 +6,7 @@
 
 #define XPOWERS_CHIP_AXP2101
 #include <XPowersLib.h>
+#include <TinyGsmClient.h>
 
 // Single-class wrapper around the LilyGo T-SIM7080G-S3 GPS bring-up:
 // PMU prologue, modem power-on, AT handshake, GNSS enable, fix poll.
@@ -16,6 +17,8 @@ public:
     // Runs the full board bring-up. Returns false if PMU fails to come up
     // or the modem does not respond to AT within ~15 s.
     bool begin();
+    bool enableGps();
+    bool disableGps();
 
     // Polls the GNSS receiver once. On a parsed fix returns true and writes
     // decimal-degrees latitude/longitude and meters altitude. On a failed
@@ -46,3 +49,4 @@ private:
 // Lets other translation units (e.g. telemetry.cpp) drive the AXP2101
 // (charging LED, rail telemetry) without exposing the instance globally.
 XPowersPMU& board_pmu();
+TinyGsm& board_modem();
