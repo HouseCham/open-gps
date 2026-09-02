@@ -140,6 +140,12 @@ export function LiveTrackingPage({
         );
     }, [latest, detectiveMode, range.to]);
 
+    /**
+     * Load the location history for the device
+     * @param {DateRange} nextRange - The date range to load
+     * @param {number} [page=1] - The page number to load
+     * @returns {void}
+     */
     const loadHistory = (nextRange: DateRange, page = 1): void => {
         if (!deviceId) return;
         const rangeChanged =
@@ -147,6 +153,7 @@ export function LiveTrackingPage({
         setRange(nextRange);
         setLiveRoutePoints([]);
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (detectiveMode) return;
         void getLocationHistory(
             deviceId,
             toApiDate(nextRange.from),
@@ -193,7 +200,9 @@ export function LiveTrackingPage({
             ? { key: 'online', label: t.online, dot: 'success' }
             : offlineStatus
         : null;
-    const routePoints = route?.items ?? history;
+    const displayedHistory = history;
+    const displayedRoute = route;
+    const routePoints = displayedRoute?.items ?? displayedHistory;
     const latestTime = latest
         ? new Date(latest.recorded_at).getTime()
         : Number.NaN;
@@ -214,7 +223,8 @@ export function LiveTrackingPage({
             : routePath.length > 1
               ? splitLocationRoute(routePath)
               : [];
-    const historicalLocation = route?.items.at(-1) ?? history[0] ?? null;
+    const historicalLocation =
+        displayedRoute?.items.at(-1) ?? displayedHistory[0] ?? null;
     const historicalDisplayLocation = historicalLocation
         ? {
               ...historicalLocation,
@@ -355,11 +365,12 @@ export function LiveTrackingPage({
                             <span>{t.live.routeStyle}</span>
                             <select
                                 value={routeStyle}
-                                onChange={event =>
-                                    setRouteStyle(
-                                        event.target.value as 'line' | 'dots'
-                                    )
-                                }
+                                onChange={event => {
+                                    const value = event.target.value;
+                                    if (value === 'line' || value === 'dots') {
+                                        setRouteStyle(value);
+                                    }
+                                }}
                             >
                                 <option value="line">{t.live.routeLine}</option>
                                 <option value="dots">{t.live.routeDots}</option>
@@ -368,7 +379,10 @@ export function LiveTrackingPage({
                     </div>
                     <span className="live-available">
                         <Route size={13} />
-                        {historyPagination?.total ?? 0} {t.live.pointsAvailable}
+                        {detectiveMode
+                            ? displayedHistory.length
+                            : (historyPagination?.total ?? 0)}{' '}
+                        {t.live.pointsAvailable}
                     </span>
                 </div>
                 {detectiveMode && (
@@ -470,7 +484,10 @@ export function LiveTrackingPage({
                         <h2>{t.live.locationHistory}</h2>
                         <p>
                             {t.live.showing
-                                .replace('{shown}', String(history.length))
+                                .replace(
+                                    '{shown}',
+                                    String(displayedHistory.length)
+                                )
                                 .replace(
                                     '{total}',
                                     String(historyPagination?.total ?? 0)
@@ -481,7 +498,9 @@ export function LiveTrackingPage({
                         variant="secondary"
                         size="sm"
                         icon={<Download size={14} />}
-                        onClick={() => downloadCsv(device, history, t.live)}
+                        onClick={() =>
+                            downloadCsv(device, displayedHistory, t.live)
+                        }
                     >
                         {t.live.export}
                     </Button>
@@ -500,7 +519,7 @@ export function LiveTrackingPage({
                                 </tr>
                             </thead>
                             <tbody>
-                                {history.map(point => (
+                                {displayedHistory.map(point => (
                                     <tr
                                         key={`${point.recorded_at}-${point.latitude}`}
                                     >
@@ -536,7 +555,7 @@ export function LiveTrackingPage({
                                 ))}
                             </tbody>
                         </table>
-                        {history.length === 0 && (
+                        {displayedHistory.length === 0 && (
                             <div className="live-empty">
                                 {historyLoading
                                     ? t.live.loadingHistory

@@ -19,8 +19,14 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 //-- Icons
 import { MapPin, Radio, RefreshCw } from 'lucide-react';
 //-- Utils
-import { useEffect, useRef } from 'react';
-import { deriveDeviceStatus, formatRelativeTime, redirectTo } from '@/lib';
+import { useEffect, useMemo, useRef } from 'react';
+import {
+    buildRouteKey,
+    deriveDeviceStatus,
+    formatRelativeTime,
+    processSegment,
+    redirectTo,
+} from '@/lib';
 import {
     MAP_COORDINATE_DECIMALS,
     MAP_DEVICE_ZOOM,
@@ -101,58 +107,93 @@ export function MapCard({
     const status =
         displayStatus ??
         deriveDeviceStatus(location?.recorded_at ?? null, translations);
-    const routeData: RouteGeoJson = {
-        type: 'FeatureCollection',
-        features: routeSegments.map(segment => ({
-            type: 'Feature',
-            properties: {},
-            geometry: {
-                type: 'LineString',
-                coordinates: segment.map(point => [
-                    point.longitude,
-                    point.latitude,
-                ]),
-            },
-        })),
-    };
+
+    // -----------------------------------------------------------------------
+    // Pre-process segments once per render using useMemo so we pay the
+    // filtering cost only when routeSegments actually changes.
+    // -----------------------------------------------------------------------
+    const processedSegments = useMemo(
+        () =>
+            routeSegments
+                .map(processSegment)
+                .filter((s): s is [number, number][] => s !== null),
+        [routeSegments]
+    );
+
+    // Flat list of all accepted points (for the dots layer and fitBounds).
+    const allPoints = useMemo(
+        () => processedSegments.flat(),
+        [processedSegments]
+    );
+
+    // -----------------------------------------------------------------------
+    // GeoJSON for the line layer — one Feature per processed segment so gaps
+    // between segments remain visible but each segment renders cleanly.
+    // -----------------------------------------------------------------------
+    const routeData: RouteGeoJson = useMemo(
+        () => ({
+            type: 'FeatureCollection',
+            features: processedSegments.map(coords => ({
+                type: 'Feature',
+                properties: {},
+                geometry: { type: 'LineString', coordinates: coords },
+            })),
+        }),
+        [processedSegments]
+    );
+
+    // -----------------------------------------------------------------------
+    // GeoJSON for the dots layer — one Point Feature per accepted coordinate.
+    // -----------------------------------------------------------------------
+    const routePointsData = useMemo(
+        () => ({
+            type: 'FeatureCollection' as const,
+            features: allPoints.map(coord => ({
+                type: 'Feature' as const,
+                properties: {},
+                geometry: { type: 'Point' as const, coordinates: coord },
+            })),
+        }),
+        [allPoints]
+    );
+
     const routeColor =
         status.key === 'online' ? ROUTE_COLOR_ONLINE : ROUTE_COLOR_OFFLINE;
-    const routePoints = routeSegments.flat();
-    const routePointsData = {
-        type: 'FeatureCollection' as const,
-        features: routePoints.map(point => ({
-            type: 'Feature' as const,
-            properties: {},
-            geometry: {
-                type: 'Point' as const,
-                coordinates: [point.longitude, point.latitude],
-            },
-        })),
-    };
-    const routeKey = routePoints.map(point => point.recorded_at).join('|');
 
-    // initialViewState only applies on first mount; fit the selected route
-    // after its data arrives so the entire path remains visible.
+    // Stable key: only rebuilds when segment boundaries actually change.
+    const routeKey = useMemo(
+        () => buildRouteKey(routeSegments),
+        [routeSegments]
+    );
+
+    // -----------------------------------------------------------------------
+    // Camera — fit the whole route into view when the processed data changes,
+    // or ease to the device marker when there is no route.
+    // -----------------------------------------------------------------------
     useEffect(() => {
-        if (routePoints.length > 1) {
-            const first = routePoints[0];
-            if (!first) return;
-            const bounds: [[number, number], [number, number]] = [
-                [first.longitude, first.latitude],
-                [first.longitude, first.latitude],
-            ];
-            routePoints.slice(1).forEach(point => {
-                bounds[0][0] = Math.min(bounds[0][0], point.longitude);
-                bounds[0][1] = Math.min(bounds[0][1], point.latitude);
-                bounds[1][0] = Math.max(bounds[1][0], point.longitude);
-                bounds[1][1] = Math.max(bounds[1][1], point.latitude);
-            });
-            mapRef.current?.fitBounds(bounds, {
-                padding: 48,
-                duration: MAP_EASE_TO_DURATION_MS,
-            });
+        if (allPoints.length > 1) {
+            let minLng = allPoints[0][0];
+            let minLat = allPoints[0][1];
+            let maxLng = allPoints[0][0];
+            let maxLat = allPoints[0][1];
+
+            for (const [lng, lat] of allPoints.slice(1)) {
+                if (lng < minLng) minLng = lng;
+                if (lat < minLat) minLat = lat;
+                if (lng > maxLng) maxLng = lng;
+                if (lat > maxLat) maxLat = lat;
+            }
+
+            mapRef.current?.fitBounds(
+                [
+                    [minLng, minLat],
+                    [maxLng, maxLat],
+                ],
+                { padding: 48, duration: MAP_EASE_TO_DURATION_MS }
+            );
             return;
         }
+
         if (!hasLocation) return;
         mapRef.current?.easeTo({
             center: [location.longitude, location.latitude],
@@ -220,12 +261,28 @@ export function MapCard({
                     touchPitch={false}
                     boxZoom={false}
                 >
-                    {routeSegments.length > 0 && routeStyle === 'line' && (
+                    {/* ── Line style ──────────────────────────────────────── */}
+                    {processedSegments.length > 0 && routeStyle === 'line' && (
                         <Source
                             id="device-route"
                             type="geojson"
                             data={routeData}
                         >
+                            {/* Outer glow — wider, more transparent */}
+                            <Layer
+                                id="device-route-line-glow"
+                                type="line"
+                                layout={{
+                                    'line-cap': 'round',
+                                    'line-join': 'round',
+                                }}
+                                paint={{
+                                    'line-color': routeColor,
+                                    'line-opacity': 0.25,
+                                    'line-width': 8,
+                                }}
+                            />
+                            {/* Core line */}
                             <Layer
                                 id="device-route-line"
                                 type="line"
@@ -241,7 +298,9 @@ export function MapCard({
                             />
                         </Source>
                     )}
-                    {routePoints.length > 0 && routeStyle === 'dots' && (
+
+                    {/* ── Dots style ───────────────────────────────────────── */}
+                    {allPoints.length > 0 && routeStyle === 'dots' && (
                         <Source
                             id="device-route-dots"
                             type="geojson"
@@ -253,12 +312,14 @@ export function MapCard({
                                 paint={{
                                     'circle-color': routeColor,
                                     'circle-radius': 4,
-                                    'circle-stroke-color': '#ffffff',
+                                    'circle-stroke-color':
+                                        'var(--color-on-accent)',
                                     'circle-stroke-width': 1,
                                 }}
                             />
                         </Source>
                     )}
+
                     <NavigationControl
                         position="top-right"
                         visualizePitch={false}
