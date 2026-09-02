@@ -151,7 +151,7 @@ export const MAP_GO_LIVE_ICON_SIZE = 13;
  */
 export const LIVE_STALE_THRESHOLD_MS = 45_000;
 /** Maximum gap between consecutive reported points before splitting a route. */
-export const LIVE_ROUTE_GAP_THRESHOLD_MS = 15_000;
+export const LIVE_ROUTE_GAP_THRESHOLD_MS = 5 * 60 * 1000;
 /**
  * Maximum number of route samples requested for the map.
  */

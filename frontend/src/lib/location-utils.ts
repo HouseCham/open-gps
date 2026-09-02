@@ -3,9 +3,12 @@ import { LIVE_ROUTE_GAP_THRESHOLD_MS } from '@/constants/components';
 
 /**
  * Splits a chronological route when the device missed an expected report.
+ * @param {readonly LocationPoint[]} points - The route points to split.
+ * @param {number} gapThresholdMs - The minimum gap that starts a new segment.
+ * @returns {LocationPoint[][]} The route segments containing at least two points.
  */
 export function splitLocationRoute(
-    points: LocationPoint[],
+    points: readonly LocationPoint[],
     gapThresholdMs: number = LIVE_ROUTE_GAP_THRESHOLD_MS
 ): LocationPoint[][] {
     if (points.length === 0) return [];
@@ -23,7 +26,7 @@ export function splitLocationRoute(
         const gap =
             new Date(current.recorded_at).getTime() -
             new Date(previous.recorded_at).getTime();
-        if (gap > gapThresholdMs) segments.push([]);
+        if (gap >= gapThresholdMs) segments.push([]);
         segments[segments.length - 1].push(current);
     }
 
