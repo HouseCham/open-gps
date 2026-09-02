@@ -4,6 +4,7 @@ export * from './device';
 export * from './layout';
 export * from './user';
 export * from './access';
+export * from './map';
 /**
  * @constant REPOSITORY_URL
  * @description GitHub repository URL for the project
