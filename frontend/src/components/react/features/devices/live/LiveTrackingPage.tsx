@@ -153,7 +153,6 @@ export function LiveTrackingPage({
         setRange(nextRange);
         setLiveRoutePoints([]);
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        if (detectiveMode) return;
         void getLocationHistory(
             deviceId,
             toApiDate(nextRange.from),
@@ -200,9 +199,7 @@ export function LiveTrackingPage({
             ? { key: 'online', label: t.online, dot: 'success' }
             : offlineStatus
         : null;
-    const displayedHistory = history;
-    const displayedRoute = route;
-    const routePoints = displayedRoute?.items ?? displayedHistory;
+    const routePoints = route?.items ?? history;
     const latestTime = latest
         ? new Date(latest.recorded_at).getTime()
         : Number.NaN;
@@ -223,8 +220,7 @@ export function LiveTrackingPage({
             : routePath.length > 1
               ? splitLocationRoute(routePath)
               : [];
-    const historicalLocation =
-        displayedRoute?.items.at(-1) ?? displayedHistory[0] ?? null;
+    const historicalLocation = route?.items.at(-1) ?? history[0] ?? null;
     const historicalDisplayLocation = historicalLocation
         ? {
               ...historicalLocation,
@@ -380,7 +376,7 @@ export function LiveTrackingPage({
                     <span className="live-available">
                         <Route size={13} />
                         {detectiveMode
-                            ? displayedHistory.length
+                            ? history.length
                             : (historyPagination?.total ?? 0)}{' '}
                         {t.live.pointsAvailable}
                     </span>
@@ -486,7 +482,7 @@ export function LiveTrackingPage({
                             {t.live.showing
                                 .replace(
                                     '{shown}',
-                                    String(displayedHistory.length)
+                                    String(history.length)
                                 )
                                 .replace(
                                     '{total}',
@@ -499,7 +495,7 @@ export function LiveTrackingPage({
                         size="sm"
                         icon={<Download size={14} />}
                         onClick={() =>
-                            downloadCsv(device, displayedHistory, t.live)
+                            downloadCsv(device, history, t.live)
                         }
                     >
                         {t.live.export}
@@ -519,7 +515,7 @@ export function LiveTrackingPage({
                                 </tr>
                             </thead>
                             <tbody>
-                                {displayedHistory.map(point => (
+                                {history.map(point => (
                                     <tr
                                         key={`${point.recorded_at}-${point.latitude}`}
                                     >
@@ -555,7 +551,7 @@ export function LiveTrackingPage({
                                 ))}
                             </tbody>
                         </table>
-                        {displayedHistory.length === 0 && (
+                        {history.length === 0 && (
                             <div className="live-empty">
                                 {historyLoading
                                     ? t.live.loadingHistory
