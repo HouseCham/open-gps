@@ -26,6 +26,7 @@ The frontend communicates with a Go + Fiber backend and PostgreSQL database to p
 - **Dashboard** — KPI overview, activity feed, device table with search and sort
 - **Device Management** — View, create, edit, and delete GPS devices with role-based access control
 - **Device Detail** — Location map, battery/signal indicators, route playback, location history, access management
+- **Live Tracking** — Real-time position and presence (`online_moving`, `online_stationary`, `offline`) via an SSE stream with REST snapshot bootstrap and controlled reconnect/fallback
 - **User Administration** — Manage users, roles, and invitations (super admin)
 - **Profile & Settings** — Edit profile, change password, theme and language preferences
 - **Authentication** — Login and first-admin signup flows
@@ -67,12 +68,15 @@ src/
 │   ├── components/            # Demo/gallery data per component (admin, device, map, etc.)
 │   │   └── ui/                # UI component constants (modal defaults)
 │   └── regex.ts               # Validation regex patterns
-├── hooks/                     # Custom hooks (useToast)
+├── hooks/                     # Custom hooks
+│   └── useDeviceLocationStream.ts  # SSE live location + presence hook
 ├── i18n/                      # English (en.ts) and Spanish (es.ts) translation bundles
 ├── lib/                       # Utilities, API services, auth client
 │   ├── api/                   # HTTP client, device/user services
 │   │   └── helpers/           # handleApiError utility
 │   ├── auth/                  # Authula HTTP-only session-cookie client
+│   ├── device-utils.ts        # Device helper utilities + deviceStatusFromPresence
+│   ├── live-location.ts       # Live snapshot parser + reducer
 │   ├── map-utils.ts           # Map calculation utilities
 │   └── user-utils.ts          # User helper utilities
 ├── pages/                     # File-based routing
@@ -209,6 +213,10 @@ API services use `@better-fetch/fetch` and are structured as classes with depend
 - **`authClient`** — Authula HTTP client configured with cookie-based sessions
 
 All API calls return responses wrapped in a generic `Envelope<T>` type with status code, message, and data payload. Errors are normalized through `handleApiError` into a structured `ApiError` type.
+
+Live device data uses `useDeviceLocationStream`. SSE is same-origin, with REST
+live snapshots as bootstrap and recovery; stream health is separate from
+device presence.
 
 ---
 
