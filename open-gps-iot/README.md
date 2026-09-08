@@ -4,9 +4,8 @@ Firmware for a self-hosted GPS tracker built on the
 [LilyGo T-SIM7080G-S3](https://github.com/Xinyuan-LilyGO/LilyGo-T-SIM7080G)
 (ESP32-S3 + SIM7080G modem + AXP2101 PMU + integrated GNSS).
 
-The device samples GPS fixes and POSTs them to a backend over HTTPS. WiFi is
-the supported transport today; cellular (Cat-M / NB-IoT) is staged for when a
-compatible SIM is available — the modem bring-up code is already in place.
+The device samples GPS fixes and POSTs them to a backend over HTTPS using the
+configured cellular Cat-M/NB-IoT transport.
 
 ## Hardware
 
@@ -55,12 +54,15 @@ charge-only mode causes one clean `ESP.restart()` into the normal tracker boot
 path. Plugging in during normal operation requests the same reboot at the next
 loop boundary. The PMU charger state, not battery voltage, defines completion.
 
-Deep sleep and hardware validation of current draw, rail shutdown, LED
-polarity, and repeated plug/unplug behavior remain pending on real hardware.
+Hardware testing has confirmed VBUS detection around 4.9 V with a battery
+connected and no modem/network startup in charge-only mode. The integrated
+blue LED was observed blinking while charging. Charge-complete steady-on
+behavior, current measurements, rail shutdown measurements, and repeated
+plug/unplug testing remain pending.
 
 ## Features
 
-- PMU prologue (AXP2101 rails up: BLDO1/UART, DC3/modem, BLDO2/GPS antenna)
+- PMU prologue with charge-only VBUS decision before tracker rails are enabled
 - UART1 AT handshake with the modem (15 s timeout, retry loop)
 - Adaptive GNSS polling from 1-15 s, targeting approximately 25 m between moving fixes
 - Stationary location heartbeat every 5 minutes
@@ -95,6 +97,7 @@ open-gps-iot/
 │   ├── secrets_data.h          Wrapper that #includes config/secrets.h
 │   └── utilities.h             LilyGo pin definitions (UART, I2C, status LED)
 ├── lib/
+│   ├── charge_mode/             Pure VBUS debounce policy
 │   ├── location_payload/       Pure logic — JSON serialiser + GNSS → payload
 │   │   ├── location_payload.h
 │   │   └── location_payload.cpp
@@ -103,7 +106,8 @@ open-gps-iot/
 │       └── transport_url.cpp
 ├── test/
 │   ├── test_location_payload/  7 Unity tests for the JSON serialiser
-│   └── test_url_build/         5 Unity tests for transport_build_url()
+│   ├── test_url_build/         5 Unity tests for transport_build_url()
+│   └── test_charge_mode_policy/ VBUS hysteresis/debounce tests
 ├── scripts/
 │   └── pre_build_secrets.py    SCons hook: forces rebuild when secrets.h changes
 └── config/
@@ -196,12 +200,13 @@ All commands assume your working directory is the repo root.
 
 ## Testing
 
-The pure-data modules (`lib/location_payload`, `lib/transport`) have full
-unit-test coverage under Unity:
+The pure-data modules (`lib/charge_mode`, `lib/location_payload`,
+`lib/transport`) have host-side coverage under Unity:
 
 ```
 test/test_location_payload/   7 tests
 test/test_url_build/          5 tests
+test/test_charge_mode_policy/ VBUS debounce tests
 ```
 
 Run them with:

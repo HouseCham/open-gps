@@ -19,6 +19,12 @@ static bool chargeModeRequested = false;
 static ChargeModePolicy chargePolicy(VBUS_PRESENT_THRESHOLD_MV, VBUS_ABSENT_THRESHOLD_MV,
                                       VBUS_STATE_DEBOUNCE_MS);
 
+static uint16_t chargeModeVbusMv() {
+    // AXP2101 digital VBUS status is authoritative; voltage is the fallback
+    // because some revisions briefly report zero from the ADC after startup.
+    return board.isVbusPresent() ? VBUS_PRESENT_THRESHOLD_MV : board.vbusVoltageMv();
+}
+
 static void logLine(const __FlashStringHelper* tag, const __FlashStringHelper* message);
 
 [[noreturn]] static void runChargeOnlyMode() {
@@ -36,7 +42,7 @@ static void logLine(const __FlashStringHelper* tag, const __FlashStringHelper* m
             continue;
         }
         nextPollMs = now;
-        if (!chargePolicy.update(now, board.vbusVoltageMv())) {
+        if (!chargePolicy.update(now, chargeModeVbusMv())) {
             logLine(F("CHARGE"), F("VBUS removed; restarting tracker"));
             ESP.restart();
         }
@@ -101,11 +107,15 @@ void setup() {
 
     if (CHARGE_MODE_ENABLED) {
         const uint32_t decisionStarted = millis();
+        // Preserve the first valid VBUS sample. XPowersLib can transiently
+        // report zero while its ADC/status registers settle after begin().
+        const uint16_t startupVbusMv = chargeModeVbusMv();
+        chargePolicy.update(decisionStarted, startupVbusMv);
         while (static_cast<uint32_t>(millis() - decisionStarted) < VBUS_STATE_DEBOUNCE_MS) {
             esp_task_wdt_reset();
-            chargePolicy.update(millis(), board.vbusVoltageMv());
             delay(100);
         }
+        chargePolicy.update(millis(), startupVbusMv);
         if (chargePolicy.present()) runChargeOnlyMode();
     }
     if (!board.beginTrackerHardware()) {
@@ -156,7 +166,7 @@ void setup() {
 
 void loop() {
     esp_task_wdt_reset();
-    if (CHARGE_MODE_ENABLED && chargePolicy.update(millis(), board.vbusVoltageMv())) {
+    if (CHARGE_MODE_ENABLED && chargePolicy.update(millis(), chargeModeVbusMv())) {
         chargeModeRequested = true;
     }
     if (chargeModeRequested) ESP.restart();
