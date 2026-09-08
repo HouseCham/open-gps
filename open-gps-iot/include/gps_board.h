@@ -14,9 +14,18 @@
 // instance backed by Wire (AXP2101 @ 0x34).
 class GpsBoard {
 public:
+    enum class ChargerState : uint8_t { UNKNOWN, NO_VBUS, CHARGING, CHARGE_COMPLETE, FAULT };
+
+    bool beginPmuOnly();
+    bool beginTrackerHardware();
     // Runs the full board bring-up. Returns false if PMU fails to come up
     // or the modem does not respond to AT within ~15 s.
     bool begin();
+    bool isVbusPresent();
+    uint16_t vbusVoltageMv();
+    ChargerState chargerState();
+    bool enterChargeOnlyPowerState();
+    void setChargeIndicator(ChargerState state);
     bool enableGps();
     bool disableGps();
 

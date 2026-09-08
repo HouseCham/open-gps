@@ -39,6 +39,25 @@ after collecting hardware traces. Native policy tests run with `pio test -e
 native`; real hardware validation is still required for walking, bicycle,
 urban, highway, no-fix, and network-failure scenarios.
 
+## USB-C Charge-Only Mode
+
+When `CHARGE_MODE_ENABLED` is true, confirmed USB-C VBUS suspends tracking
+regardless of battery level. PMU-only initialization runs first; modem rails,
+UART/AT startup, GNSS, sampling, secrets, transport, and normal telemetry are
+not started while charging. The AXP2101 continues charging and drives the
+integrated LED: charging blinks at 1 Hz, PMU-reported charge completion is
+steady on, and unknown/fault status blinks at 4 Hz. These LED mappings require
+verification on the H606 hardware.
+
+VBUS uses the AXP2101 digital input status and voltage measurement fallback,
+with 4500/4000 mV hysteresis and a 2000 ms debounce. Removing VBUS from
+charge-only mode causes one clean `ESP.restart()` into the normal tracker boot
+path. Plugging in during normal operation requests the same reboot at the next
+loop boundary. The PMU charger state, not battery voltage, defines completion.
+
+Deep sleep and hardware validation of current draw, rail shutdown, LED
+polarity, and repeated plug/unplug behavior remain pending on real hardware.
+
 ## Features
 
 - PMU prologue (AXP2101 rails up: BLDO1/UART, DC3/modem, BLDO2/GPS antenna)
