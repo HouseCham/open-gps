@@ -21,11 +21,30 @@ compatible SIM is available — the modem bring-up code is already in place.
 > time-shared. For periodic sampling (e.g. once a minute) this is irrelevant;
 > the WiFi path does not touch the cellular radio at all.
 
+## Adaptive Sampling
+
+GNSS polling and API reporting are separate decisions. While moving, the
+firmware targets roughly 25 m between accepted points and selects
+`clamp(25 m / speed_mps, 1 s, 15 s)`. Unknown motion starts with a 2 s poll;
+stationary motion polls every 15 s and sends one heartbeat every 5 minutes.
+For example, 5 m/s selects 5 s, while 130 km/h selects the 1 s lower bound,
+which is approximately 36 m per fix. This is a sampling-density heuristic,
+not a literal Nyquist guarantee for real GPS trajectories.
+
+The SIM7080G time-shares GNSS and cellular operation. GNSS is disabled during
+each cellular POST and re-enabled afterward, so actual fix and report spacing
+can exceed the selected interval. Logs record this radio-off duration.
+Tune the millisecond and metres/second constants in `include/config.h` only
+after collecting hardware traces. Native policy tests run with `pio test -e
+native`; real hardware validation is still required for walking, bicycle,
+urban, highway, no-fix, and network-failure scenarios.
+
 ## Features
 
 - PMU prologue (AXP2101 rails up: BLDO1/UART, DC3/modem, BLDO2/GPS antenna)
 - UART1 AT handshake with the modem (15 s timeout, retry loop)
-- GNSS enable + fix poll at `FIX_POLL_MS` (default 2 s)
+- Adaptive GNSS polling from 1-15 s, targeting approximately 25 m between moving fixes
+- Stationary location heartbeat every 5 minutes
 - Hardware watchdog (`esp_task_wdt_init` 30 s)
 - WiFi HTTPS POST (with single retry after 2 s)
 - Secrets loaded from a git-ignored header, masked in boot logs

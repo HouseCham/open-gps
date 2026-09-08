@@ -35,7 +35,8 @@ public:
     // false. First two fields after the prefix are run_status (1 = receiver
     // running) and fix_status (1 = locked). Empty string means the modem
     // did not respond within 10 s.
-    String rawGnssState();
+    // Copies the raw diagnostic response into a caller-owned buffer.
+    size_t rawGnssState(char* buffer, size_t bufferSize);
 
     uint32_t satellitesUsed()   const { return _usat; }
     uint32_t satellitesInView() const { return _vsat; }

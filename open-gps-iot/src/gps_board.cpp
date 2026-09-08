@@ -142,8 +142,14 @@ bool GpsBoard::pollFix(float &lat, float &lon, float &alt) {
     return true;
 }
 
-String GpsBoard::rawGnssState() {
-    return modem.getGPSraw();
+size_t GpsBoard::rawGnssState(char* buffer, size_t bufferSize) {
+    if (buffer == nullptr || bufferSize == 0) return 0;
+    const String response = modem.getGPSraw();
+    const size_t length = response.length() < bufferSize - 1
+                              ? response.length() : bufferSize - 1;
+    memcpy(buffer, response.c_str(), length);
+    buffer[length] = '\0';
+    return length;
 }
 
 bool GpsBoard::pollFixPayload(LocationPayload& out) {
