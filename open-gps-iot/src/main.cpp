@@ -10,10 +10,49 @@
 #include "secrets.h"
 #include "telemetry.h"
 #include "sampling_policy.h"
+#include "charge_mode_policy.h"
 
 static GpsBoard board;
 static Secrets  secrets;
 static bool     wifi_up = false;
+static bool chargeModeRequested = false;
+static ChargeModePolicy chargePolicy(VBUS_PRESENT_THRESHOLD_MV, VBUS_ABSENT_THRESHOLD_MV,
+                                      VBUS_STATE_DEBOUNCE_MS);
+
+static uint16_t chargeModeVbusMv() {
+    // AXP2101 digital VBUS status is authoritative; voltage is the fallback
+    // because some revisions briefly report zero from the ADC after startup.
+    return board.isVbusPresent() ? VBUS_PRESENT_THRESHOLD_MV : board.vbusVoltageMv();
+}
+
+static void logLine(const __FlashStringHelper* tag, const __FlashStringHelper* message);
+
+[[noreturn]] static void runChargeOnlyMode() {
+    if (!board.enterChargeOnlyPowerState()) {
+        logLine(F("ERR"), F("charge-only rail shutdown failed; restarting"));
+        ESP.restart();
+    }
+    GpsBoard::ChargerState previous = GpsBoard::ChargerState::UNKNOWN;
+    uint32_t nextPollMs = millis();
+    for (;;) {
+        esp_task_wdt_reset();
+        const uint32_t now = millis();
+        if (static_cast<uint32_t>(now - nextPollMs) < CHARGE_MODE_POLL_MS) {
+            yield();
+            continue;
+        }
+        nextPollMs = now;
+        if (!chargePolicy.update(now, chargeModeVbusMv())) {
+            logLine(F("CHARGE"), F("VBUS removed; restarting tracker"));
+            ESP.restart();
+        }
+        const GpsBoard::ChargerState state = board.chargerState();
+        if (state != previous) {
+            board.setChargeIndicator(state);
+            previous = state;
+        }
+    }
+}
 static SamplingPolicy samplingPolicy({
     MIN_FIX_POLL_MS, MAX_FIX_POLL_MS, UNKNOWN_FIX_POLL_MS,
     STATIONARY_HEARTBEAT_MS, MAX_FIX_AGE_MS, TARGET_POINT_SPACING_M,
@@ -21,7 +60,7 @@ static SamplingPolicy samplingPolicy({
 });
 
 static void logLine(const __FlashStringHelper* tag, const __FlashStringHelper* message) {
-    Serial.printf("[%8lu][", millis());
+    Serial.printf(PSTR("[%8lu]["), millis());
     Serial.print(tag);
     Serial.print(F("] "));
     Serial.println(message);
@@ -45,7 +84,7 @@ void setup() {
 #ifdef WAIT_FOR_SERIAL
     logLine(F("BOARD"), F("starting PMU, modem UART, power-key, and AT bring-up"));
 #endif
-    if (!board.begin()) {
+    if (!board.beginPmuOnly()) {
         WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); // Restore BOD before halting
 #ifndef WAIT_FOR_SERIAL
         Serial.begin(115200);
@@ -60,6 +99,29 @@ void setup() {
         ESP.restart();
     }
 
+    if (esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true) != ESP_OK ||
+        esp_task_wdt_add(NULL) != ESP_OK) {
+        logLine(F("HALT"), F("watchdog setup failed; rebooting"));
+        ESP.restart();
+    }
+
+    if (CHARGE_MODE_ENABLED) {
+        const uint32_t decisionStarted = millis();
+        // Preserve the first valid VBUS sample. XPowersLib can transiently
+        // report zero while its ADC/status registers settle after begin().
+        const uint16_t startupVbusMv = chargeModeVbusMv();
+        chargePolicy.update(decisionStarted, startupVbusMv);
+        while (static_cast<uint32_t>(millis() - decisionStarted) < VBUS_STATE_DEBOUNCE_MS) {
+            esp_task_wdt_reset();
+            delay(100);
+        }
+        chargePolicy.update(millis(), startupVbusMv);
+        if (chargePolicy.present()) runChargeOnlyMode();
+    }
+    if (!board.beginTrackerHardware()) {
+        ESP.restart();
+    }
+
     // Rationale: Rails are now stable. Restore hardware brownout protection immediately.
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1);
 
@@ -71,11 +133,6 @@ void setup() {
 
     telemetry_set_state(SystemState::BOOTING);
 
-    if (esp_task_wdt_init(WATCHDOG_TIMEOUT_S, true) != ESP_OK ||
-        esp_task_wdt_add(NULL) != ESP_OK) {
-        logLine(F("HALT"), F("watchdog setup failed; rebooting"));
-        ESP.restart();
-    }
     logLine(F("BOOT"), F("watchdog enabled"));
 
     if (!secrets_load(secrets)) {
@@ -109,6 +166,10 @@ void setup() {
 
 void loop() {
     esp_task_wdt_reset();
+    if (CHARGE_MODE_ENABLED && chargePolicy.update(millis(), chargeModeVbusMv())) {
+        chargeModeRequested = true;
+    }
+    if (chargeModeRequested) ESP.restart();
     telemetry_tick();
 
     static unsigned long lastIdle = 0;
@@ -124,12 +185,12 @@ void loop() {
             hasFix = true;
             pendingDecision = samplingPolicy.onFix(now, lastFix);
             if (wifi_up) telemetry_set_state(SystemState::GNSS_FIX_READY);
-            Serial.printf("[%8lu][SAMPLE] state=%u v=%.2fm/s poll=%lums upload=%u reason=%u\n",
+            Serial.printf(PSTR("[%8lu][SAMPLE] state=%u v=%.2fm/s poll=%lums upload=%u reason=%u\n"),
                           now, static_cast<unsigned>(pendingDecision.motionState),
                           lastFix.speed_mps, (unsigned long)pendingDecision.nextFixPollMs,
                           pendingDecision.shouldUpload ? 1U : 0U,
                           static_cast<unsigned>(pendingDecision.uploadReason));
-            Serial.printf("[%8lu][FIX  ] in_view=%lu used=%lu lat=%.6f lon=%.6f alt=%.1fm\n",
+            Serial.printf(PSTR("[%8lu][FIX  ] in_view=%lu used=%lu lat=%.6f lon=%.6f alt=%.1fm\n"),
                            millis(),
                           (unsigned long)board.satellitesInView(),
                           (unsigned long)board.satellitesUsed(),
@@ -145,7 +206,7 @@ void loop() {
                     logLine(F("GNSS"), F("modem returned no +CGNSINF response"));
                 } else {
                     if (wifi_up) telemetry_set_state(SystemState::WAITING_GNSS_FIX);
-                    Serial.printf("[%8lu][STAT ] %s\n", millis(), status);
+            Serial.printf(PSTR("[%8lu][STAT ] %s\n"), millis(), status);
                 }
             }
         }
@@ -166,7 +227,7 @@ void loop() {
     }
     const TransportResult result = transport_post_locations(lastFix, secrets);
     const bool gpsEnabled = board.enableGps();
-    Serial.printf("[%8lu][RADIO] GNSS off %lums reenable=%u\n", millis(),
+    Serial.printf(PSTR("[%8lu][RADIO] GNSS off %lums reenable=%u\n"), millis(),
                   millis() - radioOffAt, gpsEnabled ? 1U : 0U);
     if (!gpsEnabled) {
         Serial.println(F("[ERR ] GNSS re-enable failed"));

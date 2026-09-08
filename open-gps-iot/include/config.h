@@ -28,6 +28,14 @@ constexpr uint32_t GNSS_STATUS_POLL_DELAY_MS = 10;
 constexpr uint32_t SETUP_IDLE_DELAY_MS = 10;
 constexpr size_t GNSS_STATUS_BUFFER_SIZE = 128;
 
+// ----- USB-C charge-only mode -----
+constexpr bool CHARGE_MODE_ENABLED = true;
+constexpr uint32_t VBUS_PRESENT_THRESHOLD_MV = 4500;
+constexpr uint32_t VBUS_ABSENT_THRESHOLD_MV = 4000;
+constexpr uint32_t VBUS_STATE_DEBOUNCE_MS = 2000;
+constexpr uint32_t CHARGE_MODE_POLL_MS = 1000;
+constexpr bool CHARGE_MODE_USE_LIGHT_SLEEP = false;
+
 // ----- Watchdog -----
 // If the ESP32 loop stalls for more than this many seconds, the hardware watchdog reboots.
 constexpr uint32_t WATCHDOG_TIMEOUT_S = 30;
