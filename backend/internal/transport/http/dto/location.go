@@ -60,6 +60,31 @@ type LocationRouteResponse struct {
 	Sampled     bool               `json:"sampled"`
 }
 
+type DevicePresenceResponse struct {
+	State         domain.PresenceState `json:"state"`
+	LastContactAt *time.Time           `json:"last_contact_at"`
+	ExpiresAt     *time.Time           `json:"expires_at"`
+}
+
+type LiveLocationResponse struct {
+	DeviceID   string                 `json:"device_id"`
+	Location   *LocationResponse      `json:"location"`
+	Presence   DevicePresenceResponse `json:"presence"`
+	ServerTime time.Time              `json:"server_time"`
+}
+
+// LiveEventResponse is the shape of a live event sent to the dashboard via SSE.
+func LiveLocationFromDomain(value domain.LiveLocation) LiveLocationResponse {
+	var location *LocationResponse
+	if value.Location != nil {
+		item := LocationFromDomain(*value.Location)
+		location = &item
+	}
+	return LiveLocationResponse{DeviceID: value.DeviceID.String(), Location: location, Presence: DevicePresenceResponse{
+		State: value.Presence.State, LastContactAt: value.Presence.LastContactAt, ExpiresAt: value.Presence.ExpiresAt,
+	}, ServerTime: value.ServerTime}
+}
+
 // LocationFromDomain projects a domain.Location into the wire shape
 // consumed by the dashboard.
 func LocationFromDomain(loc domain.Location) LocationResponse {
