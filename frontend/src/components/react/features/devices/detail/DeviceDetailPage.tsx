@@ -84,17 +84,17 @@ export function DeviceDetailPage({
         updateDevice,
         deleteDevice,
     } = useDeviceService();
-    const {
-        latestLoading: locationLoading,
-        latestError: locationError,
-    } = useLocationService();
+    const { latestLoading: locationLoading, latestError: locationError } =
+        useLocationService();
     const [deviceId, setDeviceId] = useState<string | undefined>();
     const [inviteOpen, setInviteOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [revokeTarget, setRevokeTarget] =
         useState<DeviceAccessListItem | null>(null);
-    const { snapshot, refresh: refreshLive } = useDeviceLocationStream(deviceId ?? null);
+    const { snapshot, refresh: refreshLive } = useDeviceLocationStream(
+        deviceId ?? null
+    );
     const latest = snapshot?.location ?? null;
 
     useEffect(() => {
@@ -105,9 +105,7 @@ export function DeviceDetailPage({
 
     useEffect(() => {
         if (!deviceId) return;
-        void Promise.all([
-            getDeviceById(deviceId),
-        ]);
+        void Promise.all([getDeviceById(deviceId)]);
     }, [deviceId]);
 
     const status = device
@@ -124,10 +122,7 @@ export function DeviceDetailPage({
      */
     const reload = (): void => {
         if (!deviceId) return;
-        void Promise.all([
-            getDeviceById(deviceId),
-            refreshLive(),
-        ]);
+        void Promise.all([getDeviceById(deviceId), refreshLive()]);
     };
     /**
      * Handle the invitation of a user
@@ -271,7 +266,7 @@ export function DeviceDetailPage({
                 date={date}
                 loading={locationLoading}
                 deviceId={deviceId}
-                    getLatestLocation={async () => refreshLive()}
+                getLatestLocation={async () => refreshLive()}
             />
 
             {/* Device Information Section */}
