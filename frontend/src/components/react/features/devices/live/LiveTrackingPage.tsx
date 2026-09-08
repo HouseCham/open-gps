@@ -5,10 +5,11 @@ import { useEffect, useState, type JSX } from 'react';
 import type { Translation } from '@/i18n';
 import type { DateRange, Language } from '@/types';
 import type { DeviceStatus } from '@/types/components';
-import type { LocationPoint } from '@/types/api';
 //-- Services
 import { useDeviceService } from '@/lib/api/services/deviceService';
 import { useLocationService } from '@/lib/api/services/locationService';
+import { useDeviceLocationStream } from '@/hooks/useDeviceLocationStream';
+import { deviceStatusFromPresence } from '@/lib/device-utils';
 //-- Utils
 import {
     downloadCsv,
@@ -21,11 +22,7 @@ import {
     toApiDate,
 } from '@/lib';
 //-- Constants
-import {
-    LIVE_POLL_INTERVAL_MS,
-    LIVE_STALE_THRESHOLD_MS,
-    LOCATION_HISTORY_PAGE_SIZE,
-} from '@/constants/components';
+import { LOCATION_HISTORY_PAGE_SIZE } from '@/constants/components';
 //-- Components
 import {
     Badge,
@@ -76,7 +73,6 @@ export function LiveTrackingPage({
         getDeviceById,
     } = useDeviceService();
     const {
-        latest,
         history,
         historyPagination,
         route,
@@ -86,7 +82,6 @@ export function LiveTrackingPage({
         latestError,
         historyError,
         routeError,
-        getLatestLocation,
         getLocationHistory,
         getLocationRoute,
     } = useLocationService();
@@ -94,7 +89,12 @@ export function LiveTrackingPage({
     const [range, setRange] = useState<DateRange>(() => getDateRange('today'));
     const [detectiveMode, setDetectiveMode] = useState(false);
     const [routeStyle, setRouteStyle] = useState<'line' | 'dots'>('line');
-    const [liveRoutePoints, setLiveRoutePoints] = useState<LocationPoint[]>([]);
+    const {
+        snapshot,
+        route: liveRoutePoints,
+        refresh: refreshLive,
+    } = useDeviceLocationStream(deviceId ?? null);
+    const latest = snapshot?.location ?? null;
 
     useEffect(() => {
         const id = readDeviceIdFromUrl();
@@ -105,40 +105,6 @@ export function LiveTrackingPage({
         if (!deviceId) return;
         void getDeviceById(deviceId);
     }, [deviceId]);
-
-    useEffect(() => {
-        if (!deviceId) return;
-        const rangeTo = new Date(range.to).getTime();
-        const includesPresent = rangeTo + 60_000 >= Date.now();
-        if (detectiveMode && !includesPresent) return;
-        let cancelled = false;
-        let timer: ReturnType<typeof setTimeout> | null = null;
-        const poll = async (): Promise<void> => {
-            if (cancelled) return;
-            await getLatestLocation(deviceId, true);
-            if (cancelled) return;
-            timer = setTimeout(() => void poll(), LIVE_POLL_INTERVAL_MS);
-        };
-        void poll();
-        return (): void => {
-            cancelled = true;
-            if (timer) clearTimeout(timer);
-        };
-    }, [deviceId, detectiveMode, range.to]);
-
-    useEffect(() => {
-        if (
-            !latest ||
-            (detectiveMode &&
-                new Date(range.to).getTime() + 60_000 < Date.now())
-        )
-            return;
-        setLiveRoutePoints(points =>
-            points.some(point => point.recorded_at === latest.recorded_at)
-                ? points
-                : [...points, latest]
-        );
-    }, [latest, detectiveMode, range.to]);
 
     /**
      * Load the location history for the device
@@ -151,7 +117,6 @@ export function LiveTrackingPage({
         const rangeChanged =
             nextRange.from !== range.from || nextRange.to !== range.to;
         setRange(nextRange);
-        setLiveRoutePoints([]);
         const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         void getLocationHistory(
             deviceId,
@@ -185,19 +150,8 @@ export function LiveTrackingPage({
         redirectTo(`/devices/detail?id=${deviceId ?? ''}`);
     const rangeTo = new Date(range.to).getTime();
     const includesPresent = rangeTo + 60_000 >= Date.now();
-    const isLatestOnline = latest
-        ? Date.now() - new Date(latest.recorded_at).getTime() <=
-          LIVE_STALE_THRESHOLD_MS
-        : false;
-    const offlineStatus: DeviceStatus = {
-        key: 'offline',
-        label: t.offline,
-        dot: 'danger',
-    };
     const status: DeviceStatus | null = device
-        ? includesPresent && isLatestOnline
-            ? { key: 'online', label: t.online, dot: 'success' }
-            : offlineStatus
+        ? deviceStatusFromPresence(snapshot?.presence.state ?? 'never_seen', t)
         : null;
     const routePoints = route?.items ?? history;
     const latestTime = latest
@@ -236,7 +190,7 @@ export function LiveTrackingPage({
         .replace('{from}', formatHistoryTime(range.from, locale))
         .replace('{to}', formatHistoryTime(range.to, locale));
     const retryLocations = (): void => {
-        if (latestError && deviceId) void getLatestLocation(deviceId);
+        if (latestError && deviceId) void refreshLive();
         if (historyError || routeError) loadHistory(range);
     };
 
@@ -348,7 +302,6 @@ export function LiveTrackingPage({
                             size="sm"
                             onClick={() => {
                                 setDetectiveMode(value => !value);
-                                setLiveRoutePoints([]);
                             }}
                             aria-pressed={detectiveMode}
                         >
@@ -423,6 +376,7 @@ export function LiveTrackingPage({
                             </Button>
                         </form>
                         <div className="live-filters">
+                            {/* Keep the range values narrowed to the supported literal union. */}
                             {(['today', '24h', '7d'] as const).map(kind => (
                                 <button
                                     type="button"
@@ -467,7 +421,7 @@ export function LiveTrackingPage({
                 date={date}
                 loading={latestLoading}
                 deviceId={deviceId}
-                getLatestLocation={getLatestLocation}
+                getLatestLocation={async () => refreshLive()}
                 routeSegments={routeSegments}
                 routeStyle={routeStyle}
                 displayStatus={status}
@@ -480,10 +434,7 @@ export function LiveTrackingPage({
                         <h2>{t.live.locationHistory}</h2>
                         <p>
                             {t.live.showing
-                                .replace(
-                                    '{shown}',
-                                    String(history.length)
-                                )
+                                .replace('{shown}', String(history.length))
                                 .replace(
                                     '{total}',
                                     String(historyPagination?.total ?? 0)
@@ -494,9 +445,7 @@ export function LiveTrackingPage({
                         variant="secondary"
                         size="sm"
                         icon={<Download size={14} />}
-                        onClick={() =>
-                            downloadCsv(device, history, t.live)
-                        }
+                        onClick={() => downloadCsv(device, history, t.live)}
                     >
                         {t.live.export}
                     </Button>

@@ -18,24 +18,25 @@ import (
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/ports"
 )
 
+// RouterDeps contains the handlers, services, and dependencies used to build the HTTP router.
 type RouterDeps struct {
-	HealthHandler         *handlers.HealthHandler
-	DevicesHandler        *handlers.DevicesHandler
-	UsersHandler          *handlers.UsersHandler
-	AccessHandler         *handlers.AccessHandler
-	APIKeysHandler        *handlers.APIKeysHandler
-	LocationsHandler      *handlers.LocationsHandler
-	EmailHandler          *handlers.EmailHandler
-	PasswordResetHandler  *handlers.PasswordResetHandler
-	BootstrapHandler      *handlers.BootstrapHandler
-	AccessService         *access.AccessService
-	UsersService          *users.Service
-	Queries               *postgres.Queries
-	AuthHandler           http.Handler
-	SessionCookieName     string
-	AuthSession           ports.SessionAuthenticator
-	AuthUserLookup        ports.UserLookup
-	SessionManager        ports.SessionManager
+	HealthHandler        *handlers.HealthHandler
+	DevicesHandler       *handlers.DevicesHandler
+	UsersHandler         *handlers.UsersHandler
+	AccessHandler        *handlers.AccessHandler
+	APIKeysHandler       *handlers.APIKeysHandler
+	LocationsHandler     *handlers.LocationsHandler
+	EmailHandler         *handlers.EmailHandler
+	PasswordResetHandler *handlers.PasswordResetHandler
+	BootstrapHandler     *handlers.BootstrapHandler
+	AccessService        *access.AccessService
+	UsersService         *users.Service
+	Queries              *postgres.Queries
+	AuthHandler          http.Handler
+	SessionCookieName    string
+	AuthSession          ports.SessionAuthenticator
+	AuthUserLookup       ports.UserLookup
+	SessionManager       ports.SessionManager
 	// CORSOrigins enables the CORS middleware when non-empty. Each
 	// entry is an allowed origin (e.g. "http://localhost:4321"). When
 	// the frontend and backend share an origin (reverse-proxied or
@@ -220,6 +221,18 @@ func NewRouter(deps RouterDeps) *fiber.App {
 	// the `devices` group so the standard authSession +
 	// RequireDeviceRole pipeline applies. The paginated history
 	// endpoint accepts a local time range and IANA timezone.
+	devices.Get("/:id/locations/stream",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleViewer, deps.AccessService),
+		deps.LocationsHandler.Stream,
+	)
+	devices.Get("/:id/locations/live",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleViewer, deps.AccessService),
+		deps.LocationsHandler.Live,
+	)
 	devices.Get("/:id/locations",
 		authSession,
 		requirePasswordChanged,

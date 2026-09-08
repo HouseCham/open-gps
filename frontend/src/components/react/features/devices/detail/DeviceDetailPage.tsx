@@ -11,9 +11,10 @@ import type {
 import type { Language } from '@/types';
 import type { Translation } from '@/i18n';
 //-- Utils
-import { deriveDeviceStatus } from '@/lib/device-utils';
+import { deviceStatusFromPresence } from '@/lib/device-utils';
 import { useDeviceService } from '@/lib/api/services/deviceService';
 import { useLocationService } from '@/lib/api/services/locationService';
+import { useDeviceLocationStream } from '@/hooks/useDeviceLocationStream';
 import { redirectTo } from '@/lib';
 //-- Components
 import { Breadcrumbs, EmptyState } from '@/components/react/ui';
@@ -83,18 +84,18 @@ export function DeviceDetailPage({
         updateDevice,
         deleteDevice,
     } = useDeviceService();
-    const {
-        latest,
-        latestLoading: locationLoading,
-        latestError: locationError,
-        getLatestLocation,
-    } = useLocationService();
+    const { latestLoading: locationLoading, latestError: locationError } =
+        useLocationService();
     const [deviceId, setDeviceId] = useState<string | undefined>();
     const [inviteOpen, setInviteOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [revokeTarget, setRevokeTarget] =
         useState<DeviceAccessListItem | null>(null);
+    const { snapshot, refresh: refreshLive } = useDeviceLocationStream(
+        deviceId ?? null
+    );
+    const latest = snapshot?.location ?? null;
 
     useEffect(() => {
         setDeviceId(
@@ -104,14 +105,11 @@ export function DeviceDetailPage({
 
     useEffect(() => {
         if (!deviceId) return;
-        void Promise.all([
-            getDeviceById(deviceId),
-            getLatestLocation(deviceId),
-        ]);
+        void Promise.all([getDeviceById(deviceId)]);
     }, [deviceId]);
 
     const status = device
-        ? deriveDeviceStatus(latest?.recorded_at ?? null, t)
+        ? deviceStatusFromPresence(snapshot?.presence.state ?? 'never_seen', t)
         : null;
     /**
      * Go back to the devices page
@@ -124,10 +122,7 @@ export function DeviceDetailPage({
      */
     const reload = (): void => {
         if (!deviceId) return;
-        void Promise.all([
-            getDeviceById(deviceId),
-            getLatestLocation(deviceId),
-        ]);
+        void Promise.all([getDeviceById(deviceId), refreshLive()]);
     };
     /**
      * Handle the invitation of a user
@@ -271,7 +266,7 @@ export function DeviceDetailPage({
                 date={date}
                 loading={locationLoading}
                 deviceId={deviceId}
-                getLatestLocation={getLatestLocation}
+                getLatestLocation={async () => refreshLive()}
             />
 
             {/* Device Information Section */}

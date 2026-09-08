@@ -406,6 +406,7 @@ export const es: Translation = {
     device: {
         title: 'Dispositivos',
         online: 'En línea',
+        onlineStationary: 'En línea / estacionario',
         offline: 'Desconectado',
         stale: 'Inactivo',
         neverSeen: 'Nunca visto',

@@ -13,16 +13,16 @@ import (
 	"github.com/HouseCham/gps-tracker/backend/internal/app/access"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/apikeys"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/devices"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/email"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/locations"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/passwordreset"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/users"
 	"github.com/HouseCham/gps-tracker/backend/internal/auth"
 	"github.com/HouseCham/gps-tracker/backend/internal/config"
+	"github.com/HouseCham/gps-tracker/backend/internal/infra/live"
 	"github.com/HouseCham/gps-tracker/backend/internal/infra/postgres"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/handlers"
-	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/ports"
-	"github.com/HouseCham/gps-tracker/backend/internal/app/email"
 	"github.com/resend/resend-go/v3"
 )
 
@@ -114,7 +114,8 @@ func main() {
 	// The same adapter instance satisfies both Writer and Reader ports;
 	// the api-keys service follows the same convention.
 	locationsAdapter := locations.NewAdapter(pool)
-	locationsService := locations.New(locationsAdapter, locationsAdapter)
+	liveHub := live.NewHub()
+	locationsService := locations.New(locationsAdapter, locationsAdapter, liveHub)
 
 	//-- email (Resend). Config is required at startup; the loader
 	//   fails the process if anything is missing.
@@ -155,7 +156,7 @@ func main() {
 	usersHandler := handlers.NewUsersHandler(usersService, devicesService, passwordUpdater, sessionManager)
 	accessHandler := handlers.NewAccessHandler(accessService)
 	apiKeysHandler := handlers.NewAPIKeysHandler(apiKeysService)
-	locationsHandler := handlers.NewLocationsHandler(locationsService)
+	locationsHandler := handlers.NewLocationsHandler(locationsService, liveHub)
 	emailHandler := handlers.NewEmailHandler(emailService)
 	passwordResetHandler := handlers.NewPasswordResetHandler(passwordResetService)
 
@@ -169,15 +170,15 @@ func main() {
 		EmailHandler:         emailHandler,
 		PasswordResetHandler: passwordResetHandler,
 		BootstrapHandler:     handlers.NewBootstrapHandler(usersService),
-		AccessService:     accessService,
-		UsersService:      usersService,
-		Queries:           queries,
-		AuthHandler:       authInstance.Handler(),
-		SessionCookieName: authInstance.CookieName(),
-		AuthSession:       authInstance.NewSessionAuthenticator(),
-		AuthUserLookup:    authInstance.NewUserLookup().(ports.UserLookup),
-		SessionManager:    sessionManager,
-		CORSOrigins:       config.LoadCORSOrigins(),
+		AccessService:        accessService,
+		UsersService:         usersService,
+		Queries:              queries,
+		AuthHandler:          authInstance.Handler(),
+		SessionCookieName:    authInstance.CookieName(),
+		AuthSession:          authInstance.NewSessionAuthenticator(),
+		AuthUserLookup:       authInstance.NewUserLookup(),
+		SessionManager:       sessionManager,
+		CORSOrigins:          config.LoadCORSOrigins(),
 	})
 
 	server := http.NewServer(app, http.ServerConfig{

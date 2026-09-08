@@ -37,7 +37,7 @@ In local development, every component — the Astro SPA, the Go API, and Authula
 ### Infrastructure
 - **Docker Compose** for local development: PostgreSQL, migrations, API, frontend, and the nginx reverse proxy.
 - **nginx** terminates TLS and routes traffic between the SPA, API, and Authula on a single origin (`https://localhost`).
-- Real-time location updates via SSE (planned).
+- Real-time location updates via server-sent events (SSE), streamed same-origin and keeping the session cookie (single API instance required).
 
 ## Tech Stack
 
@@ -55,6 +55,7 @@ In local development, every component — the Astro SPA, the Go API, and Authula
 
 - **Users** own or are granted access to **Devices**
 - **Devices** report GPS **Locations** (immutable, append-only time-series)
+- Devices expose a **presence state** (`online_moving`, `online_stationary`, `offline`, `never_seen`) derived by the server from `last_contact_at`
 - **API Keys** per device (bcrypt-hashed) for IoT ingestion
 - Locations partitioned by month, automatically dropped after 12 months
 

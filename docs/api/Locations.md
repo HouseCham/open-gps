@@ -244,3 +244,13 @@ No response body. The status code conveys success; clients can read the inserted
 **Why are `from` and `to` local times?** The frontend sends wall-clock values without an offset and supplies the user's IANA timezone separately. The backend resolves those values to UTC before querying PostgreSQL.
 
 **Why aren't GPS-only devices rejected?** A bare GPS + ESP32 can fill in lat/lng/recorded_at/altitude/speed/accuracy; the other five fields are optional. The empty `signal_strength` case is common in indoor benches, etc.
+# Live location and presence
+
+`GET /api/v1/devices/:id/locations/live` returns the latest location together
+with server-owned presence. Presence states are `never_seen`,
+`online_moving`, `online_stationary`, and `offline`. The backend uses
+`devices.last_contact_at` and a six-minute deadline; `recorded_at` remains the
+GPS fix time and is not used for connectivity.
+
+The SSE stream uses the same session cookie and viewer-or-higher device access.
+Reconnects receive a fresh snapshot; durable replay is not provided.

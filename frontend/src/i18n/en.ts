@@ -396,6 +396,7 @@ export const en = {
     device: {
         title: 'Devices',
         online: 'Online',
+        onlineStationary: 'Online / stationary',
         offline: 'Offline',
         stale: 'Stale',
         neverSeen: 'Never seen',
