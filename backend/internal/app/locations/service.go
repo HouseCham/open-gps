@@ -2,6 +2,7 @@ package locations
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -24,15 +25,35 @@ import (
 // the per-route RequireDeviceRole middleware; the service stays
 // single-responsibility).
 type Service struct {
-	writer Writer
-	reader Reader
+	writer    Writer
+	reader    Reader
+	live      LiveReader
+	publisher LivePublisher
 }
 
 // New constructs a Service backed by a single adapter that satisfies
 // both ports. Following the api-keys service convention: pass the
 // same adapter twice rather than introducing a combined interface.
-func New(w Writer, r Reader) *Service {
-	return &Service{writer: w, reader: r}
+func New(w Writer, r Reader, publishers ...LivePublisher) *Service {
+	live, _ := r.(LiveReader)
+	var publisher LivePublisher
+	if len(publishers) > 0 {
+		publisher = publishers[0]
+	}
+	return &Service{writer: w, reader: r, live: live, publisher: publisher}
+}
+
+const (
+	LivePresenceTimeout     = 6 * time.Minute
+	MovingSpeedThresholdMPS = 1.0
+)
+
+// GetLive returns the current location and derived presence state for a device.
+func (s *Service) GetLive(ctx context.Context, deviceID uuid.UUID, now time.Time) (domain.LiveLocation, error) {
+	if s.live == nil {
+		return domain.LiveLocation{}, errors.New("live location reader unavailable")
+	}
+	return s.live.GetLive(ctx, deviceID, now, LivePresenceTimeout, MovingSpeedThresholdMPS)
 }
 
 // Ingest validates the payload and inserts one location row.
@@ -68,6 +89,12 @@ func (s *Service) Ingest(ctx context.Context, loc domain.Location) error {
 	}
 	if err := s.writer.Insert(ctx, loc); err != nil {
 		return fmt.Errorf("Service.Ingest: %w", err)
+	}
+	if s.publisher != nil && s.live != nil {
+		now := time.Now().UTC()
+		if snapshot, err := s.live.GetLive(ctx, loc.DeviceID, now, LivePresenceTimeout, MovingSpeedThresholdMPS); err == nil {
+			s.publisher.Publish(loc.DeviceID, "location", snapshot)
+		}
 	}
 	return nil
 }

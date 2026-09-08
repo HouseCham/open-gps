@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/HouseCham/gps-tracker/backend/internal/domain"
@@ -21,6 +22,7 @@ type Adapter struct {
 	pool *pgxpool.Pool
 }
 
+// NewAdapter creates a locations adapter backed by the given PostgreSQL pool.
 func NewAdapter(pool *pgxpool.Pool) *Adapter {
 	return &Adapter{pool: pool}
 }
@@ -33,7 +35,12 @@ func NewAdapter(pool *pgxpool.Pool) *Adapter {
 // smallints that way; we adapt int → int32 here. The cast is exact
 // for the [0, 31] SIM7080G AT+CSQ scale.
 func (a *Adapter) Insert(ctx context.Context, loc domain.Location) error {
-	queries := postgres.New(a.pool)
+	tx, err := a.pool.Begin(ctx)
+	if err != nil {
+		return postgres.WrapPgError(err)
+	}
+	defer tx.Rollback(ctx)
+	queries := postgres.New(tx)
 
 	var signalStrength *int32
 	if loc.SignalStrength != nil {
@@ -41,7 +48,7 @@ func (a *Adapter) Insert(ctx context.Context, loc domain.Location) error {
 		signalStrength = &v
 	}
 
-	return postgres.WrapPgError(queries.InsertLocation(ctx, postgres.InsertLocationParams{
+	if err := queries.InsertLocation(ctx, postgres.InsertLocationParams{
 		DeviceID:       postgres.PgtypeUUID(loc.DeviceID),
 		RecordedAt:     postgres.PgtypeTimestamptz(loc.RecordedAt),
 		Latitude:       loc.Latitude,
@@ -51,7 +58,37 @@ func (a *Adapter) Insert(ctx context.Context, loc domain.Location) error {
 		Accuracy:       loc.Accuracy,
 		BatteryVoltage: loc.BatteryVoltage,
 		SignalStrength: signalStrength,
-	}))
+	}); err != nil {
+		return postgres.WrapPgError(err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE devices SET last_contact_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL`, postgres.PgtypeUUID(loc.DeviceID)); err != nil {
+		return postgres.WrapPgError(err)
+	}
+	return postgres.WrapPgError(tx.Commit(ctx))
+}
+
+// GetLive returns the current location and derived presence state for a device.
+func (a *Adapter) GetLive(ctx context.Context, deviceID uuid.UUID, now time.Time, timeout time.Duration, motionThreshold float64) (domain.LiveLocation, error) {
+	var contact pgtype.Timestamptz
+	if err := a.pool.QueryRow(ctx, `SELECT last_contact_at FROM devices WHERE id = $1 AND deleted_at IS NULL`, postgres.PgtypeUUID(deviceID)).Scan(&contact); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.LiveLocation{}, domain.ErrNotFound
+		}
+		return domain.LiveLocation{}, postgres.WrapPgError(err)
+	}
+	var last *time.Time
+	if contact.Valid {
+		value := contact.Time
+		last = &value
+	}
+	var latest *domain.Location
+	value, err := a.GetLatest(ctx, deviceID)
+	if err == nil {
+		latest = &value
+	} else if !errors.Is(err, domain.ErrNotFound) {
+		return domain.LiveLocation{}, err
+	}
+	return domain.LiveLocation{DeviceID: deviceID, Location: latest, Presence: domain.DerivePresence(last, latest, now, timeout, motionThreshold), ServerTime: now}, nil
 }
 
 // GetLatest returns the most recent location for a device, or

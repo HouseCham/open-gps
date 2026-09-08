@@ -24,6 +24,11 @@ type Reader interface {
 	GetRoute(ctx context.Context, deviceID uuid.UUID, from, to time.Time, maxPoints int) ([]domain.Location, int, bool, error)
 }
 
+// LiveReader is the read port for current location and presence state.
+type LiveReader interface {
+	GetLive(ctx context.Context, deviceID uuid.UUID, now time.Time, timeout time.Duration, motionThreshold float64) (domain.LiveLocation, error)
+}
+
 // Errors returned by the ingest service. The handlers translate these
 // into 400 envelopes; downstream tests assert against them too.
 var (

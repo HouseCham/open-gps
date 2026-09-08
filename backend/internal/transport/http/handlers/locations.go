@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -26,11 +28,17 @@ const (
 )
 
 type LocationsHandler struct {
-	service *locations.Service
+	service    *locations.Service
+	subscriber locations.LiveSubscriber
 }
 
-func NewLocationsHandler(svc *locations.Service) *LocationsHandler {
-	return &LocationsHandler{service: svc}
+// NewLocationsHandler creates a new LocationsHandler.
+func NewLocationsHandler(svc *locations.Service, subscribers ...locations.LiveSubscriber) *LocationsHandler {
+	var subscriber locations.LiveSubscriber
+	if len(subscribers) > 0 {
+		subscriber = subscribers[0]
+	}
+	return &LocationsHandler{service: svc, subscriber: subscriber}
 }
 
 // Ingest handles POST /api/v1/devices/:uuid_firmware/locations.
@@ -108,7 +116,7 @@ func (h *LocationsHandler) Latest(c fiber.Ctx) error {
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			log.Info(operation, "no location reported yet", "deviceID", deviceID)
-			return c.Status(fiber.StatusNotFound).JSON(response.HTTPResponse[any]{
+			return c.Status(fiber.StatusNotFound).JSON(response.HTTPResponse[struct{}]{
 				StatusCode: fiber.StatusNotFound,
 				Message:    "no location reported for this device yet",
 			})
@@ -123,6 +131,131 @@ func (h *LocationsHandler) Latest(c fiber.Ctx) error {
 		Message:    "latest location retrieved",
 		Data:       dto.LocationFromDomain(loc),
 	})
+}
+
+// Live handles GET /api/v1/devices/:id/locations/live.
+// It returns the latest location and presence state for the device.
+// Access (viewer or higher) is enforced by middleware.RequireDeviceRole;
+// the device-existence check is therefore covered by that gate's
+// 404 path (security-through-obscurity on user_device_access).
+func (h *LocationsHandler) Live(c fiber.Ctx) error {
+	if _, ok := middleware.GetRequestUser(c); !ok {
+		return middleware.UnauthorizedResponse(c)
+	}
+	deviceID, err := middleware.ParseUUIDParam(c, "id")
+	if err != nil {
+		return middleware.BadRequestResponse(c, "invalid device id")
+	}
+	value, err := h.service.GetLive(c.Context(), deviceID, time.Now().UTC())
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(response.HTTPResponse[struct{}]{StatusCode: fiber.StatusNotFound, Message: "device not found"})
+		}
+		return fmt.Errorf("LocationsHandler.Live: %w", err)
+	}
+	return c.Status(fiber.StatusOK).JSON(response.HTTPResponse[dto.LiveLocationResponse]{StatusCode: fiber.StatusOK, Message: "live location retrieved", Data: dto.LiveLocationFromDomain(value)})
+}
+
+// Stream handles GET /api/v1/devices/:id/locations/live/stream.
+// It returns a stream of live events for the device, including location updates and presence changes.
+// Access (viewer or higher) is enforced by middleware.RequireDeviceRole;
+// the device-existence check is therefore covered by that gate's
+// 404 path (security-through-obscurity on user_device_access).
+func (h *LocationsHandler) Stream(c fiber.Ctx) error {
+	if _, ok := middleware.GetRequestUser(c); !ok {
+		return middleware.UnauthorizedResponse(c)
+	}
+	if h.subscriber == nil {
+		return fmt.Errorf("LocationsHandler.Stream: live subscriber unavailable")
+	}
+	deviceID, err := middleware.ParseUUIDParam(c, "id")
+	if err != nil {
+		return middleware.BadRequestResponse(c, "invalid device id")
+	}
+	events, unsubscribe := h.subscriber.Subscribe(deviceID)
+	defer unsubscribe()
+
+	initial, err := h.service.GetLive(c.Context(), deviceID, time.Now().UTC())
+	if err != nil {
+		return fmt.Errorf("LocationsHandler.Stream: get live snapshot: %w", err)
+	}
+	c.Set("Content-Type", "text/event-stream; charset=utf-8")
+	c.Set("Cache-Control", "no-cache, no-transform")
+	c.Set("Connection", "keep-alive")
+	c.Set("X-Accel-Buffering", "no")
+
+	return c.SendStreamWriter(func(writer *bufio.Writer) {
+		if !writeSSE(writer, locations.LiveEvent{ID: h.subscriber.NextID(), Kind: "snapshot", Snapshot: initial}) {
+			return
+		}
+		ticker := time.NewTicker(25 * time.Second)
+		defer ticker.Stop()
+		timer := presenceTimer(initial.Presence.ExpiresAt)
+		defer timer.Stop()
+		for {
+			select {
+			case <-c.Context().Done():
+				return
+			case event, ok := <-events:
+				if !ok || !writeSSE(writer, event) {
+					return
+				}
+				resetTimer(timer, event.Snapshot.Presence.ExpiresAt)
+			case <-ticker.C:
+				if _, err := writer.WriteString(": keepalive\n\n"); err != nil || writer.Flush() != nil {
+					return
+				}
+			case <-timer.C:
+				snapshot, err := h.service.GetLive(c.Context(), deviceID, time.Now().UTC())
+				if err != nil || !writeSSE(writer, locations.LiveEvent{ID: h.subscriber.NextID(), Kind: "presence", Snapshot: snapshot}) {
+					return
+				}
+				resetTimer(timer, snapshot.Presence.ExpiresAt)
+			}
+		}
+	})
+}
+
+// writeSSE writes a single Server-Sent Event to the writer. It returns false if there was an error.
+func writeSSE(writer *bufio.Writer, event locations.LiveEvent) bool {
+	payload, err := json.Marshal(dto.LiveLocationFromDomain(event.Snapshot))
+	if err != nil {
+		return false
+	}
+	if _, err = fmt.Fprintf(writer, "event: %s\nid: %d\ndata: %s\n\n", event.Kind, event.ID, payload); err != nil {
+		return false
+	}
+	return writer.Flush() == nil
+}
+
+// presenceTimer returns a timer that will fire when the device's presence state is expected to change.
+func presenceTimer(expiresAt *time.Time) *time.Timer {
+	if expiresAt == nil {
+		return time.NewTimer(time.Hour)
+	}
+	delay := time.Until(*expiresAt)
+	if delay < 0 {
+		delay = 0
+	}
+	return time.NewTimer(delay)
+}
+
+// resetTimer resets the timer to fire when the device's presence state is expected to change.
+func resetTimer(timer *time.Timer, expiresAt *time.Time) {
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	delay := time.Hour
+	if expiresAt != nil {
+		delay = time.Until(*expiresAt)
+		if delay < 0 {
+			delay = 0
+		}
+	}
+	timer.Reset(delay)
 }
 
 // History handles GET /api/v1/devices/:id/locations.
@@ -230,6 +363,7 @@ func (h *LocationsHandler) Route(c fiber.Ctx) error {
 	})
 }
 
+// parseRouteMaxPoints parses the max_points query parameter, returning a default if not provided or invalid.
 func parseRouteMaxPoints(c fiber.Ctx) int {
 	raw := c.Query("max_points")
 	if raw == "" {
@@ -242,6 +376,7 @@ func parseRouteMaxPoints(c fiber.Ctx) int {
 	return value
 }
 
+// parseLocationRange parses the from and to query parameters, returning a default if not provided or invalid.
 func parseLocationRange(c fiber.Ctx) (time.Time, time.Time, error) {
 	fromValue := c.Query("from")
 	toValue := c.Query("to")
