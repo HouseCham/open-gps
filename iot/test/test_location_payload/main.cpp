@@ -123,6 +123,69 @@ void test_payload_speed_kmh_to_mps(void) {
     TEST_ASSERT_DOUBLE_WITHIN(1e-4, 5.5,  p.accuracy_m);
 }
 
+// 8. Valid battery voltage and signal strength use the exact API keys.
+void test_payload_battery_and_signal_serialized(void) {
+    LocationPayload p = {};
+    snprintf(p.recorded_at, sizeof(p.recorded_at), "2026-07-15T12:00:00Z");
+    p.latitude        = 19.0;
+    p.longitude       = -99.0;
+    p.battery_voltage = 3.72;
+    p.signal_strength = 23;
+
+    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    TEST_ASSERT_GREATER_THAN(0, n);
+    TEST_ASSERT_NOT_NULL(strstr(buf, "\"battery_voltage\":3.72"));
+    TEST_ASSERT_NOT_NULL(strstr(buf, "\"signal_strength\":23"));
+}
+
+// 9. Battery voltage 0 (unknown) is omitted.
+void test_payload_battery_zero_omitted(void) {
+    LocationPayload p = {};
+    snprintf(p.recorded_at, sizeof(p.recorded_at), "2026-07-15T12:00:00Z");
+    p.latitude  = 19.0;
+    p.longitude = -99.0;
+    p.battery_voltage = 0.0;
+    p.signal_strength = 23;
+
+    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    TEST_ASSERT_GREATER_THAN(0, n);
+    TEST_ASSERT_NULL(strstr(buf, "\"battery_voltage\""));
+    TEST_ASSERT_NOT_NULL(strstr(buf, "\"signal_strength\":23"));
+}
+
+// 10. Signal strength -1 (unknown sentinel) and 99 (modem unknown) are
+// omitted; both must never reach the wire.
+void test_payload_signal_unknown_omitted(void) {
+    LocationPayload p = {};
+    snprintf(p.recorded_at, sizeof(p.recorded_at), "2026-07-15T12:00:00Z");
+    p.latitude  = 19.0;
+    p.longitude = -99.0;
+    p.battery_voltage = 3.72;
+    p.signal_strength = -1;
+
+    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    TEST_ASSERT_GREATER_THAN(0, n);
+    TEST_ASSERT_NULL(strstr(buf, "\"signal_strength\""));
+
+    p.signal_strength = 99;
+    n = location_payload_to_json(p, buf, sizeof(buf));
+    TEST_ASSERT_GREATER_THAN(0, n);
+    TEST_ASSERT_NULL(strstr(buf, "\"signal_strength\""));
+}
+
+// 11. Signal strength 0 is serialized: it is a valid (weak) CSQ reading.
+void test_payload_signal_zero_valid(void) {
+    LocationPayload p = {};
+    snprintf(p.recorded_at, sizeof(p.recorded_at), "2026-07-15T12:00:00Z");
+    p.latitude  = 19.0;
+    p.longitude = -99.0;
+    p.signal_strength = 0;
+
+    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    TEST_ASSERT_GREATER_THAN(0, n);
+    TEST_ASSERT_NOT_NULL(strstr(buf, "\"signal_strength\":0"));
+}
+
 int main(int argc, char** argv) {
     (void)argc; (void)argv;
     UNITY_BEGIN();
@@ -133,5 +196,9 @@ int main(int argc, char** argv) {
     RUN_TEST(test_payload_lon_range);
     RUN_TEST(test_payload_optionals_null_when_zero);
     RUN_TEST(test_payload_speed_kmh_to_mps);
+    RUN_TEST(test_payload_battery_and_signal_serialized);
+    RUN_TEST(test_payload_battery_zero_omitted);
+    RUN_TEST(test_payload_signal_unknown_omitted);
+    RUN_TEST(test_payload_signal_zero_valid);
     return UNITY_END();
 }
