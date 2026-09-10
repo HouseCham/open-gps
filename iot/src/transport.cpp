@@ -137,7 +137,17 @@ TransportResult transport_post_locations(const LocationPayload& p, const Secrets
         Serial.println(F("[ERR ] cellular data not connected; skipping upload"));
         return TransportResult::TRANSPORT_ERROR;
     }
-    Serial.printf("[NET ] cellular CSQ=%d\n", board_modem().getSignalQuality());
+
+    // Enrich a local copy so the caller's payload stays untouched. Read
+    // the modem CSQ once here (GNSS is off during upload; this is the only
+    // extra AT exchange the telemetry adds). CSQ 99 = unknown -> -1 sentinel.
+    LocationPayload payload = p;
+    const uint16_t batt_mv = board_pmu().getBattVoltage();
+    const double batt_v = batt_mv / 1000.0;
+    if (batt_v > 0.0 && batt_v <= 6.0) payload.battery_voltage = batt_v; // 0..6 V API contract
+    const int csq = board_modem().getSignalQuality();
+    Serial.printf("[NET ] cellular CSQ=%d\n", csq);
+    if (csq >= 0 && csq <= 31) payload.signal_strength = csq; // 99 -> stays -1 (unknown)
 
     char url[256];
     if (transport_build_url(API_HOST, 0, s.uuid,
@@ -146,8 +156,8 @@ TransportResult transport_post_locations(const LocationPayload& p, const Secrets
         return TransportResult::CONFIG_ERROR;
     }
 
-    char body[256];
-    const size_t bn = location_payload_to_json(p, body, sizeof(body));
+    char body[320];
+    const size_t bn = location_payload_to_json(payload, body, sizeof(body));
     if (bn == 0) {
         Serial.println(F("[ERR ] JSON overflow"));
         return TransportResult::CONFIG_ERROR;

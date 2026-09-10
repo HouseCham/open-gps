@@ -20,6 +20,16 @@ struct LocationPayload {
     double speed_mps;  // ground speed in m/s; 0 = unknown (omitted)
     double accuracy_m; // position accuracy in metres; 0 = unknown (omitted)
     int    satellites_used;  // sats used in the fix; 0 = unknown (omitted)
+
+    // Battery voltage in volts (AXP2101 reading, mV/1000), 0..6 per the API
+    // contract. 0 = unknown (omitted). This is VOLTAGE, not a battery
+    // percentage — do not interpret it as state of charge.
+    double battery_voltage;
+
+    // Cellular signal strength on the SIM7080G AT+CSQ scale, 0..31
+    // (0 = weak, 31 = strong). -1 = unknown (omitted); the modem's
+    // "99 = unknown" is mapped to -1 by the caller and never serialized.
+    int signal_strength;
 };
 
 // Serialize this payload to a JSON object string into `buf`.

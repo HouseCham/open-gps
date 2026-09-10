@@ -1,6 +1,7 @@
 #include "location_payload.h"
 
 #include <stdio.h>
+#include <cmath>
 #include <ArduinoJson.h>
 
 void location_payload_from_fix(LocationPayload& p,
@@ -23,7 +24,7 @@ void location_payload_from_fix(LocationPayload& p,
 
 size_t location_payload_to_json(const LocationPayload& p,
                                 char* buf, size_t buf_len) {
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<384> doc;
     JsonObject obj = doc.to<JsonObject>();
 
     obj["recorded_at"] = p.recorded_at;
@@ -39,6 +40,14 @@ size_t location_payload_to_json(const LocationPayload& p,
     if (p.speed_mps      >  0.0) obj["speed"]           = p.speed_mps;
     if (p.accuracy_m     >  0.0) obj["accuracy"]        = p.accuracy_m;
     if (p.satellites_used >  0)  obj["satellites_used"] = p.satellites_used;
+
+    // Battery: volts, only when finite and > 0 (0 = unknown). Not a
+    // percentage. Signal: SIM7080G CSQ 0..31; -1 = unknown, and the
+    // modem's "99 = unknown" must never reach the wire.
+    if (std::isfinite(p.battery_voltage) && p.battery_voltage > 0.0)
+        obj["battery_voltage"] = p.battery_voltage;
+    if (p.signal_strength >= 0 && p.signal_strength <= 31)
+        obj["signal_strength"] = p.signal_strength;
 
     return serializeJson(obj, buf, buf_len);
 }
