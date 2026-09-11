@@ -1,9 +1,12 @@
 ---
-import type { GetStaticPaths } from 'astro';
+//-- i18n
 import { getTranslation } from '@/i18n';
+//-- Types
 import type { Language } from '@/types';
+import type { GetStaticPaths } from 'astro';
+//-- Components
 import MainLayout from '@/components/astro/layout/MainLayout.astro';
-import { SettingsPage } from '@/components/react/features/settings/SettingsPage';
+import { SettingsPage } from '@/components/react/features/settings';
 
 export const getStaticPaths: GetStaticPaths = () => [
     { params: { lan: 'en' } },

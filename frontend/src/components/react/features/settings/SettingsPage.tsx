@@ -1,84 +1,39 @@
 import '@/styles/settings.css';
 import { useState, type ChangeEvent, type JSX } from 'react';
+//-- Stores
 import { useStore } from '@nanostores/react';
-import { Moon, RotateCcw, ShieldCheck, Sun } from 'lucide-react';
-import type { Translation } from '@/i18n';
-import type { Language } from '@/types';
 import { $profile, $user } from '@/lib/stores/auth';
+//-- Hooks
 import { useTheme, type Theme } from '@/lib/hooks/useTheme';
+//-- I18n
+import { getTranslation, type Translation } from '@/i18n';
+//-- Utils
+import { parseChangePasswordStrings, readSettingsPreferences } from '@/lib';
+//-- Types
+import type { Language, Settings } from '@/types';
+//-- Constants
+import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '@/constants';
+//-- Components
 import { ChangePasswordModal } from '@/components/react/modal';
 import { Button } from '@/components/react/ui/button';
-import { parseChangePasswordStrings } from '@/lib';
-import { getTranslation } from '@/i18n';
-
-const STORAGE_KEY = 'open-gps:settings';
-
-interface Preferences {
-    history: string;
-    landing: string;
-    density: 'comfortable' | 'compact';
-    timezone: string;
-    units: 'metric' | 'imperial';
-    hours: '12' | '24';
-    sidebar: 'open' | 'closed';
-    motion: boolean;
-}
-
-interface SettingsPageProps {
+import { SettingsChoice } from './SettingsChoice';
+//-- Icons
+import { Moon, RotateCcw, ShieldCheck, Sun } from 'lucide-react';
+/**
+ * Props for the SettingsPage component
+ * @interface SettingsPageProps
+ * @prop {Language} locale - The locale for the page.
+ * @prop {Translation['settings']} translations - The translations for the page.
+ */
+export interface SettingsPageProps {
     locale: Language;
     translations: Translation['settings'];
 }
-
-const DEFAULTS: Preferences = {
-    history: '6h',
-    landing: 'devices',
-    density: 'comfortable',
-    timezone: 'America/Mexico_City',
-    units: 'metric',
-    hours: '24',
-    sidebar: 'open',
-    motion: false,
-};
-
-function readPreferences(): Preferences {
-    try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        return saved ? { ...DEFAULTS, ...JSON.parse(saved) } : DEFAULTS;
-    } catch (error) {
-        console.warn('Unable to read saved settings from local storage.', error);
-        return DEFAULTS;
-    }
-}
-
-function Choice({
-    name,
-    value,
-    label,
-    checked,
-    onChange,
-}: {
-    name: string;
-    value: string;
-    label: string;
-    checked: boolean;
-    onChange: (event: ChangeEvent<HTMLInputElement>) => void;
-}): JSX.Element {
-    const id = `${name}-${value}`;
-    return (
-        <span className="settings-choice">
-            <input
-                id={id}
-                type="radio"
-                name={name}
-                value={value}
-                checked={checked}
-                onChange={onChange}
-            />
-            <label htmlFor={id}>{label}</label>
-        </span>
-    );
-}
-
+/**
+ * The SettingsPage component
+ * @param {SettingsPageProps} props - The props for the component.
+ * @returns {JSX.Element} The rendered component.
+ */
 export function SettingsPage({
     locale,
     translations: t,
@@ -87,33 +42,46 @@ export function SettingsPage({
     const profile = useStore($profile);
     const [theme, setTheme] = useTheme();
     const [preferences, setPreferences] =
-        useState<Preferences>(readPreferences);
+        useState<Settings>(readSettingsPreferences);
     const [passwordOpen, setPasswordOpen] = useState(false);
-
-    const update = <K extends keyof Preferences>(
+    /**
+     * Update a setting
+     * @param {keyof Settings} key - The key of the setting to update.
+     * @param {Settings[keyof Settings]} value - The value of the setting to update.
+     * @returns {void} 
+     */
+    const update = <K extends keyof Settings>(
         key: K,
-        value: Preferences[K]
+        value: Settings[K]
     ): void => {
         const next = { ...preferences, [key]: value };
         setPreferences(next);
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
         } catch (error) {
             console.warn('Unable to save settings to local storage.', error);
         }
     };
-
+    /**
+     * Reset the settings to the default values
+     * @returns {void}
+     */
     const reset = (): void => {
-        setPreferences(DEFAULTS);
+        setPreferences(DEFAULT_SETTINGS);
         setTheme('light');
         try {
-            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(SETTINGS_STORAGE_KEY);
         } catch (error) {
             console.warn('Unable to clear saved settings from local storage.', error);
         }
     };
-
+    // The select options are restricted to the Theme union values above.
     const role = profile?.role === 'super_admin' ? t.superAdmin : t.user;
+    /**
+     * Handle theme change
+     * @param {ChangeEvent<HTMLSelectElement>} event - The change event from the select element.
+     * @returns {void}
+     */
     const changeTheme = (event: ChangeEvent<HTMLSelectElement>): void => {
         // The select options are restricted to the Theme union values above.
         setTheme(event.target.value as Theme);
@@ -201,14 +169,14 @@ export function SettingsPage({
                                 <p>{t.sidebarHint}</p>
                             </div>
                             <div className="settings-segmented">
-                                <Choice
+                                <SettingsChoice
                                     name="sidebar"
                                     value="open"
                                     label={t.expanded}
                                     checked={preferences.sidebar === 'open'}
                                     onChange={() => update('sidebar', 'open')}
                                 />
-                                <Choice
+                                <SettingsChoice
                                     name="sidebar"
                                     value="closed"
                                     label={t.collapsed}
@@ -280,7 +248,7 @@ export function SettingsPage({
                                 <p>{t.densityHint}</p>
                             </div>
                             <div className="settings-segmented">
-                                <Choice
+                                <SettingsChoice
                                     name="density"
                                     value="comfortable"
                                     label={t.comfortable}
@@ -291,7 +259,7 @@ export function SettingsPage({
                                         update('density', 'comfortable')
                                     }
                                 />
-                                <Choice
+                                <SettingsChoice
                                     name="density"
                                     value="compact"
                                     label={t.compact}
@@ -338,14 +306,14 @@ export function SettingsPage({
                                 <p>{t.unitsHint}</p>
                             </div>
                             <div className="settings-segmented">
-                                <Choice
+                                <SettingsChoice
                                     name="units"
                                     value="metric"
                                     label={t.metric}
                                     checked={preferences.units === 'metric'}
                                     onChange={() => update('units', 'metric')}
                                 />
-                                <Choice
+                                <SettingsChoice
                                     name="units"
                                     value="imperial"
                                     label={t.imperial}
@@ -360,14 +328,14 @@ export function SettingsPage({
                                 <p>{t.timeHint}</p>
                             </div>
                             <div className="settings-segmented">
-                                <Choice
+                                <SettingsChoice
                                     name="hours"
                                     value="12"
                                     label={t.hours12}
                                     checked={preferences.hours === '12'}
                                     onChange={() => update('hours', '12')}
                                 />
-                                <Choice
+                                <SettingsChoice
                                     name="hours"
                                     value="24"
                                     label={t.hours24}

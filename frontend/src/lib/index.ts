@@ -13,6 +13,7 @@ export * from './i18n-utils';
 export * from './email-utils';
 export * from './files-utils';
 export * from './location-utils';
+export * from './settings';
 
 /**
  * Interpolate the given template with the given variables.
