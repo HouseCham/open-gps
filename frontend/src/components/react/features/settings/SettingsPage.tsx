@@ -89,6 +89,7 @@ export function SettingsPage({
 
     return (
         <div className="settings-page">
+            {/* Header */}
             <header className="settings-header">
                 <div>
                     <div className="settings-eyebrow">{t.eyebrow}</div>
@@ -99,9 +100,11 @@ export function SettingsPage({
                     {t.saved}
                 </div>
             </header>
-
+            {/* Page content */}
             <div className="settings-layout">
+                {/* Main content */}
                 <main className="settings-main">
+                    {/* Appearance - Theme - Language - Sidebar initial state - Reduce motion */}
                     <section className="settings-card">
                         <header>
                             <h2>{t.appearance}</h2>
@@ -202,7 +205,7 @@ export function SettingsPage({
                             </label>
                         </div>
                     </section>
-
+                    {/* Display - Default time range - First page - Information density */}
                     <section className="settings-card">
                         <header>
                             <h2>{t.display}</h2>
@@ -271,7 +274,7 @@ export function SettingsPage({
                             </div>
                         </div>
                     </section>
-
+                    {/* Region - Timezone - Units - Time format */}
                     <section className="settings-card">
                         <header>
                             <h2>{t.region}</h2>
@@ -345,7 +348,7 @@ export function SettingsPage({
                             </div>
                         </div>
                     </section>
-
+                    {/* Account - Profile - Email */}
                     <section className="settings-card">
                         <header>
                             <h2>{t.account}</h2>
@@ -386,6 +389,7 @@ export function SettingsPage({
                         </div>
                     </section>
                 </main>
+                {/* 'Your account' Card */}
                 <aside className="settings-aside">
                     <section className="settings-side-card">
                         <h2>{t.accountSummary}</h2>
@@ -425,6 +429,7 @@ export function SettingsPage({
                     </section>
                 </aside>
             </div>
+            {/* Change Password Modal */}
             <ChangePasswordModal
                 open={passwordOpen}
                 strings={parseChangePasswordStrings(
@@ -432,6 +437,7 @@ export function SettingsPage({
                 )}
                 onSuccess={() => setPasswordOpen(false)}
             />
+            {/* Accessibility Note */}
             <span className="settings-a11y-note">
                 <ShieldCheck size={14} aria-hidden="true" /> {t.localNote}
             </span>
