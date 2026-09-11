@@ -1,0 +1,21 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { getTranslation } from '@/i18n';
+import type { Language } from '@/types';
+import MainLayout from '@/components/astro/layout/MainLayout.astro';
+import { SettingsPage } from '@/components/react/features/settings/SettingsPage';
+
+export const getStaticPaths: GetStaticPaths = () => [
+    { params: { lan: 'en' } },
+    { params: { lan: 'es' } },
+];
+
+// getStaticPaths restricts this route parameter to the supported languages.
+const locale = Astro.params.lan as Language;
+const translation = getTranslation(locale);
+const title = `${translation.settings.title} · ${translation.layout.appName}`;
+---
+
+<MainLayout locale={locale} title={title} pageLabel={translation.settings.title}>
+    <SettingsPage client:idle locale={locale} translations={translation.settings} />
+</MainLayout>
