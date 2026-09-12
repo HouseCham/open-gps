@@ -2,11 +2,9 @@ import '@/styles/reports.css';
 import { useState, type JSX, type ReactNode } from 'react';
 import { Download, Info, Activity } from 'lucide-react';
 import type { Translation } from '@/i18n';
-import type { Language } from '@/types';
 import { Button } from '@/components/react/ui/button';
 
 interface ReportsPageProps {
-    locale: Language;
     translations: Translation['page']['reports'];
 }
 
@@ -16,7 +14,7 @@ type ReportStatus = 'good' | 'review' | 'insufficient';
 interface DeviceReport {
     name: string;
     id: string;
-    type: string;
+    type: 'van' | 'truck' | 'motorcycle';
     points: string;
     distance: string;
     first: string;
@@ -38,7 +36,7 @@ const DEVICES: DeviceReport[] = [
     {
         name: 'Van Madrid-01',
         id: 'IMEI ··· 4521',
-        type: 'Van',
+        type: 'van',
         points: '1,284',
         distance: '342.8 km',
         first: '08:14',
@@ -48,7 +46,7 @@ const DEVICES: DeviceReport[] = [
     {
         name: 'Truck BCN-04',
         id: 'IMEI ··· 9087',
-        type: 'Truck',
+        type: 'truck',
         points: '982',
         distance: '287.4 km',
         first: '08:03',
@@ -58,7 +56,7 @@ const DEVICES: DeviceReport[] = [
     {
         name: 'Moto Malaga-02',
         id: 'IMEI ··· 1134',
-        type: 'Motorcycle',
+        type: 'motorcycle',
         points: '—',
         distance: '—',
         first: '—',
@@ -159,6 +157,8 @@ function Filters({
 }): JSX.Element {
     const [period, setPeriod] =
         useState<(typeof PERIODS)[number]>('lastSixHours');
+    const [from, setFrom] = useState('2026-09-11T08:00');
+    const [to, setTo] = useState('2026-09-11T14:32');
     const [hasError, setHasError] = useState(false);
     const periodLabels: Record<(typeof PERIODS)[number], string> = {
         lastHour: t.filters.lastHour,
@@ -168,7 +168,7 @@ function Filters({
         custom: t.filters.custom,
     };
     const submit = (): void => {
-        if (period === 'custom') {
+        if (period === 'custom' && new Date(from) >= new Date(to)) {
             setHasError(true);
             return;
         }
@@ -199,17 +199,19 @@ function Filters({
                 {period === 'custom' ? (
                     <div className="reports-date-fields">
                         <label className="reports-field">
-                            {t.filters.period}
+                            {t.filters.from}
                             <input
                                 type="datetime-local"
-                                defaultValue="2026-09-11T08:00"
+                                value={from}
+                                onChange={event => setFrom(event.target.value)}
                             />
                         </label>
                         <label className="reports-field">
-                            {t.filters.period}
+                            {t.filters.to}
                             <input
                                 type="datetime-local"
-                                defaultValue="2026-09-11T14:32"
+                                value={to}
+                                onChange={event => setTo(event.target.value)}
                             />
                         </label>
                     </div>
@@ -238,9 +240,9 @@ function Filters({
                     {t.filters.vehicleType}
                     <select defaultValue="all">
                         <option value="all">{t.filters.allVehicleTypes}</option>
-                        <option>Van</option>
-                        <option>Truck</option>
-                        <option>Motorcycle</option>
+                        <option>{t.vehicles.van}</option>
+                        <option>{t.vehicles.truck}</option>
+                        <option>{t.vehicles.motorcycle}</option>
                     </select>
                 </label>
                 <Button variant="primary" onClick={submit}>
@@ -267,12 +269,12 @@ function Filters({
 
 function Overview({ t }: { t: ReportsTranslations }): JSX.Element {
     const kpis = [
-        ['Devices with activity', '2', 'devices'],
-        ['Received points', '2,266', 'points'],
-        ['Estimated distance', '630.2', 'km'],
-        ['Last report', '14:32', 'local time'],
-        ['Most active', 'Van Madrid-01', '1,284 points'],
-        ['Largest interruption', '18', 'minutes'],
+        [t.kpis.activity, '2', t.units.devices],
+        [t.kpis.points, '2,266', t.units.points],
+        [t.kpis.distance, '630.2', t.units.kilometers],
+        [t.kpis.lastReport, '14:32', t.units.localTime],
+        [t.kpis.mostActive, 'Van Madrid-01', `1,284 ${t.units.points}`],
+        [t.kpis.interruption, '18', t.units.minutes],
     ];
     return (
         <ReportCard
@@ -393,7 +395,7 @@ function Overview({ t }: { t: ReportsTranslations }): JSX.Element {
                                         <strong>{device.name}</strong>
                                         <small>{device.id}</small>
                                     </td>
-                                    <td>{device.type}</td>
+                                    <td>{t.vehicles[device.type]}</td>
                                     <td className="reports-mono">
                                         {device.points}
                                     </td>
@@ -445,6 +447,7 @@ function Routes({ t }: { t: ReportsTranslations }): JSX.Element {
                                 }
                                 key={`${item.name}-${item.time}`}
                                 onClick={() => setSelected(index)}
+                                aria-pressed={selected === index}
                             >
                                 <span>
                                     <strong>{item.name}</strong>
@@ -600,6 +603,7 @@ function Health({ t }: { t: ReportsTranslations }): JSX.Element {
                                 className={metric === value ? 'is-active' : ''}
                                 key={value}
                                 onClick={() => setMetric(value)}
+                                aria-pressed={metric === value}
                             >
                                 {metricLabels[value]}
                             </button>
@@ -765,7 +769,6 @@ function ExportBar({ t }: { t: ReportsTranslations }): JSX.Element {
  * @returns The reports page island.
  */
 export function ReportsPage({
-    locale: _locale,
     translations: t,
 }: ReportsPageProps): JSX.Element {
     const [updated, setUpdated] = useState(false);

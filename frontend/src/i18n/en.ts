@@ -404,6 +404,8 @@ export const en = {
                     'Available locations are retained for a maximum of 12 months.',
                 lastUpdated: 'Last updated',
                 invalidDate: 'The start date must be before the end date.',
+                from: 'From',
+                to: 'To',
             },
             status: {
                 available: 'Data available',
@@ -412,6 +414,23 @@ export const en = {
                 insufficient: 'Insufficient data',
                 complete: 'Complete',
                 incomplete: 'Incomplete',
+            },
+            vehicles: { van: 'Van', truck: 'Truck', motorcycle: 'Motorcycle' },
+            kpis: {
+                activity: 'Devices with activity',
+                points: 'Received points',
+                distance: 'Estimated distance',
+                lastReport: 'Last report',
+                mostActive: 'Most active',
+                interruption: 'Largest interruption',
+            },
+            units: {
+                devices: 'devices',
+                points: 'points',
+                kilometers: 'km',
+                localTime: 'local time',
+                minutes: 'minutes',
+                pointsShort: 'points',
             },
             overview: {
                 title: 'Overview',

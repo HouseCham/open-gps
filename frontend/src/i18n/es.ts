@@ -416,6 +416,8 @@ export const es: Translation = {
                 lastUpdated: 'Última actualización',
                 invalidDate:
                     'La fecha inicial debe ser anterior a la fecha final.',
+                from: 'Desde',
+                to: 'Hasta',
             },
             status: {
                 available: 'Datos disponibles',
@@ -424,6 +426,27 @@ export const es: Translation = {
                 insufficient: 'Datos insuficientes',
                 complete: 'Completa',
                 incomplete: 'Incompleto',
+            },
+            vehicles: {
+                van: 'Furgoneta',
+                truck: 'Camión',
+                motorcycle: 'Motocicleta',
+            },
+            kpis: {
+                activity: 'Dispositivos con actividad',
+                points: 'Puntos recibidos',
+                distance: 'Distancia estimada',
+                lastReport: 'Último reporte',
+                mostActive: 'Mayor actividad',
+                interruption: 'Mayor interrupción',
+            },
+            units: {
+                devices: 'dispositivos',
+                points: 'puntos',
+                kilometers: 'km',
+                localTime: 'hora local',
+                minutes: 'minutos',
+                pointsShort: 'puntos',
             },
             overview: {
                 title: 'Resumen',
