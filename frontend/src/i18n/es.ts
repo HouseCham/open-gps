@@ -388,6 +388,140 @@ export const es: Translation = {
             title: 'Acceso',
             subtitle: 'Emite y revoca claves de API para tus dispositivos.',
         },
+        reports: {
+            title: 'Informes',
+            subtitle:
+                'Comprende la actividad, los recorridos y la calidad de los datos de tus dispositivos.',
+            eyebrow: 'Análisis de dispositivos',
+            refresh: 'Actualizar informe',
+            changeFilters: 'Cambiar filtros',
+            updated: 'Informe actualizado',
+            filters: {
+                period: 'Período',
+                timezone: 'Zona horaria',
+                devices: 'Dispositivos',
+                vehicleType: 'Tipo de vehículo',
+                custom: 'Personalizado',
+                lastHour: 'Última hora',
+                lastSixHours: 'Últimas 6 horas',
+                lastDay: 'Últimas 24 horas',
+                lastWeek: 'Últimos 7 días',
+                selectedDevices: '2 dispositivos seleccionados',
+                allDevices: 'Todos los dispositivos',
+                allVehicleTypes: 'Todos los tipos',
+                timezoneHint: 'Las fechas se interpretan en esta zona horaria.',
+                deviceHint: 'Solo dispositivos a los que tienes acceso.',
+                retentionNote:
+                    'Las ubicaciones disponibles se conservan durante un máximo de 12 meses.',
+                lastUpdated: 'Última actualización',
+                invalidDate:
+                    'La fecha inicial debe ser anterior a la fecha final.',
+            },
+            status: {
+                available: 'Datos disponibles',
+                good: 'Buena',
+                review: 'Revisar',
+                insufficient: 'Datos insuficientes',
+                complete: 'Completa',
+                incomplete: 'Incompleto',
+            },
+            overview: {
+                title: 'Resumen',
+                description:
+                    'Una vista general de la actividad registrada durante el período seleccionado.',
+                activityTitle: 'Actividad en el tiempo',
+                activityDescription:
+                    'Volumen de reportes recibidos por dispositivo.',
+                receivedPoints: 'Puntos recibidos',
+                quickRead: 'Lectura rápida',
+                peakActivity: 'Pico de actividad',
+                totalPerHour: 'Total por hora',
+                activeDevices: 'Dispositivos activos',
+                devicesWithActivity: 'Dispositivos con actividad',
+                devicesDescription:
+                    'Detalle de actividad y continuidad durante el período.',
+                viewAll: 'Ver todos',
+                device: 'Dispositivo',
+                vehicle: 'Tipo de vehículo',
+                points: 'Puntos recibidos',
+                distance: 'Distancia estimada',
+                firstReport: 'Primer reporte',
+                lastReport: 'Último reporte',
+                continuity: 'Continuidad',
+                viewReport: 'Ver informe',
+            },
+            routes: {
+                title: 'Recorridos',
+                description:
+                    'Explora recorridos estimados a partir de los puntos GPS recibidos.',
+                disclaimer:
+                    'Las distancias y las paradas son estimaciones basadas en datos GPS.',
+                viewRoute: 'Ver recorrido',
+                selectedRoute: 'Ruta seleccionada',
+                duration: 'Duración',
+                distance: 'Distancia estimada',
+                averageSpeed: 'Velocidad media',
+                maximumSpeed: 'Velocidad máxima',
+                routePoints: 'Puntos de ruta',
+                coordinates: 'Coordenadas',
+                simplified:
+                    'La ruta mostrada está simplificada para mejorar el rendimiento; las métricas usan el conjunto completo de datos.',
+                interruption: 'La ruta contiene interrupciones de datos.',
+            },
+            health: {
+                title: 'Salud del dispositivo',
+                description:
+                    'Revisa la telemetría disponible y la regularidad de los reportes.',
+                disclaimer:
+                    'La disponibilidad depende del hardware y firmware del dispositivo.',
+                recentContact: 'Contacto reciente',
+                noOptionalTelemetry: 'Sin telemetría opcional',
+                lastContact: 'Último contacto',
+                battery: 'Voltaje de batería',
+                averageBattery: 'Promedio batería',
+                signal: 'Señal celular',
+                gpsAccuracy: 'Precisión GPS media',
+                reports: 'Reportes',
+                missingBattery:
+                    'Este dispositivo no ha enviado voltaje de batería.',
+                missingSignal:
+                    'Este dispositivo no ha enviado intensidad de señal.',
+                telemetryTrend: 'Tendencia de telemetría',
+                trendDescription:
+                    'Los intervalos sin datos no se conectan como mediciones continuas.',
+                batteryMetric: 'Voltaje · V',
+                signalMetric: 'Señal · CSQ',
+                gpsMetric: 'Precisión · m',
+                trendReading: 'Lectura de la tendencia',
+                trendSummary:
+                    'Se muestran intervalos con telemetría disponible para 2 dispositivos.',
+            },
+            quality: {
+                title: 'Calidad de datos',
+                description:
+                    'Identifica interrupciones, datos incompletos y lecturas GPS poco fiables.',
+                averageInterval: 'Intervalo medio entre reportes',
+                largestInterruption: 'Mayor interrupción',
+                incompleteRecords: 'Registros incompletos',
+                coordinateJumps: 'Saltos de coordenadas',
+                period: 'Durante el período',
+                optionalMissing: 'Telemetría opcional ausente',
+                requiresReview: 'Requieren revisión',
+                quality: 'Calidad GPS',
+                state: 'Estado',
+                continuityDisclaimer:
+                    'Este informe describe la continuidad de los datos recibidos; no representa un historial exacto de disponibilidad del dispositivo.',
+            },
+            export: {
+                title: 'Exportar informes',
+                description:
+                    'El archivo respetará los filtros y permisos actuales. La exportación puede tardar en períodos amplios.',
+                csv: 'Exportar CSV',
+                gpx: 'Exportar GPX',
+                preparing: 'Preparando exportación {type}…',
+                ready: 'La exportación está lista.',
+            },
+        },
     },
     noAccess: {
         title: 'Área restringida',

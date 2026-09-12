@@ -1,0 +1,20 @@
+---
+import { getTranslation } from '@/i18n';
+import type { GetStaticPaths } from 'astro';
+import type { Language } from '@/types';
+import MainLayout from '@/components/astro/layout/MainLayout.astro';
+import { ReportsPage } from '@/components/react/features/reports';
+
+export const getStaticPaths: GetStaticPaths = () => [
+    { params: { lan: 'en' } },
+    { params: { lan: 'es' } },
+];
+
+const locale = Astro.params.lan as Language;
+const translation = getTranslation(locale);
+const title = `${translation.page.reports.title} · ${translation.layout.appName}`;
+---
+
+<MainLayout locale={locale} title={title} pageLabel={translation.page.reports.title}>
+    <ReportsPage client:load locale={locale} translations={translation.page.reports} />
+</MainLayout>
