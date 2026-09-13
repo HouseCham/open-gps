@@ -11,6 +11,7 @@ import { ChangePasswordForm } from '@/components/react/form/ChangePasswordForm';
  * @prop {boolean} open - Whether the modal is visible.
  * @prop {ChangePasswordStrings} strings - i18n strings for the modal.
  * @prop {() => void} onSuccess - Called by the form when the password change resolves.
+ * @prop {() => void} [onClose] - Called when a dismissible modal is closed.
  * @prop {boolean} [locked=false] - When `true`, suppresses backdrop / Escape / close-button dismissal. The modal can only leave via a successful submit.
  * @prop {ReactNode} [headerActions] - Optional action buttons rendered in the modal header (e.g. theme/language toggles).
  */
@@ -18,6 +19,7 @@ export interface ChangePasswordModalProps {
     open: boolean;
     strings: ChangePasswordStrings;
     onSuccess: () => void;
+    onClose?: () => void;
     locked?: boolean;
     headerActions?: ReactNode;
 }
@@ -34,6 +36,7 @@ export function ChangePasswordModal({
     open,
     strings,
     onSuccess,
+    onClose,
     locked = false,
     headerActions,
 }: ChangePasswordModalProps): JSX.Element | null {
@@ -41,7 +44,7 @@ export function ChangePasswordModal({
     return (
         <Modal
             open={open}
-            onClose={() => undefined}
+            onClose={onClose ?? ((): void => undefined)}
             title={strings.title}
             subtitle={strings.subtitle}
             size="md"

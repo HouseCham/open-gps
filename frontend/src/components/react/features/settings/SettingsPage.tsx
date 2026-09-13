@@ -3,22 +3,38 @@ import { useState, type ChangeEvent, type JSX } from 'react';
 //-- Stores
 import { useStore } from '@nanostores/react';
 import { $profile, $user } from '@/lib/stores/auth';
+import {
+    $localSettings,
+    resetLocalSettings,
+    updateLocalSetting,
+} from '@/lib/stores/settings';
 //-- Hooks
-import { useTheme, type Theme } from '@/lib/hooks/useTheme';
+import { useTheme, isTheme } from '@/lib/hooks/useTheme';
 //-- I18n
 import { getTranslation, type Translation } from '@/i18n';
 //-- Utils
-import { parseChangePasswordStrings, readSettingsPreferences } from '@/lib';
+import {
+    isSettingValue,
+    parseChangePasswordStrings,
+    redirectTo,
+    buildLocalizedUrl,
+} from '@/lib';
 //-- Types
-import type { Language, Settings } from '@/types';
-//-- Constants
-import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '@/constants';
+import type { Language, LocalSettings } from '@/types';
 //-- Components
 import { ChangePasswordModal } from '@/components/react/modal';
 import { Button } from '@/components/react/ui/button';
 import { SettingsChoice } from './SettingsChoice';
 //-- Icons
 import { Moon, RotateCcw, ShieldCheck, Sun } from 'lucide-react';
+
+const HISTORY_RANGES = ['1h', '6h', '24h', '7d'] as const;
+const LANDING_PAGES = ['dashboard', 'devices'] as const;
+const TIME_ZONES = [
+    'America/Mexico_City',
+    'Europe/Madrid',
+    'America/Bogota',
+] as const;
 /**
  * Props for the SettingsPage component
  * @interface SettingsPageProps
@@ -41,50 +57,39 @@ export function SettingsPage({
     const user = useStore($user);
     const profile = useStore($profile);
     const [theme, setTheme] = useTheme();
-    const [preferences, setPreferences] =
-        useState<Settings>(readSettingsPreferences);
+    const preferences = useStore($localSettings);
     const [passwordOpen, setPasswordOpen] = useState(false);
     /**
-     * Update a setting
-     * @param {keyof Settings} key - The key of the setting to update.
-     * @param {Settings[keyof Settings]} value - The value of the setting to update.
-     * @returns {void} 
-     */
-    const update = <K extends keyof Settings>(
-        key: K,
-        value: Settings[K]
-    ): void => {
-        const next = { ...preferences, [key]: value };
-        setPreferences(next);
-        try {
-            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
-        } catch (error) {
-            console.warn('Unable to save settings to local storage.', error);
-        }
-    };
-    /**
-     * Reset the settings to the default values
+     * Updates one local setting and persists it immediately.
+     * @param {keyof LocalSettings} key - The setting key.
+     * @param {LocalSettings[keyof LocalSettings]} value - The setting value.
      * @returns {void}
      */
+    const update = <K extends keyof LocalSettings>(
+        key: K,
+        value: LocalSettings[K]
+    ): void => {
+        updateLocalSetting(key, value);
+    };
+    /** Restores environment-aware defaults and the light theme. */
     const reset = (): void => {
-        setPreferences(DEFAULT_SETTINGS);
+        resetLocalSettings();
         setTheme('light');
-        try {
-            localStorage.removeItem(SETTINGS_STORAGE_KEY);
-        } catch (error) {
-            console.warn('Unable to clear saved settings from local storage.', error);
-        }
     };
     // The select options are restricted to the Theme union values above.
     const role = profile?.role === 'super_admin' ? t.superAdmin : t.user;
-    /**
-     * Handle theme change
-     * @param {ChangeEvent<HTMLSelectElement>} event - The change event from the select element.
-     * @returns {void}
-     */
     const changeTheme = (event: ChangeEvent<HTMLSelectElement>): void => {
-        // The select options are restricted to the Theme union values above.
-        setTheme(event.target.value as Theme);
+        const value = event.target.value;
+        if (isTheme(value)) setTheme(value);
+    };
+    const changeLocale = (nextLocale: Language): void => {
+        const localizedUrl = buildLocalizedUrl(
+            window.location.pathname,
+            window.location.search,
+            window.location.hash,
+            nextLocale
+        );
+        if (localizedUrl) window.location.assign(localizedUrl);
     };
 
     return (
@@ -137,15 +142,9 @@ export function SettingsPage({
                                             ? 'primary'
                                             : 'secondary'
                                     }
-                                    onClick={() =>
-                                        (window.location.href =
-                                            window.location.pathname.replace(
-                                                /^\/(en|es)/,
-                                                '/es'
-                                            ))
-                                    }
+                                    onClick={() => changeLocale('es')}
                                 >
-                                    Español
+                                    {t.languageSpanish}
                                 </Button>
                                 <Button
                                     type="button"
@@ -154,15 +153,9 @@ export function SettingsPage({
                                             ? 'primary'
                                             : 'secondary'
                                     }
-                                    onClick={() =>
-                                        (window.location.href =
-                                            window.location.pathname.replace(
-                                                /^\/(en|es)/,
-                                                '/en'
-                                            ))
-                                    }
+                                    onClick={() => changeLocale('en')}
                                 >
-                                    English
+                                    {t.languageEnglish}
                                 </Button>
                             </div>
                         </div>
@@ -176,15 +169,31 @@ export function SettingsPage({
                                     name="sidebar"
                                     value="open"
                                     label={t.expanded}
-                                    checked={preferences.sidebar === 'open'}
-                                    onChange={() => update('sidebar', 'open')}
+                                    checked={
+                                        preferences.sidebarInitialState ===
+                                        'expanded'
+                                    }
+                                    onChange={() =>
+                                        update(
+                                            'sidebarInitialState',
+                                            'expanded'
+                                        )
+                                    }
                                 />
                                 <SettingsChoice
                                     name="sidebar"
                                     value="closed"
                                     label={t.collapsed}
-                                    checked={preferences.sidebar === 'closed'}
-                                    onChange={() => update('sidebar', 'closed')}
+                                    checked={
+                                        preferences.sidebarInitialState ===
+                                        'collapsed'
+                                    }
+                                    onChange={() =>
+                                        update(
+                                            'sidebarInitialState',
+                                            'collapsed'
+                                        )
+                                    }
                                 />
                             </div>
                         </div>
@@ -196,12 +205,17 @@ export function SettingsPage({
                             <label className="settings-switch">
                                 <input
                                     type="checkbox"
-                                    checked={preferences.motion}
+                                    checked={preferences.reduceMotion}
                                     onChange={event =>
-                                        update('motion', event.target.checked)
+                                        update(
+                                            'reduceMotion',
+                                            event.target.checked
+                                        )
                                     }
                                 />
-                                <span>{preferences.motion ? t.on : t.off}</span>
+                                <span>
+                                    {preferences.reduceMotion ? t.on : t.off}
+                                </span>
                             </label>
                         </div>
                     </section>
@@ -217,10 +231,13 @@ export function SettingsPage({
                                 <p>{t.historyHint}</p>
                             </div>
                             <select
-                                value={preferences.history}
-                                onChange={event =>
-                                    update('history', event.target.value)
-                                }
+                                value={preferences.defaultHistoryRange}
+                                onChange={event => {
+                                    const value = event.target.value;
+                                    if (isSettingValue(value, HISTORY_RANGES)) {
+                                        update('defaultHistoryRange', value);
+                                    }
+                                }}
                                 aria-label={t.history}
                             >
                                 <option value="1h">{t.lastHour}</option>
@@ -235,46 +252,21 @@ export function SettingsPage({
                                 <p>{t.landingHint}</p>
                             </div>
                             <select
-                                value={preferences.landing}
-                                onChange={event =>
-                                    update('landing', event.target.value)
-                                }
+                                value={preferences.landingPage}
+                                onChange={event => {
+                                    const value = event.target.value;
+                                    if (isSettingValue(value, LANDING_PAGES)) {
+                                        update('landingPage', value);
+                                    }
+                                }}
                                 aria-label={t.landing}
                             >
                                 <option value="dashboard">{t.dashboard}</option>
                                 <option value="devices">{t.devices}</option>
                             </select>
                         </div>
-                        <div className="settings-row">
-                            <div>
-                                <strong>{t.density}</strong>
-                                <p>{t.densityHint}</p>
-                            </div>
-                            <div className="settings-segmented">
-                                <SettingsChoice
-                                    name="density"
-                                    value="comfortable"
-                                    label={t.comfortable}
-                                    checked={
-                                        preferences.density === 'comfortable'
-                                    }
-                                    onChange={() =>
-                                        update('density', 'comfortable')
-                                    }
-                                />
-                                <SettingsChoice
-                                    name="density"
-                                    value="compact"
-                                    label={t.compact}
-                                    checked={preferences.density === 'compact'}
-                                    onChange={() =>
-                                        update('density', 'compact')
-                                    }
-                                />
-                            </div>
-                        </div>
                     </section>
-                    {/* Region - Timezone - Units - Time format */}
+                    {/* Region - Timezone - Time format */}
                     <section className="settings-card">
                         <header>
                             <h2>{t.region}</h2>
@@ -286,12 +278,20 @@ export function SettingsPage({
                                 <p>{t.timezoneHint}</p>
                             </div>
                             <select
-                                value={preferences.timezone}
+                                value={preferences.timeZone}
                                 onChange={event =>
-                                    update('timezone', event.target.value)
+                                    update('timeZone', event.target.value)
                                 }
                                 aria-label={t.timezone}
                             >
+                                {!isSettingValue(
+                                    preferences.timeZone,
+                                    TIME_ZONES
+                                ) && (
+                                    <option value={preferences.timeZone}>
+                                        {preferences.timeZone}
+                                    </option>
+                                )}
                                 <option value="America/Mexico_City">
                                     America/Mexico_City
                                 </option>
@@ -305,28 +305,6 @@ export function SettingsPage({
                         </div>
                         <div className="settings-row">
                             <div>
-                                <strong>{t.units}</strong>
-                                <p>{t.unitsHint}</p>
-                            </div>
-                            <div className="settings-segmented">
-                                <SettingsChoice
-                                    name="units"
-                                    value="metric"
-                                    label={t.metric}
-                                    checked={preferences.units === 'metric'}
-                                    onChange={() => update('units', 'metric')}
-                                />
-                                <SettingsChoice
-                                    name="units"
-                                    value="imperial"
-                                    label={t.imperial}
-                                    checked={preferences.units === 'imperial'}
-                                    onChange={() => update('units', 'imperial')}
-                                />
-                            </div>
-                        </div>
-                        <div className="settings-row">
-                            <div>
                                 <strong>{t.timeFormat}</strong>
                                 <p>{t.timeHint}</p>
                             </div>
@@ -335,15 +313,15 @@ export function SettingsPage({
                                     name="hours"
                                     value="12"
                                     label={t.hours12}
-                                    checked={preferences.hours === '12'}
-                                    onChange={() => update('hours', '12')}
+                                    checked={preferences.timeFormat === '12h'}
+                                    onChange={() => update('timeFormat', '12h')}
                                 />
                                 <SettingsChoice
                                     name="hours"
                                     value="24"
                                     label={t.hours24}
-                                    checked={preferences.hours === '24'}
-                                    onChange={() => update('hours', '24')}
+                                    checked={preferences.timeFormat === '24h'}
+                                    onChange={() => update('timeFormat', '24h')}
                                 />
                             </div>
                         </div>
@@ -363,9 +341,7 @@ export function SettingsPage({
                                 <Button
                                     type="button"
                                     variant="primary"
-                                    onClick={() =>
-                                        (window.location.href = `/${locale}/profile`)
-                                    }
+                                    onClick={() => redirectTo('/profile')}
                                 >
                                     {t.editProfile}
                                 </Button>
@@ -402,10 +378,10 @@ export function SettingsPage({
                             <div>
                                 <dt>{t.created}</dt>
                                 <dd>
-                                        {profile?.created_at
-                                            ? new Date(
-                                                  profile.created_at
-                                              ).toLocaleDateString(locale)
+                                    {profile?.created_at
+                                        ? new Date(
+                                              profile.created_at
+                                          ).toLocaleDateString(locale)
                                         : '—'}
                                 </dd>
                             </div>
@@ -436,6 +412,7 @@ export function SettingsPage({
                     getTranslation(locale).auth
                 )}
                 onSuccess={() => setPasswordOpen(false)}
+                onClose={() => setPasswordOpen(false)}
             />
             {/* Accessibility Note */}
             <span className="settings-a11y-note">

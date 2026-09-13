@@ -1,4 +1,4 @@
-import type { ChangeEvent, JSX } from "react";
+import type { ChangeEvent, JSX } from 'react';
 /**
  * @interface SettingsChoiceProps
  * @prop {string} name - The name of the setting.

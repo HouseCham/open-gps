@@ -376,6 +376,8 @@ export const es: Translation = {
         dark: 'Oscuro',
         language: 'Idioma',
         languageHint: 'Selecciona el idioma de la interfaz.',
+        languageEnglish: 'Inglés',
+        languageSpanish: 'Español',
         sidebarState: 'Estado inicial del menú lateral',
         sidebarHint:
             'Decide si el menú aparece abierto al entrar en la aplicación.',

@@ -367,6 +367,8 @@ export const en = {
         dark: 'Dark',
         language: 'Language',
         languageHint: 'Select the interface language.',
+        languageEnglish: 'English',
+        languageSpanish: 'Spanish',
         sidebarState: 'Sidebar initial state',
         sidebarHint:
             'Choose whether the menu opens expanded when you enter the application.',
