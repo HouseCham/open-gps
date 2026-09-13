@@ -383,6 +383,14 @@ export const en = {
             subtitle: 'Understand device activity, routes, and data quality.',
             eyebrow: 'Device analysis',
             refresh: 'Refresh report',
+            loading: 'Loading report data…',
+            retry: 'Retry',
+            noData: 'No data available',
+            loadError: 'Unable to load this section',
+            authorizedDevices: 'authorized devices',
+            estimated: 'Estimated',
+            longestGap: 'Longest reporting gap',
+            display: 'display',
             changeFilters: 'Change filters',
             updated: 'Report updated',
             filters: {
@@ -415,7 +423,14 @@ export const en = {
                 complete: 'Complete',
                 incomplete: 'Incomplete',
             },
-            vehicles: { van: 'Van', truck: 'Truck', motorcycle: 'Motorcycle' },
+            vehicles: {
+                bicycle: 'Bicycle',
+                motorcycle: 'Motorcycle',
+                car: 'Car',
+                truck: 'Truck',
+                van: 'Van',
+                other: 'Other',
+            },
             kpis: {
                 activity: 'Devices with activity',
                 points: 'Received points',
@@ -430,6 +445,7 @@ export const en = {
                 kilometers: 'km',
                 localTime: 'local time',
                 minutes: 'minutes',
+                speed: 'km/h',
                 pointsShort: 'points',
             },
             overview: {

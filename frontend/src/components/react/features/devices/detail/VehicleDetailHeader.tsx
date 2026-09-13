@@ -94,7 +94,11 @@ export function VehicleDetailHeader({
                     <span className="dd-sub-item">
                         <Clock3 size={12} />
                         {t.lastPing} {' - '}
-                        {formatRelativeTime(device.last_seen_at, locale, date)}
+                        {formatRelativeTime(
+                            device.last_contact_at,
+                            locale,
+                            date
+                        )}
                     </span>
                     <span className="dd-sub-item">
                         <Shield size={12} />

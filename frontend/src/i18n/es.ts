@@ -394,6 +394,14 @@ export const es: Translation = {
                 'Comprende la actividad, los recorridos y la calidad de los datos de tus dispositivos.',
             eyebrow: 'Análisis de dispositivos',
             refresh: 'Actualizar informe',
+            loading: 'Cargando datos del informe…',
+            retry: 'Reintentar',
+            noData: 'No hay datos disponibles',
+            loadError: 'No se pudo cargar esta sección',
+            authorizedDevices: 'dispositivos autorizados',
+            estimated: 'Estimado',
+            longestGap: 'Mayor interrupción de reportes',
+            display: 'visibles',
             changeFilters: 'Cambiar filtros',
             updated: 'Informe actualizado',
             filters: {
@@ -428,9 +436,12 @@ export const es: Translation = {
                 incomplete: 'Incompleto',
             },
             vehicles: {
-                van: 'Furgoneta',
-                truck: 'Camión',
+                bicycle: 'Bicicleta',
                 motorcycle: 'Motocicleta',
+                car: 'Automóvil',
+                truck: 'Camión',
+                van: 'Furgoneta',
+                other: 'Otro',
             },
             kpis: {
                 activity: 'Dispositivos con actividad',
@@ -446,6 +457,7 @@ export const es: Translation = {
                 kilometers: 'km',
                 localTime: 'hora local',
                 minutes: 'minutos',
+                speed: 'km/h',
                 pointsShort: 'puntos',
             },
             overview: {

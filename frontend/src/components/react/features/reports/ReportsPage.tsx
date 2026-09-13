@@ -1,142 +1,158 @@
 import '@/styles/reports.css';
-import { useState, type JSX, type ReactNode } from 'react';
-import { Download, Info, Activity } from 'lucide-react';
-import type { Translation } from '@/i18n';
+import { Download, Info, RefreshCw } from 'lucide-react';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type JSX,
+    type ReactNode,
+} from 'react';
+
 import { Button } from '@/components/react/ui/button';
+import { apiClient } from '@/lib/api/client';
+import { reportsService } from '@/lib/api/services/reportsService';
+import type { Translation } from '@/i18n';
+import type {
+    DeviceListResponse,
+    DeviceVehicleType,
+    Envelope,
+    DeviceWithAccess,
+} from '@/types/api';
+import type {
+    HealthReport,
+    OverviewReport,
+    QualityReport,
+    ReportFilter,
+    RoutesReport,
+} from '@/types/api/reports.types';
 
 interface ReportsPageProps {
     translations: Translation['page']['reports'];
 }
 
-type ReportsTranslations = Translation['page']['reports'];
-type ReportStatus = 'good' | 'review' | 'insufficient';
-
-interface DeviceReport {
-    name: string;
-    id: string;
-    type: 'van' | 'truck' | 'motorcycle';
-    points: string;
-    distance: string;
-    first: string;
-    last: string;
-    status: ReportStatus;
+interface SectionState<T> {
+    data: T | null;
+    loading: boolean;
+    error: string | null;
 }
 
-interface RouteReport {
-    name: string;
-    id: string;
-    time: string;
-    duration: string;
-    distance: string;
-    points: string;
-    interruption: boolean;
-}
+type Period = 'lastHour' | 'lastSixHours' | 'lastDay' | 'lastWeek' | 'custom';
 
-const DEVICES: DeviceReport[] = [
-    {
-        name: 'Van Madrid-01',
-        id: 'IMEI ··· 4521',
-        type: 'van',
-        points: '1,284',
-        distance: '342.8 km',
-        first: '08:14',
-        last: '14:32',
-        status: 'good',
-    },
-    {
-        name: 'Truck BCN-04',
-        id: 'IMEI ··· 9087',
-        type: 'truck',
-        points: '982',
-        distance: '287.4 km',
-        first: '08:03',
-        last: '14:28',
-        status: 'review',
-    },
-    {
-        name: 'Moto Malaga-02',
-        id: 'IMEI ··· 1134',
-        type: 'motorcycle',
-        points: '—',
-        distance: '—',
-        first: '—',
-        last: '—',
-        status: 'insufficient',
-    },
-];
-
-const ROUTES: RouteReport[] = [
-    {
-        name: 'Van Madrid-01',
-        id: '···4521',
-        time: '09:12 — 11:48',
-        duration: '2 h 36 min',
-        distance: '86.4 km',
-        points: '412',
-        interruption: true,
-    },
-    {
-        name: 'Truck BCN-04',
-        id: '···9087',
-        time: '10:04 — 12:16',
-        duration: '2 h 12 min',
-        distance: '61.7 km',
-        points: '308',
-        interruption: false,
-    },
-    {
-        name: 'Van Madrid-01',
-        id: '···4521',
-        time: '12:02 — 14:32',
-        duration: '2 h 30 min',
-        distance: '74.1 km',
-        points: '378',
-        interruption: false,
-    },
-];
-
-const PERIODS = [
+const PERIODS: Period[] = [
     'lastHour',
     'lastSixHours',
     'lastDay',
     'lastWeek',
     'custom',
-] as const;
-const STATUS_LABELS: Record<ReportStatus, keyof ReportsTranslations['status']> =
-    {
-        good: 'good',
-        review: 'review',
-        insufficient: 'insufficient',
-    };
+];
+const VEHICLE_TYPES: DeviceVehicleType[] = [
+    'bicycle',
+    'motorcycle',
+    'car',
+    'truck',
+    'van',
+    'other',
+];
+const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
-function StatusBadge({
-    status,
-    labels,
-}: {
-    status: ReportStatus;
-    labels: ReportsTranslations['status'];
-}): JSX.Element {
-    return (
-        <span className={`reports-status reports-status--${status}`}>
-            <span />
-            {labels[STATUS_LABELS[status]]}
-        </span>
-    );
+function isPeriod(value: string): value is Period {
+    switch (value) {
+        case 'lastHour':
+        case 'lastSixHours':
+        case 'lastDay':
+        case 'lastWeek':
+        case 'custom':
+            return true;
+        default:
+            return false;
+    }
 }
 
-function ReportCard({
+function isVehicleType(value: string): value is DeviceVehicleType {
+    switch (value) {
+        case 'bicycle':
+        case 'motorcycle':
+        case 'car':
+        case 'truck':
+        case 'van':
+        case 'other':
+            return true;
+        default:
+            return false;
+    }
+}
+
+function pad(value: number): string {
+    return String(value).padStart(2, '0');
+}
+
+function localInput(date: Date): string {
+    return [
+        date.getFullYear(),
+        '-',
+        pad(date.getMonth() + 1),
+        '-',
+        pad(date.getDate()),
+        'T',
+        pad(date.getHours()),
+        ':',
+        pad(date.getMinutes()),
+    ].join('');
+}
+
+function initialRange(): { from: string; to: string } {
+    const to = new Date();
+    const from = new Date(to.getTime() - 6 * 60 * 60 * 1000);
+    return { from: localInput(from), to: localInput(to) };
+}
+
+function apiDate(value: string): string {
+    return value.length === 16 ? `${value}:00` : value;
+}
+
+function formatNumber(value: number, digits = 1): string {
+    return new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: digits,
+    }).format(value);
+}
+
+function formatMetric(
+    value: number | null | undefined,
+    unit: string,
+    digits = 1
+): string {
+    return value == null ? '—' : `${formatNumber(value, digits)} ${unit}`;
+}
+
+function formatDate(value: string | null | undefined): string {
+    return value ? new Date(value).toLocaleString() : '—';
+}
+
+function sectionState<T>(): SectionState<T> {
+    return { data: null, loading: true, error: null };
+}
+
+interface SectionProps<T> {
+    state: SectionState<T>;
+    title: string;
+    description: string;
+    retry: () => void;
+    children: (data: T) => JSX.Element;
+    translations: ReportsPageProps['translations'];
+}
+
+function Card({
     title,
     description,
     children,
-    className = '',
 }: {
     title: string;
     description: string;
     children: ReactNode;
-    className?: string;
 }): JSX.Element {
     return (
-        <section className={`reports-card ${className}`}>
+        <section className="reports-card">
             <header className="reports-card__header">
                 <div>
                     <h2>{title}</h2>
@@ -148,634 +164,182 @@ function ReportCard({
     );
 }
 
-function Filters({
-    t,
-    onRefresh,
+function LoadingState({ label }: { label: string }): JSX.Element {
+    return (
+        <div className="reports-empty" aria-busy="true">
+            {label}
+        </div>
+    );
+}
+
+function ErrorState({
+    message,
+    retry,
+    label,
 }: {
-    t: ReportsTranslations;
-    onRefresh: () => void;
+    message: string;
+    retry: () => void;
+    label: string;
 }): JSX.Element {
-    const [period, setPeriod] =
-        useState<(typeof PERIODS)[number]>('lastSixHours');
-    const [from, setFrom] = useState('2026-09-11T08:00');
-    const [to, setTo] = useState('2026-09-11T14:32');
-    const [hasError, setHasError] = useState(false);
-    const periodLabels: Record<(typeof PERIODS)[number], string> = {
-        lastHour: t.filters.lastHour,
-        lastSixHours: t.filters.lastSixHours,
-        lastDay: t.filters.lastDay,
-        lastWeek: t.filters.lastWeek,
-        custom: t.filters.custom,
-    };
-    const submit = (): void => {
-        if (period === 'custom' && new Date(from) >= new Date(to)) {
-            setHasError(true);
-            return;
-        }
-        setHasError(false);
-        onRefresh();
-    };
     return (
-        <section className="reports-card reports-filters">
-            <div className="reports-filters__grid">
-                <label className="reports-field">
-                    {t.filters.period}
-                    <select
-                        value={period}
-                        onChange={event => {
-                            setPeriod(
-                                event.target.value as (typeof PERIODS)[number]
-                            );
-                            setHasError(false);
-                        }}
-                    >
-                        {PERIODS.map(value => (
-                            <option key={value} value={value}>
-                                {periodLabels[value]}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                {period === 'custom' ? (
-                    <div className="reports-date-fields">
-                        <label className="reports-field">
-                            {t.filters.from}
-                            <input
-                                type="datetime-local"
-                                value={from}
-                                onChange={event => setFrom(event.target.value)}
-                            />
-                        </label>
-                        <label className="reports-field">
-                            {t.filters.to}
-                            <input
-                                type="datetime-local"
-                                value={to}
-                                onChange={event => setTo(event.target.value)}
-                            />
-                        </label>
-                    </div>
-                ) : (
-                    <label className="reports-field">
-                        {t.filters.timezone}
-                        <select defaultValue="Europe/Madrid">
-                            <option>Europe/Madrid — Madrid</option>
-                            <option>America/Mexico_City — Mexico City</option>
-                            <option>America/Bogota — Bogotá</option>
-                        </select>
-                        <small>{t.filters.timezoneHint}</small>
-                    </label>
-                )}
-                <label className="reports-field">
-                    {t.filters.devices}
-                    <select defaultValue="selected">
-                        <option value="selected">
-                            {t.filters.selectedDevices}
-                        </option>
-                        <option>{t.filters.allDevices}</option>
-                    </select>
-                    <small>{t.filters.deviceHint}</small>
-                </label>
-                <label className="reports-field">
-                    {t.filters.vehicleType}
-                    <select defaultValue="all">
-                        <option value="all">{t.filters.allVehicleTypes}</option>
-                        <option>{t.vehicles.van}</option>
-                        <option>{t.vehicles.truck}</option>
-                        <option>{t.vehicles.motorcycle}</option>
-                    </select>
-                </label>
-                <Button variant="primary" onClick={submit}>
-                    {t.refresh}
-                </Button>
-            </div>
-            {hasError && (
-                <div className="reports-validation" role="alert">
-                    {t.filters.invalidDate}
-                </div>
-            )}
-            <footer className="reports-filters__footer">
-                <span>
-                    <Info size={14} />
-                    {t.filters.retentionNote}
-                </span>
-                <span className="reports-mono">
-                    {t.filters.lastUpdated} · 14:32:08
-                </span>
-            </footer>
-        </section>
+        <div className="reports-empty" role="alert">
+            <p>{message}</p>
+            <Button variant="ghost" size="sm" onClick={retry}>
+                <RefreshCw size={14} />
+                {label}
+            </Button>
+        </div>
     );
 }
 
-function Overview({ t }: { t: ReportsTranslations }): JSX.Element {
-    const kpis = [
-        [t.kpis.activity, '2', t.units.devices],
-        [t.kpis.points, '2,266', t.units.points],
-        [t.kpis.distance, '630.2', t.units.kilometers],
-        [t.kpis.lastReport, '14:32', t.units.localTime],
-        [t.kpis.mostActive, 'Van Madrid-01', `1,284 ${t.units.points}`],
-        [t.kpis.interruption, '18', t.units.minutes],
-    ];
+function ReportSection<T>({
+    state,
+    title,
+    description,
+    retry,
+    children,
+    translations: t,
+}: SectionProps<T>): JSX.Element {
+    if (state.loading) {
+        return (
+            <Card title={title} description={description}>
+                <LoadingState label={t.loading} />
+            </Card>
+        );
+    }
+
+    if (state.error || !state.data) {
+        return (
+            <Card title={title} description={description}>
+                <ErrorState
+                    message={state.error ?? t.noData}
+                    retry={retry}
+                    label={t.retry}
+                />
+            </Card>
+        );
+    }
+
     return (
-        <ReportCard
-            title={t.overview.title}
-            description={t.overview.description}
-        >
-            <div className="reports-kpis">
-                {kpis.map(([label, value, hint]) => (
-                    <div className="reports-kpi" key={label}>
-                        <span>{label}</span>
-                        <strong>
-                            {value} <small>{hint}</small>
-                        </strong>
-                        <em>{t.filters.lastSixHours}</em>
-                    </div>
-                ))}
-            </div>
-            <div className="reports-card__body">
-                <div className="reports-section-heading">
-                    <div>
-                        <h3>{t.overview.activityTitle}</h3>
-                        <p>{t.overview.activityDescription}</p>
-                    </div>
-                    <span className="reports-mono">
-                        {t.overview.receivedPoints}
-                    </span>
-                </div>
-                <div className="reports-chart-layout">
-                    <div>
-                        <div className="reports-legend">
-                            <span>
-                                <i />
-                                Van Madrid-01
-                            </span>
-                            <span>
-                                <i className="reports-legend__alt" />
-                                Truck BCN-04
-                            </span>
-                        </div>
-                        <div
-                            className="reports-chart"
-                            aria-label={t.overview.activityTitle}
-                        >
-                            <svg
-                                viewBox="0 0 700 190"
-                                preserveAspectRatio="none"
-                            >
-                                <path
-                                    d="M0 164 L110 145 L220 126 L330 88 L440 112 L550 52 L700 30"
-                                    fill="none"
-                                    stroke="var(--accent)"
-                                    strokeWidth="2"
-                                />
-                                <path
-                                    d="M0 178 L110 168 L220 149 L330 131 L440 146 L550 108 L700 94"
-                                    fill="none"
-                                    stroke="var(--success)"
-                                    strokeWidth="2"
-                                    strokeDasharray="4 4"
-                                />
-                            </svg>
-                        </div>
-                        <div className="reports-chart__axis">
-                            <span>08:00</span>
-                            <span>10:00</span>
-                            <span>12:00</span>
-                            <span>14:00</span>
-                        </div>
-                    </div>
-                    <aside className="reports-chart-summary">
-                        <h3>{t.overview.quickRead}</h3>
-                        <p>
-                            {t.overview.peakActivity}
-                            <strong>13:00</strong>
-                        </p>
-                        <p>
-                            {t.overview.totalPerHour}
-                            <strong>377</strong>
-                        </p>
-                        <p>
-                            {t.overview.activeDevices}
-                            <strong>2 / 3</strong>
-                        </p>
-                    </aside>
-                </div>
-            </div>
-            <div className="reports-card__body reports-card__body--border">
-                <div className="reports-section-heading">
-                    <div>
-                        <h3>{t.overview.devicesWithActivity}</h3>
-                        <p>{t.overview.devicesDescription}</p>
-                    </div>
-                    <Button variant="ghost" size="sm">
-                        {t.overview.viewAll}
-                    </Button>
-                </div>
-                <div className="reports-table-wrap">
-                    <table className="reports-table">
-                        <thead>
-                            <tr>
-                                {[
-                                    t.overview.device,
-                                    t.overview.vehicle,
-                                    t.overview.points,
-                                    t.overview.distance,
-                                    t.overview.firstReport,
-                                    t.overview.lastReport,
-                                    t.overview.continuity,
-                                ].map(label => (
-                                    <th key={label}>{label}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {DEVICES.map(device => (
-                                <tr key={device.name}>
-                                    <td>
-                                        <strong>{device.name}</strong>
-                                        <small>{device.id}</small>
-                                    </td>
-                                    <td>{t.vehicles[device.type]}</td>
-                                    <td className="reports-mono">
-                                        {device.points}
-                                    </td>
-                                    <td className="reports-mono">
-                                        {device.distance}
-                                    </td>
-                                    <td className="reports-mono">
-                                        {device.first}
-                                    </td>
-                                    <td className="reports-mono">
-                                        {device.last}
-                                    </td>
-                                    <td>
-                                        <StatusBadge
-                                            status={device.status}
-                                            labels={t.status}
-                                        />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </ReportCard>
+        <Card title={title} description={description}>
+            {children(state.data)}
+        </Card>
     );
 }
 
-function Routes({ t }: { t: ReportsTranslations }): JSX.Element {
-    const [selected, setSelected] = useState(0);
-    const route = ROUTES[selected];
-    return (
-        <ReportCard
-            title={t.routes.title}
-            description={t.routes.description}
-            className="reports-routes"
-        >
-            <div className="reports-card__body">
-                <div className="reports-disclaimer">
-                    <Info size={14} />
-                    {t.routes.disclaimer}
-                </div>
-                <div className="reports-route-grid">
-                    <div className="reports-route-list">
-                        {ROUTES.map((item, index) => (
-                            <button
-                                className={
-                                    selected === index ? 'is-selected' : ''
-                                }
-                                key={`${item.name}-${item.time}`}
-                                onClick={() => setSelected(index)}
-                                aria-pressed={selected === index}
-                            >
-                                <span>
-                                    <strong>{item.name}</strong>
-                                    <small>
-                                        {item.id} · {item.time}
-                                    </small>
-                                </span>
-                                <span>
-                                    {item.duration}
-                                    <small>{item.distance}</small>
-                                </span>
-                                <span>{item.points} pts</span>
-                                <b>{t.routes.viewRoute}</b>
-                            </button>
-                        ))}
-                    </div>
-                    <div className="reports-route-detail">
-                        <div className="reports-detail-heading">
-                            <div>
-                                <h3>{route.name}</h3>
-                                <small>
-                                    {t.routes.selectedRoute} · {route.time}
-                                </small>
-                            </div>
-                            <StatusBadge status="good" labels={t.status} />
-                        </div>
-                        <div className="reports-map">
-                            <span className="reports-map__line" />
-                            <span className="reports-map__marker reports-map__marker--start" />
-                            <span className="reports-map__marker reports-map__marker--end" />
-                        </div>
-                        <div className="reports-detail-grid">
-                            {[
-                                [t.routes.duration, route.duration],
-                                [t.routes.distance, route.distance],
-                                [t.routes.averageSpeed, '32.6 km/h'],
-                                [t.routes.maximumSpeed, '78.4 km/h'],
-                                [t.routes.routePoints, route.points],
-                                [t.routes.coordinates, '40.4168, -3.7038'],
-                            ].map(([label, value]) => (
-                                <p key={label}>
-                                    <small>{label}</small>
-                                    <strong>{value}</strong>
-                                </p>
-                            ))}
-                        </div>
-                        <div className="reports-notice">
-                            {t.routes.simplified}
-                        </div>
-                        {route.interruption && (
-                            <div className="reports-notice reports-notice--warning">
-                                {t.routes.interruption}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </ReportCard>
-    );
-}
-
-function Health({ t }: { t: ReportsTranslations }): JSX.Element {
-    const [metric, setMetric] = useState<'battery' | 'signal' | 'gps'>(
-        'battery'
-    );
-    const metrics = [
-        ['12.4 V', '12.6 V', '22 CSQ', '8 m', '1,284'],
-        ['11.9 V', '12.1 V', '15 CSQ', '14 m', '982'],
-        ['—', '—', '—', '—', '—'],
-    ];
-    const metricLabels = {
-        battery: t.health.batteryMetric,
-        signal: t.health.signalMetric,
-        gps: t.health.gpsMetric,
-    };
-    return (
-        <ReportCard title={t.health.title} description={t.health.description}>
-            <div className="reports-card__body">
-                <div className="reports-health-grid">
-                    {DEVICES.map((device, index) => (
-                        <article
-                            className="reports-health-card"
-                            key={device.name}
-                        >
-                            <header>
-                                <strong>{device.name}</strong>
-                                <small>
-                                    {index === 2
-                                        ? t.health.noOptionalTelemetry
-                                        : t.health.recentContact}
-                                </small>
-                                <StatusBadge
-                                    status={
-                                        index === 2 ? 'insufficient' : 'good'
-                                    }
-                                    labels={t.status}
-                                />
-                            </header>
-                            <div className="reports-health-metrics">
-                                {[
-                                    [
-                                        t.health.lastContact,
-                                        index === 2 ? '—' : device.last,
-                                    ],
-                                    [
-                                        t.health.battery,
-                                        metrics[index]?.[0] ?? '—',
-                                    ],
-                                    [
-                                        t.health.averageBattery,
-                                        metrics[index]?.[1] ?? '—',
-                                    ],
-                                    [
-                                        t.health.signal,
-                                        metrics[index]?.[2] ?? '—',
-                                    ],
-                                    [
-                                        t.health.gpsAccuracy,
-                                        metrics[index]?.[3] ?? '—',
-                                    ],
-                                    [
-                                        t.health.reports,
-                                        metrics[index]?.[4] ?? '—',
-                                    ],
-                                ].map(([label, value]) => (
-                                    <p key={label}>
-                                        <small>{label}</small>
-                                        <strong
-                                            className={
-                                                index === 2
-                                                    ? 'reports-no-data'
-                                                    : ''
-                                            }
-                                        >
-                                            {value}
-                                        </strong>
-                                    </p>
-                                ))}
-                            </div>
-                        </article>
-                    ))}
-                </div>
-            </div>
-            <div className="reports-card__body reports-card__body--border">
-                <div className="reports-section-heading">
-                    <div>
-                        <h3>{t.health.telemetryTrend}</h3>
-                        <p>{t.health.trendDescription}</p>
-                    </div>
-                    <div className="reports-metric-switch">
-                        {(['battery', 'signal', 'gps'] as const).map(value => (
-                            <button
-                                className={metric === value ? 'is-active' : ''}
-                                key={value}
-                                onClick={() => setMetric(value)}
-                                aria-pressed={metric === value}
-                            >
-                                {metricLabels[value]}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-                <div className="reports-trend-layout">
-                    <div>
-                        <div className="reports-trend">
-                            <svg
-                                viewBox="0 0 760 150"
-                                preserveAspectRatio="none"
-                            >
-                                <path
-                                    d="M0 98 L95 72 L190 81 L285 42 L380 58 M475 92 L570 76 L665 34 L760 50"
-                                    fill="none"
-                                    stroke="var(--accent)"
-                                    strokeWidth="2"
-                                />
-                            </svg>
-                        </div>
-                        <div className="reports-trend__meta">
-                            <span>08:00</span>
-                            <span>{metricLabels[metric]}</span>
-                            <span>14:00</span>
-                        </div>
-                    </div>
-                    <div className="reports-empty">
-                        <strong>{t.health.trendReading}</strong>
-                        {t.health.trendSummary}
-                    </div>
-                </div>
-            </div>
-        </ReportCard>
-    );
-}
-
-function Quality({ t }: { t: ReportsTranslations }): JSX.Element {
-    const summary = [
-        [t.quality.averageInterval, '32 s', t.quality.period],
-        [t.quality.largestInterruption, '18 min', 'Truck BCN-04'],
-        [t.quality.incompleteRecords, '6.2%', t.quality.optionalMissing],
-        [t.quality.coordinateJumps, '3', t.quality.requiresReview],
-    ];
-    return (
-        <ReportCard title={t.quality.title} description={t.quality.description}>
-            <div className="reports-card__body">
-                <div className="reports-quality-grid">
-                    {summary.map(([label, value, hint]) => (
-                        <p key={label}>
-                            <span>{label}</span>
-                            <strong>{value}</strong>
-                            <small>{hint}</small>
-                        </p>
-                    ))}
-                </div>
-                <div className="reports-disclaimer reports-disclaimer--wide">
-                    <Info size={14} />
-                    {t.quality.continuityDisclaimer}
-                </div>
-                <div className="reports-table-wrap reports-quality-table">
-                    <table className="reports-table">
-                        <thead>
-                            <tr>
-                                <th>{t.overview.device}</th>
-                                <th>{t.overview.points}</th>
-                                <th>{t.quality.averageInterval}</th>
-                                <th>{t.quality.largestInterruption}</th>
-                                <th>{t.quality.incompleteRecords}</th>
-                                <th>{t.quality.quality}</th>
-                                <th>{t.quality.state}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {DEVICES.map((device, index) => (
-                                <tr key={device.name}>
-                                    <td>
-                                        <strong>{device.name}</strong>
-                                        <small>{device.id}</small>
-                                    </td>
-                                    <td className="reports-mono">
-                                        {device.points}
-                                    </td>
-                                    <td className="reports-mono">
-                                        {index === 0
-                                            ? '32 s'
-                                            : index === 1
-                                              ? '41 s'
-                                              : '—'}
-                                    </td>
-                                    <td className="reports-mono">
-                                        {index === 0
-                                            ? '4 min'
-                                            : index === 1
-                                              ? '18 min'
-                                              : '—'}
-                                    </td>
-                                    <td className="reports-mono">
-                                        {index === 0
-                                            ? '98.4%'
-                                            : index === 1
-                                              ? '91.7%'
-                                              : '—'}
-                                    </td>
-                                    <td>
-                                        {index === 0
-                                            ? t.status.good
-                                            : index === 1
-                                              ? t.status.review
-                                              : t.status.insufficient}
-                                    </td>
-                                    <td>
-                                        <StatusBadge
-                                            status={device.status}
-                                            labels={t.status}
-                                        />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </ReportCard>
-    );
-}
-
-function ExportBar({ t }: { t: ReportsTranslations }): JSX.Element {
-    const [message, setMessage] = useState('');
-    const exportReport = (format: 'CSV' | 'GPX'): void => {
-        setMessage(t.export.preparing.replace('{type}', format));
-        window.setTimeout(() => setMessage(t.export.ready), 900);
-    };
-    return (
-        <section className="reports-export">
-            <div>
-                <strong>{t.export.title}</strong>
-                <p>{message || t.export.description}</p>
-            </div>
-            <div>
-                <Button
-                    variant="secondary"
-                    icon={<Download size={14} />}
-                    onClick={() => exportReport('CSV')}
-                >
-                    {t.export.csv}
-                </Button>
-                <Button
-                    variant="secondary"
-                    icon={<Download size={14} />}
-                    onClick={() => exportReport('GPX')}
-                >
-                    {t.export.gpx}
-                </Button>
-            </div>
-        </section>
-    );
-}
-
-/**
- * Reports page design preview. Data and actions are intentionally local until the reporting API is defined.
- * @param props - Locale and translated labels used by the feature.
- * @returns The reports page island.
- */
 export function ReportsPage({
     translations: t,
 }: ReportsPageProps): JSX.Element {
-    const [updated, setUpdated] = useState(false);
-    const refresh = (): void => {
-        setUpdated(true);
-        window.setTimeout(() => setUpdated(false), 2600);
-    };
+    const range = useMemo(initialRange, []);
+    const [period, setPeriod] = useState<Period>('lastSixHours');
+    const [from, setFrom] = useState(range.from);
+    const [to, setTo] = useState(range.to);
+    const [deviceIds, setDeviceIds] = useState<string[]>([]);
+    const [vehicleType, setVehicleType] = useState<DeviceVehicleType | ''>('');
+    const [devices, setDevices] = useState<DeviceWithAccess[]>([]);
+    const [validationError, setValidationError] = useState<string | null>(null);
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [overview, setOverview] =
+        useState<SectionState<OverviewReport>>(sectionState);
+    const [routes, setRoutes] =
+        useState<SectionState<RoutesReport>>(sectionState);
+    const [health, setHealth] =
+        useState<SectionState<HealthReport>>(sectionState);
+    const [quality, setQuality] =
+        useState<SectionState<QualityReport>>(sectionState);
+
+    const filter = useMemo<ReportFilter>(
+        () => ({
+            from: apiDate(from),
+            to: apiDate(to),
+            timeZone: TIME_ZONE,
+            deviceIds,
+            vehicleType: vehicleType || undefined,
+        }),
+        [deviceIds, from, to, vehicleType]
+    );
+
+    const loadSection = useCallback(
+        async <T,>(
+            request: Promise<T>,
+            update: (state: SectionState<T>) => void
+        ): Promise<void> => {
+            try {
+                update({ data: await request, loading: false, error: null });
+            } catch (error: unknown) {
+                const message =
+                    error instanceof Error ? error.message : t.loadError;
+                update({ data: null, loading: false, error: message });
+            }
+        },
+        [t.loadError]
+    );
+
+    const load = useCallback(
+        async (current: ReportFilter): Promise<void> => {
+            setOverview({ data: null, loading: true, error: null });
+            setRoutes({ data: null, loading: true, error: null });
+            setHealth({ data: null, loading: true, error: null });
+            setQuality({ data: null, loading: true, error: null });
+            await Promise.all([
+                loadSection(reportsService.overview(current), setOverview),
+                loadSection(reportsService.routes(current), setRoutes),
+                loadSection(reportsService.health(current), setHealth),
+                loadSection(reportsService.quality(current), setQuality),
+            ]);
+        },
+        [loadSection]
+    );
+
+    useEffect(() => {
+        void apiClient<Envelope<DeviceListResponse>>('/devices', {
+            method: 'GET',
+            query: { page: 1, page_size: 100 },
+        })
+            .then(result => setDevices(result.data?.data.items ?? []))
+            .catch(() => setDevices([]));
+    }, []);
+
+    useEffect(() => {
+        void load(filter);
+    }, [filter, load, refreshKey]);
+
+    function applyPeriod(value: Period): void {
+        setPeriod(value);
+        if (value === 'custom') {
+            return;
+        }
+
+        const end = new Date();
+        const hours = {
+            lastHour: 1,
+            lastSixHours: 6,
+            lastDay: 24,
+            lastWeek: 168,
+        }[value];
+        setFrom(localInput(new Date(end.getTime() - hours * 60 * 60 * 1000)));
+        setTo(localInput(end));
+    }
+
+    function refresh(): void {
+        if (new Date(from) >= new Date(to)) {
+            setValidationError(t.filters.invalidDate);
+            return;
+        }
+        setValidationError(null);
+        setRefreshKey(value => value + 1);
+    }
+
+    function toggleDevice(id: string): void {
+        setDeviceIds(current =>
+            current.includes(id)
+                ? current.filter(value => value !== id)
+                : [...current, id]
+        );
+    }
+
+    const retry = (): void => setRefreshKey(value => value + 1);
+
     return (
         <div className="reports-page">
             <header className="reports-page__header">
@@ -784,24 +348,490 @@ export function ReportsPage({
                     <h1>{t.title}</h1>
                     <p>{t.subtitle}</p>
                 </div>
-                <Button variant="secondary" onClick={() => setUpdated(true)}>
-                    {t.changeFilters}
-                </Button>
             </header>
             <div className="reports-stack">
-                <Filters t={t} onRefresh={refresh} />
-                <Overview t={t} />
-                <Routes t={t} />
-                <Health t={t} />
-                <Quality t={t} />
-                <ExportBar t={t} />
+                <Filters
+                    devices={devices}
+                    deviceIds={deviceIds}
+                    from={from}
+                    period={period}
+                    to={to}
+                    validationError={validationError}
+                    vehicleType={vehicleType}
+                    translations={t}
+                    onApplyPeriod={applyPeriod}
+                    onDeviceToggle={toggleDevice}
+                    onFromChange={value => {
+                        setPeriod('custom');
+                        setFrom(value);
+                    }}
+                    onRefresh={refresh}
+                    onToChange={value => {
+                        setPeriod('custom');
+                        setTo(value);
+                    }}
+                    onVehicleTypeChange={setVehicleType}
+                />
+                <ReportSection
+                    state={overview}
+                    title={t.overview.title}
+                    description={t.overview.description}
+                    retry={retry}
+                    translations={t}
+                >
+                    {data => <OverviewContent data={data} translations={t} />}
+                </ReportSection>
+                <ReportSection
+                    state={routes}
+                    title={t.routes.title}
+                    description={t.routes.description}
+                    retry={retry}
+                    translations={t}
+                >
+                    {data => <RoutesContent data={data} translations={t} />}
+                </ReportSection>
+                <ReportSection
+                    state={health}
+                    title={t.health.title}
+                    description={t.health.description}
+                    retry={retry}
+                    translations={t}
+                >
+                    {data => <HealthContent data={data} translations={t} />}
+                </ReportSection>
+                <ReportSection
+                    state={quality}
+                    title={t.quality.title}
+                    description={t.quality.description}
+                    retry={retry}
+                    translations={t}
+                >
+                    {data => <QualityContent data={data} translations={t} />}
+                </ReportSection>
+                <ExportActions filter={filter} translations={t} />
             </div>
-            {updated && (
-                <div className="reports-toast" role="status">
-                    <Activity size={14} />
-                    {t.updated}
+        </div>
+    );
+}
+
+interface FiltersProps {
+    devices: DeviceWithAccess[];
+    deviceIds: string[];
+    from: string;
+    period: Period;
+    to: string;
+    validationError: string | null;
+    vehicleType: DeviceVehicleType | '';
+    translations: ReportsPageProps['translations'];
+    onApplyPeriod: (period: Period) => void;
+    onDeviceToggle: (id: string) => void;
+    onFromChange: (value: string) => void;
+    onRefresh: () => void;
+    onToChange: (value: string) => void;
+    onVehicleTypeChange: (value: DeviceVehicleType | '') => void;
+}
+
+function Filters({
+    devices,
+    deviceIds,
+    from,
+    period,
+    to,
+    validationError,
+    vehicleType,
+    translations: t,
+    onApplyPeriod,
+    onDeviceToggle,
+    onFromChange,
+    onRefresh,
+    onToChange,
+    onVehicleTypeChange,
+}: FiltersProps): JSX.Element {
+    return (
+        <section className="reports-card reports-filters">
+            <div className="reports-filters__grid">
+                <label className="reports-field">
+                    {t.filters.period}
+                    <select
+                        value={period}
+                        onChange={event => {
+                            if (isPeriod(event.target.value))
+                                onApplyPeriod(event.target.value);
+                        }}
+                    >
+                        {PERIODS.map(value => (
+                            <option key={value} value={value}>
+                                {t.filters[value]}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label className="reports-field">
+                    {t.filters.timezone}
+                    <input value={TIME_ZONE} readOnly />
+                    <small>{t.filters.timezoneHint}</small>
+                </label>
+                <label className="reports-field">
+                    {t.filters.from}
+                    <input
+                        type="datetime-local"
+                        value={from}
+                        onChange={event => onFromChange(event.target.value)}
+                    />
+                </label>
+                <label className="reports-field">
+                    {t.filters.to}
+                    <input
+                        type="datetime-local"
+                        value={to}
+                        onChange={event => onToChange(event.target.value)}
+                    />
+                </label>
+                <label className="reports-field">
+                    {t.filters.vehicleType}
+                    <select
+                        value={vehicleType}
+                        onChange={event =>
+                            onVehicleTypeChange(
+                                isVehicleType(event.target.value)
+                                    ? event.target.value
+                                    : ''
+                            )
+                        }
+                    >
+                        <option value="">{t.filters.allVehicleTypes}</option>
+                        {VEHICLE_TYPES.map(value => (
+                            <option key={value} value={value}>
+                                {t.vehicles[value]}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <fieldset className="reports-field">
+                    <legend>{t.filters.devices}</legend>
+                    <div className="reports-device-options">
+                        {devices.map(device => (
+                            <label key={device.id}>
+                                <input
+                                    type="checkbox"
+                                    checked={deviceIds.includes(device.id)}
+                                    onChange={() => onDeviceToggle(device.id)}
+                                />
+                                {device.name}
+                            </label>
+                        ))}
+                    </div>
+                </fieldset>
+                <Button variant="primary" onClick={onRefresh}>
+                    <RefreshCw size={14} />
+                    {t.refresh}
+                </Button>
+            </div>
+            {validationError && (
+                <div className="reports-validation" role="alert">
+                    {validationError}
                 </div>
             )}
+            <footer className="reports-filters__footer">
+                <span>
+                    <Info size={14} />
+                    {t.filters.retentionNote}
+                </span>
+                <span>
+                    {deviceIds.length || devices.length} {t.authorizedDevices}
+                </span>
+            </footer>
+        </section>
+    );
+}
+
+function OverviewContent({
+    data,
+    translations: t,
+}: {
+    data: OverviewReport;
+    translations: ReportsPageProps['translations'];
+}): JSX.Element {
+    return (
+        <>
+            <div className="reports-kpis">
+                <Kpi
+                    label={t.kpis.activity}
+                    value={String(data.device_count)}
+                    unit={t.units.devices}
+                />
+                <Kpi
+                    label={t.kpis.points}
+                    value={String(data.point_count)}
+                    unit={t.units.points}
+                />
+                <Kpi
+                    label={t.kpis.distance}
+                    value={formatMetric(
+                        data.estimated_distance_km,
+                        t.units.kilometers
+                    )}
+                    unit={t.estimated}
+                />
+                <Kpi
+                    label={t.kpis.interruption}
+                    value={formatMetric(
+                        data.longest_gap_seconds / 60,
+                        t.units.minutes
+                    )}
+                    unit={t.longestGap}
+                />
+            </div>
+            <Table>
+                <thead>
+                    <tr>
+                        <th>{t.overview.device}</th>
+                        <th>{t.overview.points}</th>
+                        <th>{t.overview.distance}</th>
+                        <th>{t.overview.firstReport}</th>
+                        <th>{t.overview.lastReport}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {data.devices.map(item => (
+                        <tr key={item.device.id}>
+                            <td>
+                                <strong>{item.device.name}</strong>
+                                <small>{item.device.vehicle_type}</small>
+                            </td>
+                            <td>{item.point_count}</td>
+                            <td>
+                                {formatMetric(
+                                    item.estimated_distance_km,
+                                    t.units.kilometers
+                                )}
+                            </td>
+                            <td>{formatDate(item.first_report)}</td>
+                            <td>{formatDate(item.latest_report)}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </Table>
+        </>
+    );
+}
+
+function RoutesContent({
+    data,
+    translations: t,
+}: {
+    data: RoutesReport;
+    translations: ReportsPageProps['translations'];
+}): JSX.Element {
+    return (
+        <>
+            <div className="reports-card__body">
+                <div className="reports-disclaimer">
+                    <Info size={14} />
+                    {t.routes.disclaimer}
+                </div>
+            </div>
+            <Table>
+                <thead>
+                    <tr>
+                        <th>{t.overview.device}</th>
+                        <th>{t.routes.duration}</th>
+                        <th>{t.routes.distance}</th>
+                        <th>{t.routes.averageSpeed}</th>
+                        <th>{t.routes.routePoints}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {data.routes.map(route => (
+                        <tr key={`${route.device.id}-${route.started_at}`}>
+                            <td>{route.device.name}</td>
+                            <td>
+                                {formatMetric(
+                                    route.duration_seconds / 60,
+                                    t.units.minutes
+                                )}
+                            </td>
+                            <td>
+                                {formatMetric(
+                                    route.distance_km,
+                                    t.units.kilometers
+                                )}
+                            </td>
+                            <td>
+                                {formatMetric(
+                                    route.average_speed_kph,
+                                    t.units.speed
+                                )}
+                            </td>
+                            <td>
+                                {route.complete_point_count}{' '}
+                                <small>
+                                    ({route.returned_point_count} {t.display})
+                                </small>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </Table>
+        </>
+    );
+}
+
+function HealthContent({
+    data,
+    translations: t,
+}: {
+    data: HealthReport;
+    translations: ReportsPageProps['translations'];
+}): JSX.Element {
+    return (
+        <Table>
+            <thead>
+                <tr>
+                    <th>{t.overview.device}</th>
+                    <th>{t.health.battery}</th>
+                    <th>{t.health.averageBattery}</th>
+                    <th>{t.health.signal}</th>
+                    <th>{t.health.gpsAccuracy}</th>
+                    <th>{t.health.reports}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {data.devices.map(device => (
+                    <tr key={device.device.id}>
+                        <td>{device.device.name}</td>
+                        <td>
+                            {formatMetric(device.battery_voltage.latest, 'V')}
+                        </td>
+                        <td>
+                            {formatMetric(device.battery_voltage.average, 'V')}
+                        </td>
+                        <td>
+                            {device.signal_strength.latest == null
+                                ? '—'
+                                : `${device.signal_strength.latest} CSQ`}
+                        </td>
+                        <td>
+                            {formatMetric(device.gps_accuracy.average, 'm')}
+                        </td>
+                        <td>{device.point_count}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </Table>
+    );
+}
+
+function QualityContent({
+    data,
+    translations: t,
+}: {
+    data: QualityReport;
+    translations: ReportsPageProps['translations'];
+}): JSX.Element {
+    return (
+        <>
+            <div className="reports-card__body">
+                <div className="reports-disclaimer">
+                    <Info size={14} />
+                    {t.quality.continuityDisclaimer}
+                </div>
+            </div>
+            <Table>
+                <thead>
+                    <tr>
+                        <th>{t.overview.device}</th>
+                        <th>{t.overview.points}</th>
+                        <th>{t.quality.averageInterval}</th>
+                        <th>{t.quality.largestInterruption}</th>
+                        <th>{t.quality.coordinateJumps}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {data.devices.map(device => (
+                        <tr key={device.device.id}>
+                            <td>{device.device.name}</td>
+                            <td>{device.point_count}</td>
+                            <td>
+                                {formatMetric(
+                                    device.average_interval_seconds,
+                                    's'
+                                )}
+                            </td>
+                            <td>
+                                {formatMetric(
+                                    device.longest_gap_seconds / 60,
+                                    t.units.minutes
+                                )}
+                            </td>
+                            <td>{device.jump_count}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </Table>
+        </>
+    );
+}
+
+function Kpi({
+    label,
+    value,
+    unit,
+}: {
+    label: string;
+    value: string;
+    unit: string;
+}): JSX.Element {
+    return (
+        <div className="reports-kpi">
+            <span>{label}</span>
+            <strong>{value}</strong>
+            <small>{unit}</small>
         </div>
+    );
+}
+
+function Table({ children }: { children: ReactNode }): JSX.Element {
+    return (
+        <div className="reports-card__body">
+            <div className="reports-table-wrap">
+                <table className="reports-table">{children}</table>
+            </div>
+        </div>
+    );
+}
+
+function ExportActions({
+    filter,
+    translations: t,
+}: {
+    filter: ReportFilter;
+    translations: ReportsPageProps['translations'];
+}): JSX.Element {
+    return (
+        <section className="reports-export">
+            <div>
+                <strong>{t.export.title}</strong>
+                <p>{t.export.description}</p>
+            </div>
+            <div>
+                <a
+                    className="btn btn--secondary"
+                    href={reportsService.exportUrl(filter, 'csv')}
+                    download
+                >
+                    <Download size={14} />
+                    {t.export.csv}
+                </a>
+                <a
+                    className="btn btn--secondary"
+                    href={reportsService.exportUrl(filter, 'gpx')}
+                    download
+                >
+                    <Download size={14} />
+                    {t.export.gpx}
+                </a>
+            </div>
+        </section>
     );
 }
