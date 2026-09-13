@@ -67,9 +67,9 @@ var validationFields = map[string]string{
 	"UpdatedAt": "updated at",
 
 	/* ===== Device ===== */
-	"UuidFirmware": "firmware uuid",
-	"Name":         "name",
-	"LastSeenAt":   "last seen at",
+	"UuidFirmware":  "firmware uuid",
+	"Name":          "name",
+	"LastContactAt": "last contact at",
 
 	/* ===== Access ===== */
 	"UserID":   "user id",

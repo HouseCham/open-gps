@@ -10,6 +10,12 @@
 
 ---
 
+## OpenGPS reports conventions
+
+The reports feature follows `docs/engineering/code-quality.md` and the Hermes `open-gps-code-conventions` skill.
+
+---
+
 ## ALL FILES
 
 REJECT if:

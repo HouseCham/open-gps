@@ -26,6 +26,7 @@ type RouterDeps struct {
 	AccessHandler        *handlers.AccessHandler
 	APIKeysHandler       *handlers.APIKeysHandler
 	LocationsHandler     *handlers.LocationsHandler
+	ReportsHandler       *handlers.ReportsHandler
 	EmailHandler         *handlers.EmailHandler
 	PasswordResetHandler *handlers.PasswordResetHandler
 	BootstrapHandler     *handlers.BootstrapHandler
@@ -251,6 +252,14 @@ func NewRouter(deps RouterDeps) *fiber.App {
 		middleware.RequireDeviceRole(domain.AccessRoleViewer, deps.AccessService),
 		deps.LocationsHandler.Latest,
 	)
+
+	// === Reports routes ===
+	reports := apiV1.Group("/reports")
+	reports.Get("/overview", authSession, requirePasswordChanged, deps.ReportsHandler.Overview)
+	reports.Get("/routes", authSession, requirePasswordChanged, deps.ReportsHandler.Routes)
+	reports.Get("/health", authSession, requirePasswordChanged, deps.ReportsHandler.Health)
+	reports.Get("/data-quality", authSession, requirePasswordChanged, deps.ReportsHandler.Quality)
+	reports.Get("/export", authSession, requirePasswordChanged, deps.ReportsHandler.Export)
 
 	// === Users routes ===
 	users := apiV1.Group("/users")

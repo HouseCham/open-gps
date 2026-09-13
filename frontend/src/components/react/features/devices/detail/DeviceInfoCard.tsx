@@ -76,7 +76,7 @@ export function DeviceInfoCard({
         },
         {
             label: t.info.lastSeen,
-            value: formatRelativeTime(device.last_seen_at, locale, date),
+            value: formatRelativeTime(device.last_contact_at, locale, date),
         },
     ];
 

@@ -18,7 +18,7 @@ export interface Device {
     name: string;
     vehicle_type: DeviceVehicleType;
     created_at: string;
-    last_seen_at: string | null;
+    last_contact_at: string | null;
 }
 
 export interface DeviceWithAccess extends Device {

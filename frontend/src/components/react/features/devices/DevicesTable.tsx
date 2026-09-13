@@ -89,7 +89,7 @@ export function DevicesTable({
                 </thead>
                 <tbody>
                     {devices.map(d => {
-                        const status = deriveDeviceStatus(d.last_seen_at, t);
+                        const status = deriveDeviceStatus(d.last_contact_at, t);
                         return (
                             <tr key={d.id}>
                                 {/* Device name and ID */}
@@ -148,10 +148,10 @@ export function DevicesTable({
                                 </td>
                                 {/* Last seen */}
                                 <td
-                                    className={`dev-cell-time${d.last_seen_at ? '' : ' never'}`}
+                                    className={`dev-cell-time${d.last_contact_at ? '' : ' never'}`}
                                 >
                                     {formatRelativeTime(
-                                        d.last_seen_at,
+                                        d.last_contact_at,
                                         locale,
                                         date
                                     )}

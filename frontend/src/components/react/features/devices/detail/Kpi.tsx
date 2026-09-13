@@ -112,7 +112,7 @@ export function KpiStrip({
         speed == null
             ? null
             : clampValue(Math.round((speed / 25) * 100), 0, 100);
-    const lastPing = location?.recorded_at ?? device.last_seen_at;
+    const lastPing = location?.recorded_at ?? device.last_contact_at;
     const statusPercent =
         status.key === 'online'
             ? 100
