@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'opengps-theme';
+const STORAGE_KEY = 'open-gps:theme';
 const ATTR = 'data-theme';
 
 export type Theme = 'light' | 'dark';
+
+/** Returns whether a value is a supported theme. */
+export function isTheme(value: string): value is Theme {
+    return value === 'light' || value === 'dark';
+}
 
 /**
  * useTheme — reads/writes the `data-theme` attribute on `<html>` and persists

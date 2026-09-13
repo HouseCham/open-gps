@@ -29,7 +29,7 @@ describe('useTheme', () => {
         expect(document.documentElement.getAttribute('data-theme')).toBe(
             'dark'
         );
-        expect(localStorage.getItem('opengps-theme')).toBe('dark');
+        expect(localStorage.getItem('open-gps:theme')).toBe('dark');
     });
 
     it('toggleTheme flips between light and dark', () => {

@@ -9,7 +9,9 @@
 
 (function () {
     try {
-        var saved = localStorage.getItem('opengps-theme');
+        var saved =
+            localStorage.getItem('open-gps:theme') ||
+            localStorage.getItem('opengps-theme');
         var sysDark =
             window.matchMedia &&
             window.matchMedia('(prefers-color-scheme: dark)').matches;
