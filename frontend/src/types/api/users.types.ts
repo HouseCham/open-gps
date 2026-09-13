@@ -1,4 +1,5 @@
 //-- Types
+import type { Translation } from '@/i18n';
 import type { UserRole } from './auth.types';
 
 export interface User {
@@ -161,3 +162,12 @@ export type UserEmailFilter = 'all' | 'verified' | 'unverified';
  * @type {'created-desc' | 'created-asc' | 'name-asc'}
  */
 export type UserSortKey = 'created-desc' | 'created-asc' | 'name-asc';
+
+/**
+ * The translation namespace for the users page. Pulled from the
+ * `Translation` type so adding a new locale only requires the locale
+ * object to fill the same shape.
+ */
+export type UsersTranslation = Translation['user'] &
+    Pick<Translation, 'admin'> &
+    Pick<Translation, 'toast'>;

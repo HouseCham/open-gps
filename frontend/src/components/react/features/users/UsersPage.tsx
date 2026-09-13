@@ -2,7 +2,7 @@ import '@/styles/users.css';
 
 import { lazy, Suspense, useEffect, useState, type JSX } from 'react';
 //-- Types
-import type { CreatedUser, CreateUserDto, User } from '@/types/api';
+import type { CreatedUser, CreateUserDto, User, UsersTranslation } from '@/types/api';
 import type { Translation } from '@/i18n';
 import type { Language, WelcomeEmailRequest } from '@/types';
 //-- Utils
@@ -55,14 +55,6 @@ const UserDetailModal = lazy(() =>
         default: m.UserDetailModal,
     }))
 );
-/**
- * The translation namespace for the users page. Pulled from the
- * `Translation` type so adding a new locale only requires the locale
- * object to fill the same shape.
- */
-type UsersTranslation = Translation['user'] &
-    Pick<Translation, 'admin'> &
-    Pick<Translation, 'toast'>;
 
 /**
  * Props for the UsersPage component.
