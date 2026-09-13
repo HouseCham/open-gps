@@ -1,22 +1,24 @@
 /**
- * Settings for the app
- * @interface Settings
- * @prop {string} history - The history setting.
- * @prop {string} landing - The landing page setting.
- * @prop {'comfortable' | 'compact'} density - The density setting.
- * @prop {string} timezone - The timezone setting.
- * @prop {'metric' | 'imperial'} units - The units setting.
- * @prop {'12' | '24'} hours - The hours setting.
- * @prop {'open' | 'closed'} sidebar - The sidebar setting.
- * @prop {boolean} motion - The motion setting.
+ * The values supported by browser-local application preferences.
  */
-export interface Settings {
-    history: string;
-    landing: string;
-    density: 'comfortable' | 'compact';
-    timezone: string;
-    units: 'metric' | 'imperial';
-    hours: '12' | '24';
-    sidebar: 'open' | 'closed';
-    motion: boolean;
+export type SidebarInitialState = 'expanded' | 'collapsed';
+export type DefaultHistoryRange = '1h' | '6h' | '24h' | '7d';
+export type LandingPage = 'dashboard' | 'devices';
+export type TableDensity = 'comfortable' | 'compact';
+export type UnitSystem = 'metric' | 'imperial';
+export type TimeFormat = '12h' | '24h';
+
+/**
+ * Browser-local settings. Theme and locale are intentionally managed by their
+ * existing URL and theme contracts rather than duplicated here.
+ */
+export interface LocalSettings {
+    sidebarInitialState: SidebarInitialState;
+    reduceMotion: boolean;
+    defaultHistoryRange: DefaultHistoryRange;
+    landingPage: LandingPage;
+    tableDensity: TableDensity;
+    timeZone: string;
+    unitSystem: UnitSystem;
+    timeFormat: TimeFormat;
 }
