@@ -2,7 +2,12 @@ import '@/styles/users.css';
 
 import { lazy, Suspense, useEffect, useState, type JSX } from 'react';
 //-- Types
-import type { CreatedUser, CreateUserDto, User, UsersTranslation } from '@/types/api';
+import type {
+    CreatedUser,
+    CreateUserDto,
+    User,
+    UsersTranslation,
+} from '@/types/api';
 import type { Translation } from '@/i18n';
 import type { Language, WelcomeEmailRequest } from '@/types';
 //-- Utils
