@@ -8,6 +8,8 @@ export * from './map';
 export * from './api';
 export * from './live-location';
 export * from './settings';
+export * from './reports';
+
 /**
  * @constant REPOSITORY_URL
  * @description GitHub repository URL for the project

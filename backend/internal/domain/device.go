@@ -8,12 +8,12 @@ import (
 
 // Device represents a physical GPS tracking device registered in the system.
 type Device struct {
-	ID           uuid.UUID
-	UuidFirmware string
-	Name         string
-	VehicleType  DeviceVehicleType
-	CreatedAt    time.Time
-	LastSeenAt   *time.Time
+	ID            uuid.UUID
+	UuidFirmware  string
+	Name          string
+	VehicleType   DeviceVehicleType
+	CreatedAt     time.Time
+	LastContactAt *time.Time
 }
 
 // DeviceVehicleType categorises the asset the GPS is mounted on. The UI

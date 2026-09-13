@@ -26,7 +26,7 @@ function device(id: string): Device {
         name: `Device ${id}`,
         vehicle_type: 'car',
         created_at: '2024-01-01T00:00:00Z',
-        last_seen_at: null,
+        last_contact_at: null,
     };
 }
 

@@ -262,7 +262,7 @@ export function LiveTrackingPage({
             <VehicleDetailHeader
                 device={{
                     ...device,
-                    last_seen_at: latest?.recorded_at ?? null,
+                    last_contact_at: latest?.recorded_at ?? null,
                 }}
                 status={status}
                 locale={locale}

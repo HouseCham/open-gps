@@ -1,6 +1,6 @@
 -- name: GetDeviceByID :one
 -- Standard lookup by primary key. Filters out soft-deleted devices.
-SELECT id, uuid_firmware, name, vehicle_type, created_at, last_seen_at, deleted_at
+SELECT id, uuid_firmware, name, vehicle_type, created_at, last_contact_at, deleted_at
 FROM devices
 WHERE id = $1 AND deleted_at IS NULL;
 
@@ -14,7 +14,7 @@ SELECT
   d.name,
   d.vehicle_type,
   d.created_at,
-  d.last_seen_at,
+  d.last_contact_at,
   uda.role AS access_role
 FROM devices d
 INNER JOIN user_device_access uda
@@ -26,7 +26,7 @@ WHERE d.id = $1
 -- name: GetDeviceByUUIDFirmware :one
 -- Hot auth path for the IoT device authentication flow.
 -- The ESP32 sends its uuid_firmware, the backend resolves it to a device row.
-SELECT id, uuid_firmware, name, vehicle_type, created_at, last_seen_at, deleted_at
+SELECT id, uuid_firmware, name, vehicle_type, created_at, last_contact_at, deleted_at
 FROM devices
 WHERE uuid_firmware = $1 AND deleted_at IS NULL;
 
@@ -49,7 +49,7 @@ SELECT
   d.name,
   d.vehicle_type,
   d.created_at,
-  d.last_seen_at,
+  d.last_contact_at,
   uda.role AS access_role
 FROM devices d
 INNER JOIN user_device_access uda
@@ -66,7 +66,7 @@ VALUES (
   sqlc.arg('name'),
   sqlc.arg('vehicle_type')::device_vehicle_type
 )
-RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_seen_at, deleted_at;
+RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_contact_at, deleted_at;
 
 -- name: UpdateDeviceName :one
 -- Updates the display name. Returns the updated row, or sql.ErrNoRows
@@ -74,7 +74,7 @@ RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_seen_at, delet
 UPDATE devices
 SET name = $2
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_seen_at, deleted_at;
+RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_contact_at, deleted_at;
 
 -- name: UpdateDeviceVehicleType :one
 -- Updates the vehicle type. Returns the updated row, or sql.ErrNoRows
@@ -82,13 +82,13 @@ RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_seen_at, delet
 UPDATE devices
 SET vehicle_type = sqlc.arg('vehicle_type')::device_vehicle_type
 WHERE id = sqlc.arg('id') AND deleted_at IS NULL
-RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_seen_at, deleted_at;
+RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_contact_at, deleted_at;
 
 -- name: UpdateDeviceLastSeen :exec
 -- Called by the device auth middleware on every successful request
 -- from the IoT device. Cheap, no RETURNING.
 UPDATE devices
-SET last_seen_at = NOW()
+SET last_contact_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: SoftDeleteDevice :exec
@@ -101,7 +101,7 @@ WHERE id = $1 AND deleted_at IS NULL;
 -- name: ListDevicesForUserPaginated :many
 -- Returns paginated devices for a user with access.
 -- Used by the user profile endpoint to list user's devices.
-SELECT d.id, d.uuid_firmware, d.name, d.vehicle_type, d.created_at, d.last_seen_at
+SELECT d.id, d.uuid_firmware, d.name, d.vehicle_type, d.created_at, d.last_contact_at
 FROM devices d
 INNER JOIN user_device_access uda
   ON d.id = uda.device_id AND uda.deleted_at IS NULL
@@ -129,7 +129,7 @@ SELECT
   d.name,
   d.vehicle_type,
   d.created_at,
-  d.last_seen_at,
+  d.last_contact_at,
   uda.role AS access_role
 FROM devices d
 INNER JOIN user_device_access uda
