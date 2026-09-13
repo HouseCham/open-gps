@@ -6,7 +6,7 @@ import type { GetStaticPaths } from 'astro';
 import type { Language } from '@/types';
 //-- Components
 import MainLayout from '@/components/astro/layout/MainLayout.astro';
-import { ReportsPage } from '@/components/react/features/reports';
+import ReportsPage from '@/components/react/features/reports/ReportsPage';
 
 export const getStaticPaths: GetStaticPaths = () => [
     { params: { lan: 'en' } },
