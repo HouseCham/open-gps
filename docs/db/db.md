@@ -1,6 +1,6 @@
 # Database Overview
 
-PostgreSQL database for the GPS Tracker API. Managed via [golang-migrate](https://github.com/golang-migrate/migrate) with 16 migration files.
+PostgreSQL database for the GPS Tracker API. Managed via [golang-migrate](https://github.com/golang-migrate/migrate) with 20 migration files.
 
 ## Entity Relationship
 
@@ -13,7 +13,7 @@ PostgreSQL database for the GPS Tracker API. Managed via [golang-migrate](https:
 │ name         │     │ role                 │     │ name            │
 │ lastname     │     │ created_at           │     │ vehicle_type    │
 │ role (enum)  │     │ deleted_at           │     │ created_at      │
-│ created_at   │     └──────────────────────┘     │ last_seen_at    │
+│ created_at   │     └──────────────────────┘     │ last_contact_at    │
 │ updated_at   │                                  │ deleted_at      │
 │ deleted_at   │                                  └────────┬────────┘
 └──────────────┘                                           │
@@ -66,7 +66,7 @@ IoT devices registered in the system. Each device has a firmware-level UUID (`uu
 | name | `varchar(255)` | `NOT NULL` | Human-readable device name |
 | vehicle_type | `device_vehicle_type` | `NOT NULL DEFAULT 'other'` | Vehicle category: `bicycle`, `motorcycle`, `car`, `truck`, `van`, `other` |
 | created_at | `timestamptz` | `NOT NULL DEFAULT NOW()` | Row creation timestamp |
-| last_seen_at | `timestamptz` | `NULL` | Last successful IoT ping |
+| last_contact_at | `timestamptz` | `NULL` | Last successful IoT ping |
 | deleted_at | `timestamptz` | `NULL` | Soft-delete timestamp |
 
 ### user_device_access
@@ -167,3 +167,7 @@ The `locations` table is partitioned by `RANGE (recorded_at)` with monthly parti
 | 014 | `000014_drop_locations_satellites` | Remove redundant `satellites` column from `locations` |
 | 015 | `000015_add_locations_battery_voltage` | Add `battery_voltage` column for device-health telemetry |
 | 016 | `000016_add_locations_signal_strength` | Add `signal_strength` column for cellular RSSI telemetry |
+| 017 | `000017_enforce_one_active_api_key_per_device` | Enforce one active API key per device |
+| 018 | `000018_create_password_reset_tokens` | Create password reset tokens |
+| 019 | `000019_add_device_last_contact_at` | Add `last_contact_at` for presence |
+| 020 | `000020_rename_last_seen_to_last_contact` | Migrate legacy presence column to `last_contact_at` |

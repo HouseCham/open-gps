@@ -89,6 +89,11 @@ POST   /api/v1/auth/change-password
 GET    /api/v1/system/bootstrap
 GET    /api/v1/devices/:id/locations/live
 GET    /api/v1/devices/:id/locations/stream
+GET    /api/v1/reports/overview
+GET    /api/v1/reports/routes
+GET    /api/v1/reports/health
+GET    /api/v1/reports/data-quality
+GET    /api/v1/reports/export?format=csv|gpx
 ```
 
 ### Real-time live location stream
@@ -139,7 +144,7 @@ the same `{ user: { id, email, name } }` shape the frontend expects.
 
 ## Database
 
-19 migration files covering: extensions (`pgcrypto`, `pg_partman`, `pg_cron`), users, devices, user-device access (role-based: owner, editor, viewer), location time-series (monthly range partitions via pg_partman, `battery_voltage` + `signal_strength` telemetry, no `satellites`), device API keys (`X-Device-API-Key` lookup tokens — opaque, not bcrypt), protection triggers, and `devices.last_contact_at` for presence (migration 000019).
+20 migrations covering: extensions (`pgcrypto`, `pg_partman`, `pg_cron`), users, devices, user-device access (role-based: owner, editor, viewer), location time-series (monthly range partitions via pg_partman, `battery_voltage` + `signal_strength` telemetry, no `satellites`), device API keys (`X-Device-API-Key` lookup tokens — opaque, not bcrypt), protection triggers, and `devices.last_contact_at` for presence (migration 000019).
 
 Key decisions:
 - **Soft deletes** on users, devices, access grants and API keys (`deleted_at`).

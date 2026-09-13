@@ -16,6 +16,7 @@ import (
 	"github.com/HouseCham/gps-tracker/backend/internal/app/email"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/locations"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/passwordreset"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/reports"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/users"
 	"github.com/HouseCham/gps-tracker/backend/internal/auth"
 	"github.com/HouseCham/gps-tracker/backend/internal/config"
@@ -116,6 +117,7 @@ func main() {
 	locationsAdapter := locations.NewAdapter(pool)
 	liveHub := live.NewHub()
 	locationsService := locations.New(locationsAdapter, locationsAdapter, liveHub)
+	reportsService := reports.New(postgres.NewReportsAdapter(pool))
 
 	//-- email (Resend). Config is required at startup; the loader
 	//   fails the process if anything is missing.
@@ -157,6 +159,7 @@ func main() {
 	accessHandler := handlers.NewAccessHandler(accessService)
 	apiKeysHandler := handlers.NewAPIKeysHandler(apiKeysService)
 	locationsHandler := handlers.NewLocationsHandler(locationsService, liveHub)
+	reportsHandler := handlers.NewReportsHandler(reportsService)
 	emailHandler := handlers.NewEmailHandler(emailService)
 	passwordResetHandler := handlers.NewPasswordResetHandler(passwordResetService)
 
@@ -167,6 +170,7 @@ func main() {
 		AccessHandler:        accessHandler,
 		APIKeysHandler:       apiKeysHandler,
 		LocationsHandler:     locationsHandler,
+		ReportsHandler:       reportsHandler,
 		EmailHandler:         emailHandler,
 		PasswordResetHandler: passwordResetHandler,
 		BootstrapHandler:     handlers.NewBootstrapHandler(usersService),

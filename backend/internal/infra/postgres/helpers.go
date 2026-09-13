@@ -51,11 +51,11 @@ func timestamptzToPtr(t pgtype.Timestamptz) *time.Time {
 // the conversion lives in one place.
 func toDomainDevice(id pgtype.UUID, uuidFirmware, name string, vehicleType DeviceVehicleType, createdAt, lastSeenAt pgtype.Timestamptz) *domain.Device {
 	return &domain.Device{
-		ID:           UuidFromPgtype(id),
-		UuidFirmware: uuidFirmware,
-		Name:         name,
-		VehicleType:  domain.DeviceVehicleType(vehicleType),
-		CreatedAt:    createdAt.Time,
-		LastSeenAt:   timestamptzToPtr(lastSeenAt),
+		ID:            UuidFromPgtype(id),
+		UuidFirmware:  uuidFirmware,
+		Name:          name,
+		VehicleType:   domain.DeviceVehicleType(vehicleType),
+		CreatedAt:     createdAt.Time,
+		LastContactAt: timestamptzToPtr(lastSeenAt),
 	}
 }

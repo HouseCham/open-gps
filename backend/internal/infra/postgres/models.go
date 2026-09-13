@@ -100,13 +100,13 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 }
 
 type Device struct {
-	ID           pgtype.UUID
-	UuidFirmware string
-	Name         string
-	CreatedAt    pgtype.Timestamptz
-	LastSeenAt   pgtype.Timestamptz
-	DeletedAt    pgtype.Timestamptz
-	VehicleType  DeviceVehicleType
+	ID            pgtype.UUID
+	UuidFirmware  string
+	Name          string
+	CreatedAt     pgtype.Timestamptz
+	LastContactAt pgtype.Timestamptz
+	DeletedAt     pgtype.Timestamptz
+	VehicleType   DeviceVehicleType
 }
 
 type DeviceApiKey struct {
