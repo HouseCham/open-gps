@@ -507,7 +507,7 @@ function Filters({
                         ))}
                     </select>
                 </label>
-                <fieldset className="reports-field">
+                <fieldset className="reports-field reports-fieldset">
                     <legend>{t.filters.devices}</legend>
                     <div className="reports-device-options">
                         {devices.map(device => (
