@@ -1,6 +1,10 @@
 import { useCallback } from 'react';
 import { useStore } from '@nanostores/react';
-import { $theme, setTheme as updateTheme, toggleTheme as flipTheme } from '@/lib/stores/theme';
+import {
+    $theme,
+    setTheme as updateTheme,
+    toggleTheme as flipTheme,
+} from '@/lib/stores/theme';
 import type { Theme } from '@/lib/stores/theme';
 
 export type { Theme } from '@/lib/stores/theme';

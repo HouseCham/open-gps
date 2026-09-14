@@ -51,6 +51,8 @@ describe('useTheme', () => {
         act(() => first.result.current[1]('dark'));
 
         expect(second.result.current[0]).toBe('dark');
-        expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+        expect(document.documentElement.getAttribute('data-theme')).toBe(
+            'dark'
+        );
     });
 });

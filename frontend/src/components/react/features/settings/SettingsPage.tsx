@@ -21,6 +21,12 @@ import {
 } from '@/lib';
 //-- Types
 import type { Language, LocalSettings } from '@/types';
+//-- Constants
+import {
+    SETTINGS_HISTORY_RANGES,
+    SETTINGS_LANDING_PAGES,
+    SETTINGS_TIME_ZONES,
+} from '@/constants';
 //-- Components
 import { ChangePasswordModal } from '@/components/react/modal';
 import { Button } from '@/components/react/ui/button';
@@ -28,20 +34,13 @@ import { SettingsChoice } from './SettingsChoice';
 //-- Icons
 import { Moon, RotateCcw, ShieldCheck, Sun } from 'lucide-react';
 
-const HISTORY_RANGES = ['1h', '6h', '24h', '7d'] as const;
-const LANDING_PAGES = ['dashboard', 'devices'] as const;
-const TIME_ZONES = [
-    'America/Mexico_City',
-    'Europe/Madrid',
-    'America/Bogota',
-] as const;
 /**
  * Props for the SettingsPage component
  * @interface SettingsPageProps
  * @prop {Language} locale - The locale for the page.
  * @prop {Translation['settings']} translations - The translations for the page.
  */
-export interface SettingsPageProps {
+interface SettingsPageProps {
     locale: Language;
     translations: Translation['settings'];
 }
@@ -71,17 +70,30 @@ export function SettingsPage({
     ): void => {
         updateLocalSetting(key, value);
     };
-    /** Restores environment-aware defaults and the light theme. */
+    /**
+     * Restores environment-aware defaults and the light theme.
+     * @returns {void}
+     */
     const reset = (): void => {
         resetLocalSettings();
         setTheme('light');
     };
     // The select options are restricted to the Theme union values above.
     const role = profile?.role === 'super_admin' ? t.superAdmin : t.user;
+    /**
+     * Handles theme change.
+     * @param {ChangeEvent<HTMLSelectElement>} event - The event object.
+     * @returns {void}
+     */
     const changeTheme = (event: ChangeEvent<HTMLSelectElement>): void => {
         const value = event.target.value;
         if (isTheme(value)) setTheme(value);
     };
+    /**
+     * Handles locale change.
+     * @param {Language} nextLocale - The next locale.
+     * @returns {void}
+     */
     const changeLocale = (nextLocale: Language): void => {
         const localizedUrl = buildLocalizedUrl(
             window.location.pathname,
@@ -130,6 +142,7 @@ export function SettingsPage({
                                 <option value="dark">{t.dark}</option>
                             </select>
                         </div>
+                        {/* Language toggle */}
                         <div className="settings-row">
                             <div>
                                 <strong>{t.language}</strong>
@@ -160,6 +173,7 @@ export function SettingsPage({
                                 </Button>
                             </div>
                         </div>
+                        {/* Sidebar initial state toggle */}
                         <div className="settings-row">
                             <div>
                                 <strong>{t.sidebarState}</strong>
@@ -198,6 +212,7 @@ export function SettingsPage({
                                 />
                             </div>
                         </div>
+                        {/* Reduce motion toggle */}
                         <div className="settings-row">
                             <div>
                                 <strong>{t.motion}</strong>
@@ -235,7 +250,12 @@ export function SettingsPage({
                                 value={preferences.defaultHistoryRange}
                                 onChange={event => {
                                     const value = event.target.value;
-                                    if (isSettingValue(value, HISTORY_RANGES)) {
+                                    if (
+                                        isSettingValue(
+                                            value,
+                                            SETTINGS_HISTORY_RANGES
+                                        )
+                                    ) {
                                         update('defaultHistoryRange', value);
                                     }
                                 }}
@@ -256,7 +276,12 @@ export function SettingsPage({
                                 value={preferences.landingPage}
                                 onChange={event => {
                                     const value = event.target.value;
-                                    if (isSettingValue(value, LANDING_PAGES)) {
+                                    if (
+                                        isSettingValue(
+                                            value,
+                                            SETTINGS_LANDING_PAGES
+                                        )
+                                    ) {
                                         update('landingPage', value);
                                     }
                                 }}
@@ -287,21 +312,17 @@ export function SettingsPage({
                             >
                                 {!isSettingValue(
                                     preferences.timeZone,
-                                    TIME_ZONES
+                                    SETTINGS_TIME_ZONES
                                 ) && (
                                     <option value={preferences.timeZone}>
                                         {preferences.timeZone}
                                     </option>
                                 )}
-                                <option value="America/Mexico_City">
-                                    America/Mexico_City
-                                </option>
-                                <option value="Europe/Madrid">
-                                    Europe/Madrid
-                                </option>
-                                <option value="America/Bogota">
-                                    America/Bogota
-                                </option>
+                                {SETTINGS_TIME_ZONES.map(timeZone => (
+                                    <option key={timeZone} value={timeZone}>
+                                        {timeZone}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <div className="settings-row">
@@ -368,6 +389,7 @@ export function SettingsPage({
                 </main>
                 {/* 'Your account' Card */}
                 <aside className="settings-aside">
+                    {/* Account Summary Card */}
                     <section className="settings-side-card">
                         <h2>{t.accountSummary}</h2>
                         <p>{t.accountSummaryText}</p>
@@ -396,6 +418,7 @@ export function SettingsPage({
                             {t.reset}
                         </Button>
                     </section>
+                    {/* Comming Soon */}
                     <section className="settings-side-card settings-coming">
                         <div>
                             <Sun size={15} aria-hidden="true" />

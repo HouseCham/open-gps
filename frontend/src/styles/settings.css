@@ -187,11 +187,10 @@
 }
 .settings-coming h2 {
     margin-top: var(--s-2);
-    color: var(--accent-text);
+    color: var(--text-primary);
 }
 .settings-coming p {
-    color: var(--accent-text);
-    opacity: 0.8;
+    color: var(--text-secondary);
 }
 .settings-a11y-note {
     display: flex;
