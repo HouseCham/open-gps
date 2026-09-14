@@ -85,20 +85,8 @@ const brand = isRecovery
         <meta name="description" content={t.auth.metaDescription} />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="icon" href="/favicon.ico" />
-        <script is:inline>
-            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-            (function () {
-                try {
-                    var t = localStorage.getItem('open-gps:theme');
-                    if (!t) {
-                        t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-                    }
-                    document.documentElement.setAttribute('data-theme', t);
-                } catch (err) {
-                    void err;
-                    document.documentElement.setAttribute('data-theme', 'light');
-                }
-            })();
+        <script>
+            import '@/scripts/theme-init.js';
         </script>
     </head>
     <body>
@@ -219,4 +207,3 @@ const brand = isRecovery
         }
     }
 </style>
-

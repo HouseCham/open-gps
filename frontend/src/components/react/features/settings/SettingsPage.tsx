@@ -115,6 +115,7 @@ export function SettingsPage({
                             <h2>{t.appearance}</h2>
                             <p>{t.appearanceSub}</p>
                         </header>
+                        {/* Theme toggle */}
                         <div className="settings-row">
                             <div>
                                 <strong>{t.theme}</strong>
