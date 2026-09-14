@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
+import { useStore } from '@nanostores/react';
+import {
+    $theme,
+    setTheme as updateTheme,
+    toggleTheme as flipTheme,
+} from '@/lib/stores/theme';
+import type { Theme } from '@/lib/stores/theme';
 
-const STORAGE_KEY = 'opengps-theme';
-const ATTR = 'data-theme';
+export type { Theme } from '@/lib/stores/theme';
 
-export type Theme = 'light' | 'dark';
+/** Returns whether a value is a supported theme. */
+export function isTheme(value: string): value is Theme {
+    return value === 'light' || value === 'dark';
+}
 
 /**
  * useTheme — reads/writes the `data-theme` attribute on `<html>` and persists
@@ -17,27 +26,14 @@ export function useTheme(): readonly [
     (next: Theme) => void,
     () => void,
 ] {
-    const [theme, setThemeState] = useState<Theme>(() => {
-        if (typeof document === 'undefined') return 'light';
-        const current = document.documentElement.getAttribute(ATTR);
-        return current === 'dark' ? 'dark' : 'light';
-    });
-
-    useEffect(() => {
-        document.documentElement.setAttribute(ATTR, theme);
-        try {
-            localStorage.setItem(STORAGE_KEY, theme);
-        } catch {
-            // ponytail: storage may be unavailable (private mode, quota); ignore
-        }
-    }, [theme]);
+    const theme = useStore($theme);
 
     const setTheme = useCallback((next: Theme) => {
-        setThemeState(next);
+        updateTheme(next);
     }, []);
 
     const toggleTheme = useCallback(() => {
-        setThemeState(prev => (prev === 'dark' ? 'light' : 'dark'));
+        flipTheme();
     }, []);
 
     return [theme, setTheme, toggleTheme] as const;

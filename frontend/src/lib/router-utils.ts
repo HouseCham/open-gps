@@ -25,6 +25,25 @@ export function redirectTo(path: string): void {
     window.location.replace('/' + lang + path);
 }
 /**
+ * Builds a localized URL while preserving the current route suffix, query, and hash.
+ * @param {string} pathname - Current pathname.
+ * @param {string} search - Current query string.
+ * @param {string} hash - Current URL hash.
+ * @param {Language} locale - Target locale.
+ * @returns {string | null} The localized URL, or null for an unsupported route shape.
+ */
+export function buildLocalizedUrl(
+    pathname: string,
+    search: string,
+    hash: string,
+    locale: Language
+): string | null {
+    const match = pathname.match(/^\/(en|es)(\/.*)?$/);
+    if (!match) return null;
+    return `/${locale}${match[2] ?? '/'}${search}${hash}`;
+}
+
+/**
  * Generates an array of navigation items for the sidebar.
  * @param {Language} locale - Current locale code ('en' | 'es').
  * @param {Translation} translation - Translation bundle (en/es) used for nav labels.

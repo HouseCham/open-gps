@@ -75,6 +75,7 @@ export function ProfileDropdown({
             {/* Appearance */}
             <div className="chrome-menu-section">
                 <div className="chrome-menu-label">{layout.appearance}</div>
+                {/* Theme toggle */}
                 <div className="chrome-theme-toggle">
                     <Button
                         type="button"

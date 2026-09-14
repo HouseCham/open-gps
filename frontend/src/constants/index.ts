@@ -8,6 +8,7 @@ export * from './map';
 export * from './api';
 export * from './live-location';
 export * from './reports';
+export * from './settings';
 
 /**
  * @constant REPOSITORY_URL

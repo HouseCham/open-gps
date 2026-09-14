@@ -1,7 +1,8 @@
-import type { JSX } from 'react';
+import { useEffect, type JSX } from 'react';
 //-- Stores
 import { useStore } from '@nanostores/react';
-import { $sidebarOpen, closeSidebar } from '@/lib/stores/layout';
+import { $sidebarOpen, closeSidebar, openSidebar } from '@/lib/stores/layout';
+import { $localSettings } from '@/lib/stores/settings';
 import { $user } from '@/lib/stores/auth';
 //-- Hooks
 import { useAuth } from '@/lib/hooks';
@@ -9,7 +10,11 @@ import { useAuth } from '@/lib/hooks';
 import type { Translation } from '@/i18n';
 import type { Language } from '@/types';
 //-- Constants
-import { SHELL_NAV_ITEMS, SIDEBAR_ICONS } from '@/constants/layout';
+import {
+    SHELL_NAV_ITEMS,
+    SIDEBAR_ICONS,
+    MOBILE_BREAKPOINT,
+} from '@/constants/layout';
 //-- Utils
 import { getInitials } from '@/lib';
 import { isSuperAdmin } from '@/lib/role-utils';
@@ -43,8 +48,37 @@ export function Sidebar({
     layout,
 }: SidebarProps): JSX.Element {
     const sidebarOpen = useStore($sidebarOpen);
+    const settings = useStore($localSettings);
     const user = useStore($user);
     const { role } = useAuth();
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia(
+            `(max-width: ${MOBILE_BREAKPOINT - 1}px)`
+        );
+        const applyInitialState = (): void => {
+            if (!mediaQuery.matches) {
+                closeSidebar();
+                return;
+            }
+            if (settings.sidebarInitialState === 'expanded') {
+                openSidebar();
+            } else {
+                closeSidebar();
+            }
+        };
+        applyInitialState();
+        mediaQuery.addEventListener('change', applyInitialState);
+        return (): void =>
+            mediaQuery.removeEventListener('change', applyInitialState);
+    }, [settings.sidebarInitialState]);
+
+    useEffect(() => {
+        document.documentElement.toggleAttribute(
+            'data-reduce-motion',
+            settings.reduceMotion
+        );
+    }, [settings.reduceMotion]);
 
     /**
      * Filter out items that require the user to be a super admin.
