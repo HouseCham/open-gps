@@ -9,6 +9,7 @@ import {
     MapCard,
     TelemetryCard,
 } from '@/components/react/features/devices/location';
+import { GpsTelemetrySectionSkeleton } from '@/components/react/skeleton';
 
 /**
  * Props for the GpsTelemetrySection component
@@ -59,6 +60,9 @@ export function GpsTelemetrySection({
     displayStatus,
     routeStyle,
 }: GpsTelemetrySectionProps): JSX.Element {
+    if (!latest) {
+        return <GpsTelemetrySectionSkeleton />;
+    }
     return (
         <section className="dd-section">
             <div className="dd-section-head">
