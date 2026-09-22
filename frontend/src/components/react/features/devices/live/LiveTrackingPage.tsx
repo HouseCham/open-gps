@@ -200,9 +200,7 @@ export function LiveTrackingPage({
               signal_strength: null,
           }
         : null;
-    const displayLocation = includesPresent
-        ? (latest ?? historicalDisplayLocation)
-        : historicalDisplayLocation;
+    const displayLocation = latest ?? historicalDisplayLocation;
     const locationError = latestError ?? historyError ?? routeError;
     const routeWindowLabel = t.live.routeWindow
         .replace('{from}', formatHistoryTime(range.from, locale))
