@@ -64,11 +64,11 @@ export function reduceLiveLocation(
         return current;
     const currentLocation = current.snapshot?.location;
     const nextLocation = next.location;
-    const newest =
+    const newest: LocationPoint | null =
         !nextLocation ||
         (currentLocation &&
             nextLocation.recorded_at < currentLocation.recorded_at)
-            ? currentLocation
+            ? (currentLocation ?? null)
             : nextLocation;
     const route = [...current.route];
     if (

@@ -4,6 +4,7 @@ import { useEffect, useState, type JSX } from 'react';
 //-- Types
 import type { Translation } from '@/i18n';
 import type { DateRange, Language } from '@/types';
+import type { LocationPoint } from '@/types/api';
 import type { DeviceStatus } from '@/types/components';
 //-- Services
 import { useDeviceService } from '@/lib/api/services/deviceService';
@@ -80,8 +81,10 @@ export function LiveTrackingPage({
         historyLoading,
         routeLoading,
         latestError,
+        latest: serviceLatest,
         historyError,
         routeError,
+        getLatestLocation,
         getLocationHistory,
         getLocationRoute,
     } = useLocationService();
@@ -94,7 +97,21 @@ export function LiveTrackingPage({
         route: liveRoutePoints,
         refresh: refreshLive,
     } = useDeviceLocationStream(deviceId ?? null);
-    const latest = snapshot?.location ?? null;
+    const liveLatest = snapshot?.location ?? null;
+    const [lastKnownLatest, setLastKnownLatest] = useState<LocationPoint | null>(
+        null
+    );
+
+    useEffect(() => {
+        setLastKnownLatest(null);
+    }, [deviceId]);
+
+    useEffect(() => {
+        if (liveLatest) setLastKnownLatest(liveLatest);
+    }, [liveLatest]);
+
+    // A transient empty snapshot must not replace a location already shown.
+    const latest = liveLatest ?? lastKnownLatest ?? serviceLatest;
 
     useEffect(() => {
         const id = readDeviceIdFromUrl();
@@ -104,6 +121,7 @@ export function LiveTrackingPage({
     useEffect(() => {
         if (!deviceId) return;
         void getDeviceById(deviceId);
+        void getLatestLocation(deviceId, true);
     }, [deviceId]);
 
     /**
@@ -151,7 +169,7 @@ export function LiveTrackingPage({
     const rangeTo = new Date(range.to).getTime();
     const includesPresent = rangeTo + 60_000 >= Date.now();
     const status: DeviceStatus | null = device
-        ? deviceStatusFromPresence(snapshot?.presence.state ?? 'never_seen', t)
+        ? deviceStatusFromPresence(snapshot?.presence.state ?? 'offline', t)
         : null;
     const routePoints = route?.items ?? history;
     const latestTime = latest
@@ -190,7 +208,7 @@ export function LiveTrackingPage({
         .replace('{from}', formatHistoryTime(range.from, locale))
         .replace('{to}', formatHistoryTime(range.to, locale));
     const retryLocations = (): void => {
-        if (latestError && deviceId) void refreshLive();
+        if (latestError && deviceId) void getLatestLocation(deviceId);
         if (historyError || routeError) loadHistory(range);
     };
 

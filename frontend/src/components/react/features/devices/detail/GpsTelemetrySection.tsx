@@ -60,7 +60,7 @@ export function GpsTelemetrySection({
     displayStatus,
     routeStyle,
 }: GpsTelemetrySectionProps): JSX.Element {
-    if (!latest) {
+    if (!latest && loading) {
         return <GpsTelemetrySectionSkeleton />;
     }
     return (
