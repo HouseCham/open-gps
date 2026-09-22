@@ -1,6 +1,5 @@
 import '@/styles/device-detail.css';
 import '@/styles/devices.css';
-
 import { useEffect, useState, lazy, type JSX, Suspense } from 'react';
 //-- Types
 import type {
@@ -253,14 +252,7 @@ export function DeviceDetailPage({
                 showGoLive
                 title={t.detail.gpsTelemetry}
                 description={t.detail.gpsTelemetryDescription}
-                latest={
-                    latest
-                        ? {
-                              ...latest,
-                              recorded_at: device.created_at,
-                          }
-                        : null
-                }
+                latest={latest}
                 locale={locale}
                 translations={t}
                 date={date}

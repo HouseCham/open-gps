@@ -5,3 +5,4 @@ export * from './email';
 export * from './date';
 export * from './settings';
 export * from './reports';
+export * from './map';

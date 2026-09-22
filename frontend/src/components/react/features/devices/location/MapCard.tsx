@@ -4,6 +4,7 @@ import type { LocationPoint } from '@/types/api';
 import type { DeviceStatus } from '@/types/components';
 import type { Language } from '@/types/i18n';
 import type { JSX } from 'react/jsx-runtime';
+import type { RouteGeoJson } from '@/types';
 //-- Components
 import { Button } from '@/components/react/ui/button';
 import {
@@ -27,6 +28,7 @@ import {
     processSegment,
     redirectTo,
 } from '@/lib';
+//-- Constants
 import {
     MAP_COORDINATE_DECIMALS,
     MAP_DEVICE_ZOOM,
@@ -40,18 +42,6 @@ import {
     ROUTE_COLOR_OFFLINE,
     ROUTE_COLOR_ONLINE,
 } from '@/constants/components';
-
-interface RouteGeoJson {
-    type: 'FeatureCollection';
-    features: {
-        type: 'Feature';
-        properties: Record<string, never>;
-        geometry: {
-            type: 'LineString';
-            coordinates: number[][];
-        };
-    }[];
-}
 
 /**
  * Props for the MapCard component
