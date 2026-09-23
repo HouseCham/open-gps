@@ -26,18 +26,6 @@ void secrets_print_diag(const Secrets& s) {
     Serial.print(ulen);
     Serial.print(F(" key_len="));
     Serial.print(klen);
-    Serial.print(F(" uuid="));
-    Serial.print(s.uuid);
-    Serial.print(F(" key_mask="));
-    Serial.print(s.api_key[0]);
-    Serial.print(s.api_key[1]);
-    Serial.print(s.api_key[2]);
-    Serial.print(s.api_key[3]);
-    Serial.print(F("..."));
-    Serial.print(s.api_key[klen - 4]);
-    Serial.print(s.api_key[klen - 3]);
-    Serial.print(s.api_key[klen - 2]);
-    Serial.print(s.api_key[klen - 1]);
     Serial.print(F(" ssid_len="));
     Serial.print(slen);
     if (slen > 0) {

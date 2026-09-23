@@ -6,6 +6,7 @@
 #include <WiFiClientSecure.h>
 #include <TinyGsmClient.h>
 #include <esp_task_wdt.h>
+#include <pgmspace.h>
 
 #include "config.h"
 #include "gps_board.h"
@@ -13,7 +14,13 @@
 #include "secrets.h"  // full definitions; transport.h uses forward decls to
                        // avoid pulling <Arduino.h> into native test builds
 
-static bool cellular_up = false;
+namespace {
+constexpr size_t URL_BUFFER_SIZE = 256;
+constexpr size_t JSON_BUFFER_SIZE = 320;
+constexpr size_t HOST_BUFFER_SIZE = 128;
+constexpr size_t HTTP_STATUS_BUFFER_SIZE = 16;
+constexpr uint32_t HTTP_RESPONSE_TIMEOUT_MS = 10000;
+}
 
 bool transport_begin(const Secrets& s) {
     if (s.wifi_ssid == nullptr || s.wifi_ssid[0] == '\0') {
@@ -21,7 +28,7 @@ bool transport_begin(const Secrets& s) {
         return false;
     }
 
-    Serial.printf("[WIFI] connecting to %s ...\n", s.wifi_ssid);
+    Serial.printf(PSTR("[WIFI] connecting to %s ...\n"), s.wifi_ssid);
     WiFi.mode(WIFI_STA);
     WiFi.begin(s.wifi_ssid, s.wifi_password);
 
@@ -34,7 +41,7 @@ bool transport_begin(const Secrets& s) {
         }
         delay(250);
     }
-    Serial.printf("[OK  ] WiFi connected, IP=%s RSSI=%d dBm\n",
+    Serial.printf(PSTR("[OK  ] WiFi connected, IP=%s RSSI=%d dBm\n"),
                   WiFi.localIP().toString().c_str(), WiFi.RSSI());
     return true;
 }
@@ -59,40 +66,36 @@ static const char* http_error_name(int code) {
 
 static TransportResult post_once(const char* url, const char* api_key,
                                  const char* json_body) {
-    Serial.printf("[POST] %u-byte body, "
-                  "time=%lu free_heap=%u\n",
+    Serial.printf(PSTR("[POST] %u-byte body, "
+                  "time=%lu free_heap=%u\n"),
                   (unsigned)strlen(json_body),
                   (unsigned long)time(nullptr),
                   (unsigned)ESP.getFreeHeap());
 
     TinyGsmClientSecure client(board_modem());
-    // STAGE 3 DEV ONLY — bypass cert validation. CloudFlare's cert is
-    // rejected because the ESP32's clock is unset (time=0 at boot);
-    // mbedtls checks cert notBefore against time(NULL) and bails with -1.
-    // For dev/bench, setInsecure() is the fastest path to a working
-    // pipeline. For Stage 4 (sleep + cycle): add configTime() with NTP
-    // after WiFi.begin() succeeds, wait for time(nullptr) > 2025-01-01,
-    // then switch back to setCACert(cloudflare_root_ca). Otherwise any
-    // attacker on the LAN can MITM the connection (and steal the
-    // X-Device-API-Key).
+    // TinyGSM 0.12.0 configures the SIM7080 TLS context internally; CA/SNI
+    // provisioning remains a modem-firmware deployment requirement.
 
     const char* host_start = strstr(url, "://");
     host_start = host_start ? host_start + 3 : url;
     const char* path = strchr(host_start, '/');
     if (!path) path = "/";
-    char host[128];
+    char host[HOST_BUFFER_SIZE];
     const size_t host_len = static_cast<size_t>(path - host_start);
     if (host_len == 0 || host_len >= sizeof(host)) return TransportResult::CONFIG_ERROR;
     memcpy(host, host_start, host_len);
     host[host_len] = '\0';
     if (!client.connect(host, 443)) return TransportResult::TRANSPORT_ERROR;
-    client.printf("POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\n"
-                  "X-Device-API-Key: %s\r\nContent-Length: %u\r\nConnection: close\r\n\r\n%s",
-                  path, host, api_key, (unsigned)strlen(json_body), json_body);
-    const unsigned long deadline = millis() + 10000;
-    while (!client.available() && millis() < deadline) delay(10);
+    if (client.printf(PSTR("POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\n"
+                  "X-Device-API-Key: %s\r\nContent-Length: %u\r\nConnection: close\r\n\r\n%s"),
+                  path, host, api_key, (unsigned)strlen(json_body), json_body) <= 0) {
+        client.stop();
+        return TransportResult::TRANSPORT_ERROR;
+    }
+    const unsigned long deadline = millis() + HTTP_RESPONSE_TIMEOUT_MS;
+    while (!client.available() && static_cast<long>(millis() - deadline) < 0) yield();
     if (!client.available()) { client.stop(); return TransportResult::TRANSPORT_ERROR; }
-    char status[16] = {};
+    char status[HTTP_STATUS_BUFFER_SIZE] = {};
     client.readBytesUntil(' ', status, sizeof(status) - 1);
     client.readBytesUntil(' ', status, sizeof(status) - 1);
     const int code = atoi(status);
@@ -102,14 +105,14 @@ static TransportResult post_once(const char* url, const char* api_key,
         Serial.println(F("[POST] 201 OK"));
         return TransportResult::SENT;
     } else if (code > 0) {
-        Serial.printf("[ERR ] HTTP %d\n", code);
-        return TransportResult::HTTP_ERROR;
+        Serial.printf(PSTR("[ERR ] HTTP %d\n"), code);
+        return code >= 500 ? TransportResult::HTTP_SERVER_ERROR : TransportResult::HTTP_CLIENT_ERROR;
     } else {
         // code < 0: transport-level failure (DNS, TLS, connection refused).
         // The underlying mbedtls error code is NOT exposed by HTTPClient.
         // We can only narrow it down by looking at the diagnostic context
         // we logged above + the WiFiClientSecure.cpp line that fired.
-        Serial.printf("[ERR ] HTTP transport failure (code=%d %s)\n",
+        Serial.printf(PSTR("[ERR ] HTTP transport failure (code=%d %s)\n"),
                       code, http_error_name(code));
 
         // Hint at the two most common causes so the log is actionable.
@@ -133,58 +136,67 @@ static TransportResult post_once(const char* url, const char* api_key,
 }
 
 TransportResult transport_post_locations(const LocationPayload& p, const Secrets& s) {
-    if (!cellular_up) {
-        Serial.println(F("[ERR ] cellular data not connected; skipping upload"));
-        return TransportResult::TRANSPORT_ERROR;
-    }
-
     // Enrich a local copy so the caller's payload stays untouched. Read
     // the modem CSQ once here (GNSS is off during upload; this is the only
     // extra AT exchange the telemetry adds). CSQ 99 = unknown -> -1 sentinel.
     LocationPayload payload = p;
+    payload.signal_strength = -1;
     const uint16_t batt_mv = board_pmu().getBattVoltage();
     const double batt_v = batt_mv / 1000.0;
     if (batt_v > 0.0 && batt_v <= 6.0) payload.battery_voltage = batt_v; // 0..6 V API contract
     const int csq = board_modem().getSignalQuality();
-    Serial.printf("[NET ] cellular CSQ=%d\n", csq);
+    Serial.printf(PSTR("[NET ] cellular CSQ=%d\n"), csq);
     if (csq >= 0 && csq <= 31) payload.signal_strength = csq; // 99 -> stays -1 (unknown)
 
-    char url[256];
+    char url[URL_BUFFER_SIZE];
     if (transport_build_url(API_HOST, 0, s.uuid,
                             url, sizeof(url)) == 0) {
         Serial.println(F("[ERR ] URL overflow"));
         return TransportResult::CONFIG_ERROR;
     }
 
-    char body[320];
+    char body[JSON_BUFFER_SIZE];
     const size_t bn = location_payload_to_json(payload, body, sizeof(body));
     if (bn == 0) {
         Serial.println(F("[ERR ] JSON overflow"));
         return TransportResult::CONFIG_ERROR;
     }
 
-    Serial.printf("[POST] -> %s\n", url);
+    Serial.printf(PSTR("[POST] -> %s\n"), url);
     TransportResult result = post_once(url, s.api_key, body);
     if (result != TransportResult::TRANSPORT_ERROR) return result;
 
-    Serial.printf("[RETRY] backing off %u ms\n",
+    Serial.printf(PSTR("[RETRY] backing off %u ms\n"),
                   (unsigned)UPLOAD_RETRY_DELAY_MS);
-    delay(UPLOAD_RETRY_DELAY_MS);
+    const unsigned long retryAt = millis() + UPLOAD_RETRY_DELAY_MS;
+    while (static_cast<long>(millis() - retryAt) < 0) {
+        esp_task_wdt_reset();
+        yield();
+    }
+    TinyGsm& modem = board_modem();
+    if (!modem.isNetworkConnected() && !modem.waitForNetwork(CELLULAR_OPERATION_TIMEOUT_MS, true))
+        return TransportResult::TRANSPORT_ERROR;
+    if (!modem.gprsConnect(CELLULAR_APN, "", "")) return TransportResult::TRANSPORT_ERROR;
     return post_once(url, s.api_key, body);
 }
 bool transport_cellular_begin() {
     TinyGsm& modem = board_modem();
     Serial.println(F("[CELL] APN=hologram, RAT=LTE-M"));
     modem.sendAT("+CFUN=0");
-    modem.waitResponse(5000L);
-    modem.setNetworkMode(2);
-    modem.setPreferredMode(1); // TinyGSM: 1 = Cat-M, 2 = NB-IoT, 3 = both
+    const bool cfunOff = modem.waitResponse(5000L) == 1;
+    const bool networkModeSet = modem.setNetworkMode(2);
+    const bool preferredModeSet = modem.setPreferredMode(1);
+    if (!cfunOff || !networkModeSet || !preferredModeSet)
+        Serial.println(F("[WARN] modem mode setup incomplete; continuing"));
     modem.sendAT("+CGDCONT=1,\"IP\",\"hologram\"");
-    modem.waitResponse(5000L);
+    if (modem.waitResponse(5000L) != 1)
+        Serial.println(F("[WARN] cellular PDP context setup failed; continuing"));
     modem.sendAT("+CNCFG=0,1,\"hologram\"");
-    modem.waitResponse(5000L);
+    if (modem.waitResponse(5000L) != 1)
+        Serial.println(F("[WARN] cellular network profile setup failed; continuing"));
     modem.sendAT("+CFUN=1");
-    modem.waitResponse(10000L);
+    if (modem.waitResponse(10000L) != 1)
+        Serial.println(F("[WARN] modem power-up response missing; continuing"));
     Serial.println(F("[CELL] waiting for network registration"));
     const unsigned long registration_deadline = millis() + 600000UL;
     bool registered = false;
@@ -193,19 +205,18 @@ bool transport_cellular_begin() {
             registered = true;
             break;
         }
-        Serial.printf("[CELL] still searching, CSQ=%d\n", modem.getSignalQuality());
+        Serial.printf(PSTR("[CELL] still searching, CSQ=%d\n"), modem.getSignalQuality());
         esp_task_wdt_reset();
     }
     if (!registered) {
         Serial.println(F("[ERR ] cellular registration failed after 10 min"));
         return false;
     }
-    Serial.printf("[CELL] registered, CSQ=%d\n", modem.getSignalQuality());
+    Serial.printf(PSTR("[CELL] registered, CSQ=%d\n"), modem.getSignalQuality());
     if (!modem.gprsConnect(CELLULAR_APN, "", "")) {
         Serial.println(F("[ERR ] cellular PDP/APN activation failed"));
         return false;
     }
-    Serial.printf("[OK  ] cellular data IP=%s\n", modem.localIP().toString().c_str());
-    cellular_up = true;
+    Serial.printf(PSTR("[OK  ] cellular data IP=%s\n"), modem.localIP().toString().c_str());
     return true;
 }

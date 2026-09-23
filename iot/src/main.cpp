@@ -11,10 +11,12 @@
 #include "telemetry.h"
 #include "sampling_policy.h"
 #include "charge_mode_policy.h"
+#include "cellular_manager.h"
 
 static GpsBoard board;
 static Secrets  secrets;
-static bool     wifi_up = false;
+static bool     cellular_ready = false;
+static CellularManager cellularManager;
 static bool chargeModeRequested = false;
 static ChargeModePolicy chargePolicy(VBUS_PRESENT_THRESHOLD_MV, VBUS_ABSENT_THRESHOLD_MV,
                                       VBUS_STATE_DEBOUNCE_MS);
@@ -113,7 +115,7 @@ void setup() {
         chargePolicy.update(decisionStarted, startupVbusMv);
         while (static_cast<uint32_t>(millis() - decisionStarted) < VBUS_STATE_DEBOUNCE_MS) {
             esp_task_wdt_reset();
-            delay(100);
+            yield();
         }
         chargePolicy.update(millis(), startupVbusMv);
         if (chargePolicy.present()) runChargeOnlyMode();
@@ -149,19 +151,16 @@ void setup() {
 
     telemetry_set_state(SystemState::CONNECTING_NETWORK);
     logLine(F("CELL"), F("starting Hologram cellular connection"));
-    wifi_up = transport_cellular_begin();
+    cellular_ready = transport_cellular_begin();
+    cellularManager.begin(cellular_ready);
 
-    if (!wifi_up) {
-        logLine(F("ERR"), F("cellular connect failed; remaining in ERR_NETWORK until reset"));
+    if (!cellular_ready) {
+        logLine(F("ERR"), F("cellular connect failed; GNSS continues"));
         telemetry_set_state(SystemState::ERR_NETWORK);
-    } else {
-        if (!board.enableGps()) {
-            logLine(F("ERR"), F("GNSS enable failed"));
-            wifi_up = false;
-        }
-        telemetry_set_state(SystemState::WAITING_GNSS_FIX);
-        logLine(F("GNSS"), F("cellular ready; waiting for a valid GNSS fix"));
     }
+    if (!board.enableGps()) logLine(F("ERR"), F("GNSS enable failed"));
+    telemetry_set_state(SystemState::WAITING_GNSS_FIX);
+    logLine(F("GNSS"), F("waiting for a valid GNSS fix"));
 }
 
 void loop() {
@@ -179,12 +178,14 @@ void loop() {
                                                UploadReason::NONE, MotionState::UNKNOWN};
 
     const unsigned long now = millis();
+    cellularManager.tick(now);
+    cellular_ready = cellularManager.ready();
 
     if (samplingPolicy.fixDue(now)) {
         if (board.pollFixPayload(lastFix)) {
             hasFix = true;
             pendingDecision = samplingPolicy.onFix(now, lastFix);
-            if (wifi_up) telemetry_set_state(SystemState::GNSS_FIX_READY);
+            telemetry_set_state(SystemState::GNSS_FIX_READY);
             Serial.printf(PSTR("[%8lu][SAMPLE] state=%u v=%.2fm/s poll=%lums upload=%u reason=%u\n"),
                           now, static_cast<unsigned>(pendingDecision.motionState),
                           lastFix.speed_mps, (unsigned long)pendingDecision.nextFixPollMs,
@@ -197,22 +198,22 @@ void loop() {
                           lastFix.latitude, lastFix.longitude, lastFix.altitude);
         } else {
             hasFix = false;
-            if (wifi_up) telemetry_set_state(SystemState::WAITING_GNSS_FIX);
+            telemetry_set_state(SystemState::WAITING_GNSS_FIX);
             if (now - lastIdle >= GNSS_STATUS_LOG_INTERVAL_MS) {
                 lastIdle = now;
                 char status[GNSS_STATUS_BUFFER_SIZE];
                 if (board.rawGnssState(status, sizeof(status)) == 0) {
-                    if (wifi_up) telemetry_set_state(SystemState::GNSS_NO_RESPONSE);
+                    telemetry_set_state(SystemState::GNSS_NO_RESPONSE);
                     logLine(F("GNSS"), F("modem returned no +CGNSINF response"));
                 } else {
-                    if (wifi_up) telemetry_set_state(SystemState::WAITING_GNSS_FIX);
+                    telemetry_set_state(SystemState::WAITING_GNSS_FIX);
             Serial.printf(PSTR("[%8lu][STAT ] %s\n"), millis(), status);
                 }
             }
         }
     }
 
-    if (!wifi_up || !hasFix) return;
+    if (!cellular_ready || !hasFix) return;
     // The policy owns cadence; this fix remains pending until SENT is reported.
     if (!pendingDecision.shouldUpload) return;
     pendingDecision.shouldUpload = false;
@@ -226,6 +227,7 @@ void loop() {
         return;
     }
     const TransportResult result = transport_post_locations(lastFix, secrets);
+    cellularManager.reportTransportResult(result);
     const bool gpsEnabled = board.enableGps();
     Serial.printf(PSTR("[%8lu][RADIO] GNSS off %lums reenable=%u\n"), millis(),
                   millis() - radioOffAt, gpsEnabled ? 1U : 0U);
@@ -242,16 +244,13 @@ void loop() {
             telemetry_set_state(SystemState::WAITING_GNSS_FIX);
             telemetry_pulse_success();
             break;
-        case TransportResult::WIFI_DISCONNECTED:
-            Serial.println(F("[ERR ] WiFi disconnected; uploads stopped until reset"));
-            wifi_up = false;
-            telemetry_set_state(SystemState::ERR_NETWORK);
-            break;
         case TransportResult::TRANSPORT_ERROR:
             Serial.println(F("[ERR ] API transport failed; retrying next cycle"));
             telemetry_set_state(SystemState::ERR_API_TRANSPORT);
             break;
-        case TransportResult::HTTP_ERROR:
+        case TransportResult::HTTP_CLIENT_ERROR:
+        case TransportResult::HTTP_SERVER_ERROR:
+        case TransportResult::TIMEOUT:
             Serial.println(F("[ERR ] API returned an HTTP error; retrying next cycle"));
             telemetry_set_state(SystemState::ERR_API_HTTP);
             break;
