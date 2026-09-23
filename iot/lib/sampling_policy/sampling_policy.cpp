@@ -11,7 +11,8 @@ SamplingPolicy::SamplingPolicy(const SamplingConfig& config)
     : _config(config), _pollIntervalMs(config.unknownFixPollMs) {}
 
 bool SamplingPolicy::fixDue(uint32_t nowMs) const {
-    return !_hasPoll || static_cast<uint32_t>(nowMs - _lastPollMs) >= _pollIntervalMs;
+    return !_hasPoll || nowMs < _lastPollMs ||
+           static_cast<uint32_t>(nowMs - _lastPollMs) >= _pollIntervalMs;
 }
 
 bool SamplingPolicy::validCoordinates(const LocationPayload& fix) {
@@ -66,20 +67,25 @@ SamplingDecision SamplingPolicy::onFix(uint32_t nowMs, const LocationPayload& fi
         }
     } else if (observed == _state) { _candidate = MotionState::UNKNOWN; _candidateCount = 0; }
 
-    _pollIntervalMs = _state == MotionState::STATIONARY ? _config.maxFixPollMs :
-                       _state == MotionState::MOVING ? intervalForSpeed(fix.speed_mps) :
+    // Use the current observation while hysteresis confirms the new state.
+    const MotionState effectiveState = observed == MotionState::UNKNOWN ? _state : observed;
+    const bool stationaryObservation = effectiveState == MotionState::STATIONARY &&
+                                       (_state != MotionState::UNKNOWN || validSpeed(fix.speed_mps));
+    _pollIntervalMs = stationaryObservation ? _config.maxFixPollMs :
+                       effectiveState == MotionState::MOVING ? intervalForSpeed(fix.speed_mps) :
                        _config.unknownFixPollMs;
     result.nextFixPollMs = _pollIntervalMs;
     result.motionState = _state;
     if (!_hasSent) { result.shouldUpload = true; result.uploadReason = UploadReason::FIRST_VALID_FIX; return result; }
     const double distance = distanceM(fix);
-    if (_state == MotionState::MOVING && distance >= _config.targetPointSpacingM) {
+    if (effectiveState == MotionState::MOVING && distance >= _config.targetPointSpacingM) {
         result.shouldUpload = true; result.uploadReason = UploadReason::DISTANCE_REACHED;
-    } else if (_state == MotionState::MOVING && _hasSentTime &&
+    } else if (effectiveState == MotionState::MOVING && _hasSentTime &&
                static_cast<uint32_t>(nowMs - _lastSentMs) >= _pollIntervalMs) {
         result.shouldUpload = true; result.uploadReason = UploadReason::INTERVAL_ELAPSED;
-    } else if (_state == MotionState::STATIONARY && _hasSentTime &&
-               static_cast<uint32_t>(nowMs - _lastSentMs) >= _config.stationaryHeartbeatMs) {
+    } else if (effectiveState == MotionState::STATIONARY && _hasSentTime &&
+               (static_cast<uint32_t>(nowMs - _lastSentMs) >= _config.stationaryHeartbeatMs ||
+                nowMs >= _config.stationaryHeartbeatMs)) {
         result.shouldUpload = true; result.uploadReason = UploadReason::STATIONARY_HEARTBEAT;
     }
     return result;

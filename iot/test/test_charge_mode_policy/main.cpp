@@ -18,5 +18,9 @@ void test_wraparound() {
     TEST_ASSERT_TRUE(p.update(49, 5000));
 }
 
-void setup() { UNITY_BEGIN(); RUN_TEST(test_debounce_and_hysteresis); RUN_TEST(test_wraparound); UNITY_END(); }
-void loop() {}
+int main() {
+    UNITY_BEGIN();
+    RUN_TEST(test_debounce_and_hysteresis);
+    RUN_TEST(test_wraparound);
+    return UNITY_END();
+}
