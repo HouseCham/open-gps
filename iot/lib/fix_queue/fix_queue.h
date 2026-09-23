@@ -21,26 +21,26 @@ struct FixQueueMeta {
 
 // Fresh empty meta for `capacity` slots. next_seq starts at 1 (backend
 // rejects sequence_id <= 0).
-FixQueueMeta fix_queue_meta_fresh(uint32_t capacity);
+FixQueueMeta fixQueueMetaFresh(uint32_t capacity);
 
 // Serialize with version-less fixed layout + CRC. Returns false if buf is
 // null or length < FIX_QUEUE_META_WIRE_SIZE.
-bool fix_queue_meta_encode(const FixQueueMeta& meta, uint8_t* buf, size_t length);
+bool fixQueueMetaEncode(const FixQueueMeta& meta, uint8_t* buf, size_t length);
 
 // Decode and verify CRC + structural invariants (head/tail/count within
 // capacity, capacity > 0). Returns false on any failure.
-bool fix_queue_meta_decode(const uint8_t* buf, size_t length, FixQueueMeta& out);
+bool fixQueueMetaDecode(const uint8_t* buf, size_t length, FixQueueMeta& out);
 
 // Choose the surviving meta after power loss. Invalid slots are ignored;
 // the higher generation wins. Returns false if neither slot is usable.
-bool fix_queue_meta_pick(const FixQueueMeta* a, bool a_valid,
-                         const FixQueueMeta* b, bool b_valid,
-                         FixQueueMeta& out);
+bool fixQueueMetaPick(const FixQueueMeta* a, bool aValid,
+                      const FixQueueMeta* b, bool bValid,
+                      FixQueueMeta& out);
 
 // Ring arithmetic helpers (pure; capacity is an explicit parameter so the
 // store and the tests share one implementation).
-bool fix_queue_is_full(const FixQueueMeta& meta);
-bool fix_queue_is_empty(const FixQueueMeta& meta);
+bool fixQueueIsFull(const FixQueueMeta& meta);
+bool fixQueueIsEmpty(const FixQueueMeta& meta);
 
 // Advance `index` modulo `capacity`. Returns 0 if capacity is 0.
-uint32_t fix_queue_advance(uint32_t index, uint32_t capacity);
+uint32_t fixQueueAdvance(uint32_t index, uint32_t capacity);

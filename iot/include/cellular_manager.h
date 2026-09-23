@@ -10,8 +10,8 @@ public:
     void begin(bool connected);
     void tick(uint32_t nowMs);
     void reportTransportResult(TransportResult result);
-    bool ready() const { return _policy.ready(); }
+    bool ready() const { return policy.ready(); }
 private:
-    ConnectivityPolicy _policy;
-    bool _gnssWasEnabled = true;
+    ConnectivityPolicy policy;
+    bool gnssWasEnabled = true;
 };

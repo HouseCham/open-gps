@@ -39,21 +39,21 @@ public:
 
     // Remove `count` records from the front (after a 201). Returns how
     // many were actually removed. No-op if count == 0.
-    size_t ack_front(size_t count);
+    size_t ackFront(size_t count);
 
-    uint32_t size() const { return _meta.count; }
-    uint32_t capacity() const { return _meta.capacity; }
-    uint32_t lostCount() const { return _meta.lost_count; }
-    uint32_t nextSequenceId() const { return _meta.next_seq; }
-    bool ready() const { return _ready; }
+    uint32_t size() const { return meta.count; }
+    uint32_t capacity() const { return meta.capacity; }
+    uint32_t lostCount() const { return meta.lost_count; }
+    uint32_t nextSequenceId() const { return meta.next_seq; }
+    bool ready() const { return readyState; }
 
 private:
     bool readMeta(const char* path, FixQueueMeta& out) const;
     bool commitMeta();
     bool reset();
 
-    FixQueueMeta _meta{};
-    int8_t _nextSlot = 0;  // 0 = write /fixq.a next, 1 = /fixq.b
-    uint32_t _capacity = 0;
-    bool _ready = false;
+    FixQueueMeta meta{};
+    int8_t nextSlot = 0;  // 0 = write /fixq.a next, 1 = /fixq.b
+    uint32_t queueCapacity = 0;
+    bool readyState = false;
 };

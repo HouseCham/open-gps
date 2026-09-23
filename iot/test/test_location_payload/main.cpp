@@ -14,7 +14,7 @@ void setUp(void) {
 // 1. Struct fields match the values passed in.
 void test_payload_from_fix(void) {
     LocationPayload p;
-    location_payload_from_fix(p,
+    locationPayloadFromFix(p,
         /*lat*/       19.432608f,
         /*lon*/     -99.133207f,
         /*speed_kmh*/ 36.0f,    // 10 m/s
@@ -45,7 +45,7 @@ void test_payload_lat_lon_required(void) {
     p.latitude  = 19.432608;
     p.longitude = -99.133207;
 
-    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    size_t n = locationPayloadToJson(p, buf, sizeof(buf));
     TEST_ASSERT_GREATER_THAN(0, n);
 
     TEST_ASSERT_NOT_NULL(strstr(buf, "\"recorded_at\":\"2026-07-15T12:00:00Z\""));
@@ -56,12 +56,12 @@ void test_payload_lat_lon_required(void) {
 // 3. recorded_at is ISO 8601 / RFC 3339.
 void test_payload_timestamp_iso8601(void) {
     LocationPayload p = {};
-    location_payload_from_fix(p, 0, 0, 0, 0, 0, 0,
+    locationPayloadFromFix(p, 0, 0, 0, 0, 0, 0,
                               2026, 1, 2, 3, 4, 5);
 
     TEST_ASSERT_EQUAL_STRING("2026-01-02T03:04:05Z", p.recorded_at);
 
-    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    size_t n = locationPayloadToJson(p, buf, sizeof(buf));
     TEST_ASSERT_GREATER_THAN(0, n);
     TEST_ASSERT_NOT_NULL(strstr(buf, "\"recorded_at\":\"2026-01-02T03:04:05Z\""));
 }
@@ -73,7 +73,7 @@ void test_payload_lat_range(void) {
     p.latitude  = 91.0;     // out of range
     p.longitude = 0.0;
 
-    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    size_t n = locationPayloadToJson(p, buf, sizeof(buf));
     TEST_ASSERT_GREATER_THAN(0, n);
     TEST_ASSERT_NULL(strstr(buf, "\"latitude\""));
     TEST_ASSERT_NOT_NULL(strstr(buf, "\"longitude\":0"));
@@ -86,7 +86,7 @@ void test_payload_lon_range(void) {
     p.latitude  = 0.0;
     p.longitude = -181.0;   // out of range
 
-    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    size_t n = locationPayloadToJson(p, buf, sizeof(buf));
     TEST_ASSERT_GREATER_THAN(0, n);
     TEST_ASSERT_NOT_NULL(strstr(buf, "\"latitude\":0"));
     TEST_ASSERT_NULL(strstr(buf, "\"longitude\""));
@@ -103,7 +103,7 @@ void test_payload_optionals_null_when_zero(void) {
     p.accuracy_m      = 0.0;
     p.satellites_used = 0;
 
-    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    size_t n = locationPayloadToJson(p, buf, sizeof(buf));
     TEST_ASSERT_GREATER_THAN(0, n);
     TEST_ASSERT_NULL(strstr(buf, "\"altitude\""));
     TEST_ASSERT_NULL(strstr(buf, "\"speed\""));
@@ -116,7 +116,7 @@ void test_payload_speed_kmh_to_mps(void) {
     LocationPayload p;
     // Pass accuracy_m directly (the TinyGPS `acc` out-param is already
     // a position-error estimate in metres, derived from HDOP).
-    location_payload_from_fix(p, 0, 0, 144.0f, 0, 0, 5.5f,
+    locationPayloadFromFix(p, 0, 0, 144.0f, 0, 0, 5.5f,
                               2026, 7, 15, 12, 0, 0);
 
     TEST_ASSERT_DOUBLE_WITHIN(1e-4, 40.0, p.speed_mps);  // 144 km/h -> 40 m/s
@@ -132,7 +132,7 @@ void test_payload_battery_and_signal_serialized(void) {
     p.battery_voltage = 3.72;
     p.signal_strength = 23;
 
-    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    size_t n = locationPayloadToJson(p, buf, sizeof(buf));
     TEST_ASSERT_GREATER_THAN(0, n);
     TEST_ASSERT_NOT_NULL(strstr(buf, "\"battery_voltage\":3.72"));
     TEST_ASSERT_NOT_NULL(strstr(buf, "\"signal_strength\":23"));
@@ -147,7 +147,7 @@ void test_payload_battery_zero_omitted(void) {
     p.battery_voltage = 0.0;
     p.signal_strength = 23;
 
-    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    size_t n = locationPayloadToJson(p, buf, sizeof(buf));
     TEST_ASSERT_GREATER_THAN(0, n);
     TEST_ASSERT_NULL(strstr(buf, "\"battery_voltage\""));
     TEST_ASSERT_NOT_NULL(strstr(buf, "\"signal_strength\":23"));
@@ -163,12 +163,12 @@ void test_payload_signal_unknown_omitted(void) {
     p.battery_voltage = 3.72;
     p.signal_strength = -1;
 
-    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    size_t n = locationPayloadToJson(p, buf, sizeof(buf));
     TEST_ASSERT_GREATER_THAN(0, n);
     TEST_ASSERT_NULL(strstr(buf, "\"signal_strength\""));
 
     p.signal_strength = 99;
-    n = location_payload_to_json(p, buf, sizeof(buf));
+    n = locationPayloadToJson(p, buf, sizeof(buf));
     TEST_ASSERT_GREATER_THAN(0, n);
     TEST_ASSERT_NULL(strstr(buf, "\"signal_strength\""));
 }
@@ -181,7 +181,7 @@ void test_payload_signal_zero_valid(void) {
     p.longitude = -99.0;
     p.signal_strength = 0;
 
-    size_t n = location_payload_to_json(p, buf, sizeof(buf));
+    size_t n = locationPayloadToJson(p, buf, sizeof(buf));
     TEST_ASSERT_GREATER_THAN(0, n);
     TEST_ASSERT_NOT_NULL(strstr(buf, "\"signal_strength\":0"));
 }

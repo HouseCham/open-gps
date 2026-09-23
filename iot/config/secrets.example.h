@@ -15,6 +15,6 @@ constexpr const char* WIFI_SSID = "";
 constexpr const char* WIFI_PASSWORD = "";
 
 // Fill these, then rename this file to secrets.h (it is gitignored).
-// uuid and api_key are required (empty → boot error). WiFi fields can be
+// uuid and apiKey are required (empty → boot error). WiFi fields can be
 // empty if you only want GPS polling for now (transport_begin() will log
 // a "no WiFi configured" message and skip uploads).

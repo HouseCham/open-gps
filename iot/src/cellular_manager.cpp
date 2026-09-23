@@ -1,28 +1,29 @@
 #include "cellular_manager.h"
 #include <esp_task_wdt.h>
 #include "config.h"
+#include "secrets_data.h"
 
 CellularManager::CellularManager()
-    : _policy(CELLULAR_RECOVERY_BASE_MS, CELLULAR_RECOVERY_MAX_MS,
+    : policy(CELLULAR_RECOVERY_BASE_MS, CELLULAR_RECOVERY_MAX_MS,
               CELLULAR_RECOVERY_MAX_ATTEMPTS) {}
 
 void CellularManager::begin(bool connected) {
-    _policy.event(connected ? ConnectivityEvent::PDP_OK : ConnectivityEvent::TRANSPORT_FAILURE, millis());
+    policy.event(connected ? ConnectivityEvent::PDP_OK : ConnectivityEvent::TRANSPORT_FAILURE, millis());
 }
 
 void CellularManager::reportTransportResult(TransportResult result) {
-    if (result == TransportResult::SENT) _policy.event(ConnectivityEvent::UPLOAD_SUCCESS, millis());
+    if (result == TransportResult::SENT) policy.event(ConnectivityEvent::UPLOAD_SUCCESS, millis());
     else if (result == TransportResult::TRANSPORT_ERROR || result == TransportResult::TIMEOUT ||
              result == TransportResult::HTTP_SERVER_ERROR)
-        _policy.event(ConnectivityEvent::TRANSPORT_FAILURE, millis());
+        policy.event(ConnectivityEvent::TRANSPORT_FAILURE, millis());
 }
 
 void CellularManager::tick(uint32_t nowMs) {
-    const ConnectivityDecision decision = _policy.tick(nowMs);
+    const ConnectivityDecision decision = policy.tick(nowMs);
     if (decision.action == ConnectivityAction::NONE) return;
     TinyGsm& modem = board_modem();
     // The SIM7080G shares its radio: keep GNSS off for the recovery transaction.
-    _gnssWasEnabled = true;
+    gnssWasEnabled = true;
     if (!modem.disableGPS()) {
         Serial.println(F("[WARN] GNSS was already disabled; continuing recovery"));
     }
@@ -44,10 +45,10 @@ void CellularManager::tick(uint32_t nowMs) {
     }
     esp_task_wdt_reset();
     if (recovered) {
-        _policy.event(ConnectivityEvent::PDP_OK, millis());
-        if (_gnssWasEnabled && !modem.enableGPS())
-            _policy.event(ConnectivityEvent::TRANSPORT_FAILURE, millis());
+        policy.event(ConnectivityEvent::PDP_OK, millis());
+        if (gnssWasEnabled && !modem.enableGPS())
+            policy.event(ConnectivityEvent::TRANSPORT_FAILURE, millis());
     } else {
-        _policy.event(ConnectivityEvent::TRANSPORT_FAILURE, millis());
+        policy.event(ConnectivityEvent::TRANSPORT_FAILURE, millis());
     }
 }

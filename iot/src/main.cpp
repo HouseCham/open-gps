@@ -12,14 +12,19 @@
 #include "sampling_policy.h"
 #include "charge_mode_policy.h"
 #include "cellular_manager.h"
+#include "persistent_fix_store.h"
+#include "fix_record.h"
 
 static GpsBoard board;
 static Secrets  secrets;
-static bool     cellular_ready = false;
+static bool     cellularReady = false;
 static CellularManager cellularManager;
 static bool chargeModeRequested = false;
 static ChargeModePolicy chargePolicy(VBUS_PRESENT_THRESHOLD_MV, VBUS_ABSENT_THRESHOLD_MV,
                                       VBUS_STATE_DEBOUNCE_MS);
+static PersistentFixStore fixStore;
+static uint32_t bootId = 0;
+static bool queueReady = false;
 
 static uint16_t chargeModeVbusMv() {
     // AXP2101 digital VBUS status is authoritative; voltage is the fallback
@@ -112,12 +117,13 @@ void setup() {
         // Preserve the first valid VBUS sample. XPowersLib can transiently
         // report zero while its ADC/status registers settle after begin().
         const uint16_t startupVbusMv = chargeModeVbusMv();
-        chargePolicy.update(decisionStarted, startupVbusMv);
+        // update() mutates the debounce state; present() is the authoritative result.
+        (void)chargePolicy.update(decisionStarted, startupVbusMv);
         while (static_cast<uint32_t>(millis() - decisionStarted) < VBUS_STATE_DEBOUNCE_MS) {
             esp_task_wdt_reset();
             yield();
         }
-        chargePolicy.update(millis(), startupVbusMv);
+        (void)chargePolicy.update(millis(), startupVbusMv);
         if (chargePolicy.present()) runChargeOnlyMode();
     }
     if (!board.beginTrackerHardware()) {
@@ -149,12 +155,17 @@ void setup() {
 
     secrets_print_diag(secrets);
 
+    bootId = esp_random();
+    queueReady = fixStore.begin(FIX_QUEUE_CAPACITY);
+    if (!queueReady)
+        logLine(F("ERR"), F("fix queue unavailable; points may be lost"));
+
     telemetry_set_state(SystemState::CONNECTING_NETWORK);
     logLine(F("CELL"), F("starting Hologram cellular connection"));
-    cellular_ready = transport_cellular_begin();
-    cellularManager.begin(cellular_ready);
+    cellularReady = transportCellularBegin();
+    cellularManager.begin(cellularReady);
 
-    if (!cellular_ready) {
+    if (!cellularReady) {
         logLine(F("ERR"), F("cellular connect failed; GNSS continues"));
         telemetry_set_state(SystemState::ERR_NETWORK);
     }
@@ -173,17 +184,17 @@ void loop() {
 
     static unsigned long lastIdle = 0;
     static LocationPayload lastFix = {};
-    static bool hasFix = false;
     static SamplingDecision pendingDecision = {UNKNOWN_FIX_POLL_MS, false,
                                                UploadReason::NONE, MotionState::UNKNOWN};
+    static FixRecord batch[BATCH_MAX_ITEMS];
+    static uint32_t lastQueueLogMs = 0;
 
     const unsigned long now = millis();
     cellularManager.tick(now);
-    cellular_ready = cellularManager.ready();
+    cellularReady = cellularManager.ready();
 
     if (samplingPolicy.fixDue(now)) {
         if (board.pollFixPayload(lastFix)) {
-            hasFix = true;
             pendingDecision = samplingPolicy.onFix(now, lastFix);
             telemetry_set_state(SystemState::GNSS_FIX_READY);
             Serial.printf(PSTR("[%8lu][SAMPLE] state=%u v=%.2fm/s poll=%lums upload=%u reason=%u\n"),
@@ -196,8 +207,32 @@ void loop() {
                           (unsigned long)board.satellitesInView(),
                           (unsigned long)board.satellitesUsed(),
                           lastFix.latitude, lastFix.longitude, lastFix.altitude);
+
+            // Enqueue accepted fixes BEFORE any network attempt so a coverage
+            // gap never loses the point (audit-fix-plan Phase 2).
+            if (pendingDecision.shouldUpload && queueReady) {
+                LocationPayload enriched = lastFix;
+                enriched.signal_strength = -1;
+                const uint16_t batt_mv = board_pmu().getBattVoltage();
+                const double batt_v = batt_mv / 1000.0;
+                if (batt_v > 0.0 && batt_v <= 6.0) enriched.battery_voltage = batt_v;
+                const int csq = board_modem().getSignalQuality();
+                if (csq >= 0 && csq <= 31) enriched.signal_strength = csq;
+
+                FixRecord record{};
+                if (locationPayloadToFixRecord(enriched, 0, bootId, record) &&
+                    fixStore.push(record)) {
+                    samplingPolicy.onUploadResult(now, lastFix, true);
+                    Serial.printf(PSTR("[%8lu][QUEUE] enqueued seq=%lu size=%lu/%lu\n"),
+                                  now, (unsigned long)record.sequence_id,
+                                  (unsigned long)fixStore.size(),
+                                  (unsigned long)fixStore.capacity());
+                } else {
+                    Serial.println(F("[ERR ] queue push failed; point dropped"));
+                }
+                pendingDecision.shouldUpload = false;
+            }
         } else {
-            hasFix = false;
             telemetry_set_state(SystemState::WAITING_GNSS_FIX);
             if (now - lastIdle >= GNSS_STATUS_LOG_INTERVAL_MS) {
                 lastIdle = now;
@@ -213,10 +248,20 @@ void loop() {
         }
     }
 
-    if (!cellular_ready || !hasFix) return;
-    // The policy owns cadence; this fix remains pending until SENT is reported.
-    if (!pendingDecision.shouldUpload) return;
-    pendingDecision.shouldUpload = false;
+    if (queueReady && fixStore.lostCount() > 0 &&
+        static_cast<uint32_t>(now - lastQueueLogMs) >= GNSS_STATUS_LOG_INTERVAL_MS) {
+        lastQueueLogMs = now;
+        Serial.printf(PSTR("[%8lu][QUEUE] size=%lu lost=%lu\n"), now,
+                      (unsigned long)fixStore.size(),
+                      (unsigned long)fixStore.lostCount());
+    }
+
+    // Drain the queue whenever the network is up — independent of whether a
+    // fresh fix arrived this pass (backlog after an outage must flush too).
+    if (!queueReady || !cellularReady || fixStore.size() == 0) return;
+
+    const size_t toSend = fixStore.peek(batch, BATCH_MAX_ITEMS);
+    if (toSend == 0) return;
 
     telemetry_set_state(SystemState::UPLOADING_API);
 
@@ -226,7 +271,7 @@ void loop() {
         telemetry_set_state(SystemState::ERR_API_TRANSPORT);
         return;
     }
-    const TransportResult result = transport_post_locations(lastFix, secrets);
+    const TransportResult result = transportPostBatch(batch, toSend, secrets);
     cellularManager.reportTransportResult(result);
     const bool gpsEnabled = board.enableGps();
     Serial.printf(PSTR("[%8lu][RADIO] GNSS off %lums reenable=%u\n"), millis(),
@@ -238,20 +283,31 @@ void loop() {
         samplingPolicy.notifyGpsReenabled(millis());
     }
     switch (result) {
-        case TransportResult::SENT:
-            Serial.println(F("[UP  ] location sent"));
-            samplingPolicy.onUploadResult(millis(), lastFix, true);
+        case TransportResult::SENT: {
+            // 201 = every item accepted or permanently rejected (validation);
+            // safe to drop the whole peeked prefix. Backend is idempotent by
+            // sequence_id if a crash re-sends after a partial ack.
+            const size_t acked = fixStore.ackFront(toSend);
+            Serial.printf(PSTR("[UP  ] batch sent (%u/%u acked), queue=%lu\n"),
+                          (unsigned)acked, (unsigned)toSend,
+                          (unsigned long)fixStore.size());
+            if (acked > 0) {
+                LocationPayload newest{};
+                locationPayloadFromFixRecord(newest, batch[acked - 1]);
+                samplingPolicy.onUploadResult(millis(), newest, true);
+            }
             telemetry_set_state(SystemState::WAITING_GNSS_FIX);
             telemetry_pulse_success();
             break;
+        }
         case TransportResult::TRANSPORT_ERROR:
-            Serial.println(F("[ERR ] API transport failed; retrying next cycle"));
+            Serial.println(F("[ERR ] API transport failed; points stay queued"));
             telemetry_set_state(SystemState::ERR_API_TRANSPORT);
             break;
         case TransportResult::HTTP_CLIENT_ERROR:
         case TransportResult::HTTP_SERVER_ERROR:
         case TransportResult::TIMEOUT:
-            Serial.println(F("[ERR ] API returned an HTTP error; retrying next cycle"));
+            Serial.println(F("[ERR ] API returned an HTTP error; points stay queued"));
             telemetry_set_state(SystemState::ERR_API_HTTP);
             break;
         case TransportResult::CONFIG_ERROR:

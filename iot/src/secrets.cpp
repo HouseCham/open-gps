@@ -11,16 +11,16 @@ bool secrets_load(Secrets& out) {
     if (DEVICE_API_KEY[0] == '\0') return false;
 
     out.uuid          = DEVICE_UUID_FIRMWARE;
-    out.api_key       = DEVICE_API_KEY;
-    out.wifi_ssid     = WIFI_SSID;
-    out.wifi_password = WIFI_PASSWORD;
+    out.apiKey       = DEVICE_API_KEY;
+    out.wifiSsid     = WIFI_SSID;
+    out.wifiPassword = WIFI_PASSWORD;
     return true;
 }
 
 void secrets_print_diag(const Secrets& s) {
     const size_t ulen = strlen(s.uuid);
-    const size_t klen = strlen(s.api_key);
-    const size_t slen = strlen(s.wifi_ssid);
+    const size_t klen = strlen(s.apiKey);
+    const size_t slen = strlen(s.wifiSsid);
 
     Serial.print(F("[CFG ] uuid_len="));
     Serial.print(ulen);
@@ -30,7 +30,7 @@ void secrets_print_diag(const Secrets& s) {
     Serial.print(slen);
     if (slen > 0) {
         Serial.print(F(" ssid="));
-        Serial.print(s.wifi_ssid);
+        Serial.print(s.wifiSsid);
     } else {
         Serial.print(F(" ssid=<none>"));
     }

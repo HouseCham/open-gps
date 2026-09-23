@@ -53,41 +53,41 @@ constexpr uint8_t FIX_FIELD_SIGNAL     = 1u << 5;
 // Optional fields are omitted when their value is 0 (treated as "unknown");
 // lat/lon are always written if they are within the valid WGS84 range,
 // otherwise omitted. sequence_id is written only when > 0.
-size_t location_payload_to_json(const LocationPayload& p,
-                                char* buf, size_t buf_len);
+size_t locationPayloadToJson(const LocationPayload& p,
+                             char* buf, size_t bufLen);
 
 // Serialize a batch body `{"items":[...]}` for POST .../locations/batch.
 // Returns bytes written (excluding NUL), or 0 on overflow / bad input.
 // Items keep their sequence_id; callers must set it before calling.
-size_t location_batch_to_json(const LocationPayload* items, size_t count,
-                              char* buf, size_t buf_len);
+size_t locationBatchToJson(const LocationPayload* items, size_t count,
+                           char* buf, size_t bufLen);
 
 // Parse `accepted_sequence_ids` and `rejected[].sequence_id` from a batch
 // ACK body into `out` (deduplicated, order preserved). Returns the number
 // of sequence ids written, or -1 if `json` is not valid JSON / missing
 // both fields. Used for diagnostics; a 201 alone is enough to ack.
-int location_batch_parse_ack(const char* json, uint32_t* out, size_t max_out);
+int locationBatchParseAck(const char* json, uint32_t* out, size_t maxOut);
 
 // Build a payload directly from the values modem.getGPS() writes through
 // its out-params. speed_kmh is the TinyGPS ground speed in km/h and is
 // converted to m/s internally (the API contract expects m/s).
 // accuracy_m is the HDOP-derived position accuracy in metres.
-void location_payload_from_fix(LocationPayload& p,
-                               float lat, float lon,
-                               float speed_kmh, float alt,
-                               uint16_t sats_used,
-                               float accuracy_m,
-                               int16_t yy, int16_t mo, int16_t dd,
-                               int16_t hh, int16_t mi, int16_t ss);
+void locationPayloadFromFix(LocationPayload& p,
+                            float lat, float lon,
+                            float speedKmh, float alt,
+                            uint16_t satsUsed,
+                            float accuracyM,
+                            int16_t yy, int16_t mo, int16_t dd,
+                            int16_t hh, int16_t mi, int16_t ss);
 
 // Widen a queued FixRecord back into a payload for JSON serialisation.
-void location_payload_from_fix_record(LocationPayload& out,
-                                      const FixRecord& record);
+void locationPayloadFromFixRecord(LocationPayload& out,
+                                  const FixRecord& record);
 
 // Scale a payload into a FixRecord for the persistent queue. Assigns
 // sequence_id/boot_id and fills valid_fields from known (non-unknown)
 // optionals. Returns false if recorded_at is not NUL-terminated.
-bool location_payload_to_fix_record(const LocationPayload& in,
-                                    uint32_t sequence_id,
-                                    uint32_t boot_id,
-                                    FixRecord& out);
+bool locationPayloadToFixRecord(const LocationPayload& in,
+                                 uint32_t sequenceId,
+                                 uint32_t bootId,
+                                 FixRecord& out);

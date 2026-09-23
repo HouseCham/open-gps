@@ -204,7 +204,7 @@ bool GpsBoard::pollFixPayload(LocationPayload& out) {
     // sentinel to uint32_t: it becomes 4294967295 and corrupts diagnostics.
     _vsat = vsat > 0 ? static_cast<uint32_t>(vsat) : 0;
     _usat = usat > 0 ? static_cast<uint32_t>(usat) : 0;
-    location_payload_from_fix(out, lat, lon, spd, alt, usat, acc,
+    locationPayloadFromFix(out, lat, lon, spd, alt, usat, acc,
                               yy, mo, dd, hh, mi, ss);
     return true;
 }

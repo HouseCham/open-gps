@@ -1,20 +1,34 @@
 #include "transport_url.h"
 
 #include <cstdio>
+#include <cstring>
 
-size_t transport_build_url(const char* api_host,
-                           uint16_t    api_port,
+size_t transportBuildUrl(const char* apiHost,
+                           uint16_t    apiPort,
                            const char* uuid,
                            char*       buf,
-                           size_t      buf_len) {
-    if (!api_host || !uuid || !buf) return 0;
+                           size_t      bufLen) {
+    if (!apiHost || !uuid || !buf) return 0;
     int n;
-    if (api_port > 0)
-        n = snprintf(buf, buf_len, "%s:%u/api/v1/devices/%s/locations",
-                     api_host, (unsigned)api_port, uuid);
+    if (apiPort > 0)
+        n = snprintf(buf, bufLen, "%s:%u/api/v1/devices/%s/locations",
+                     apiHost, (unsigned)apiPort, uuid);
     else
-        n = snprintf(buf, buf_len, "%s/api/v1/devices/%s/locations",
-                     api_host, uuid);
-    if (n < 0 || (size_t)n >= buf_len) return 0;
+        n = snprintf(buf, bufLen, "%s/api/v1/devices/%s/locations",
+                     apiHost, uuid);
+    if (n < 0 || (size_t)n >= bufLen) return 0;
     return (size_t)n;
+}
+
+size_t transportBuildBatchUrl(const char* apiHost,
+                                 uint16_t    apiPort,
+                                 const char* uuid,
+                                 char*       buf,
+                                 size_t      bufLen) {
+    const size_t n = transportBuildUrl(apiHost, apiPort, uuid, buf, bufLen);
+    if (n == 0) return 0;
+    // "/batch" = 6 chars + NUL
+    if (n + 7 > bufLen) return 0;
+    memcpy(buf + n, "/batch", 7);
+    return n + 6;
 }

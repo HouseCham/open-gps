@@ -26,7 +26,7 @@ struct FixRecord {
 
 // Serialize a record with version and CRC. Returns false for invalid input or
 // a buffer smaller than FIX_RECORD_WIRE_SIZE.
-bool fix_record_encode(const FixRecord& record, uint8_t* buffer, size_t length);
+bool fixRecordEncode(const FixRecord& record, uint8_t* buffer, size_t length);
 
 // Decode and validate version and CRC. Returns false for malformed records.
-bool fix_record_decode(const uint8_t* buffer, size_t length, FixRecord& record);
+bool fixRecordDecode(const uint8_t* buffer, size_t length, FixRecord& record);
