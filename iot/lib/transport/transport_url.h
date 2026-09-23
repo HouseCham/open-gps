@@ -22,3 +22,11 @@ size_t transport_build_url(const char* api_host,
                            const char* uuid,
                            char*       buf,
                            size_t      buf_len);
+
+// Same as transport_build_url but targets POST .../locations/batch.
+// Returns bytes written (excluding NUL), or 0 on overflow / NULL input.
+size_t transport_build_batch_url(const char* api_host,
+                                 uint16_t    api_port,
+                                 const char* uuid,
+                                 char*       buf,
+                                 size_t      buf_len);

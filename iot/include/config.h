@@ -1,14 +1,7 @@
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
-
-// ----- API endpoint -----
-// Replace with your actual backend URL before deploying.
-// The device resolves this via DNS over WiFi or cellular.
-// Do not include a trailing slash or path — the transport module appends
-// the locations path automatically.
-constexpr const char* API_HOST = "https://open-gps-dev-vhl0np-ad1de5-89-117-21-221.sslip.io";
-constexpr const char* CELLULAR_APN = "hologram";
 
 // Adaptive sampling: intervals are milliseconds; speeds are metres/second.
 constexpr uint32_t TARGET_POINT_SPACING_M = 25;
@@ -49,3 +42,11 @@ constexpr uint32_t CELLULAR_RECOVERY_BASE_MS = 30000;
 constexpr uint32_t CELLULAR_RECOVERY_MAX_MS = 900000;
 constexpr uint8_t CELLULAR_RECOVERY_MAX_ATTEMPTS = 6;
 constexpr uint32_t CELLULAR_OPERATION_TIMEOUT_MS = 10000;
+
+// ----- Offline fix queue (Phase 2) -----
+// 2048 × 64 B = 128 KB — fits the 896 KB spiffs partition in huge_app.csv.
+// ~3 h of points at the 5 s stationary-ish cadence; ~34 min at the 1 s floor.
+// When full, the oldest record is dropped (audit-fix-plan: keep recent).
+constexpr size_t FIX_QUEUE_CAPACITY = 2048;
+// Backend hard limit (dto.MaxBatchItems).
+constexpr size_t BATCH_MAX_ITEMS = 20;
