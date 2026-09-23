@@ -14,9 +14,10 @@ struct LocationPayload;
 
 enum class TransportResult : uint8_t {
     SENT,
-    WIFI_DISCONNECTED,
     TRANSPORT_ERROR,
-    HTTP_ERROR,
+    TIMEOUT,
+    HTTP_CLIENT_ERROR,
+    HTTP_SERVER_ERROR,
     CONFIG_ERROR
 };
 
@@ -53,7 +54,6 @@ size_t transport_build_url(const char* api_host,
 // Returns true if WiFi is connected (IP assigned); false if no SSID is
 // configured or the timeout elapses without associating. On success, WiFi
 // stays connected for the lifetime of the firmware.
-bool transport_begin(const Secrets& s);
 bool transport_cellular_begin();
 
 // POSTs the payload to the backend. Distinguishes an accepted request,

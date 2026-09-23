@@ -7,7 +7,7 @@
 // The device resolves this via DNS over WiFi or cellular.
 // Do not include a trailing slash or path — the transport module appends
 // the locations path automatically.
-constexpr const char* API_HOST = "https://gps-tracker.local";
+constexpr const char* API_HOST = "https://open-gps-dev-vhl0np-ad1de5-89-117-21-221.sslip.io";
 constexpr const char* CELLULAR_APN = "hologram";
 
 // Adaptive sampling: intervals are milliseconds; speeds are metres/second.
@@ -29,7 +29,13 @@ constexpr uint32_t SETUP_IDLE_DELAY_MS = 10;
 constexpr size_t GNSS_STATUS_BUFFER_SIZE = 128;
 
 // ----- USB-C charge-only mode -----
+#ifdef WAIT_FOR_SERIAL
+// The debug USB profile must keep tracking alive so serial diagnostics work
+// while the board is powered from the USB host.
+constexpr bool CHARGE_MODE_ENABLED = false;
+#else
 constexpr bool CHARGE_MODE_ENABLED = true;
+#endif
 constexpr uint32_t VBUS_PRESENT_THRESHOLD_MV = 4500;
 constexpr uint32_t VBUS_ABSENT_THRESHOLD_MV = 4000;
 constexpr uint32_t VBUS_STATE_DEBOUNCE_MS = 2000;
@@ -39,3 +45,7 @@ constexpr bool CHARGE_MODE_USE_LIGHT_SLEEP = false;
 // ----- Watchdog -----
 // If the ESP32 loop stalls for more than this many seconds, the hardware watchdog reboots.
 constexpr uint32_t WATCHDOG_TIMEOUT_S = 30;
+constexpr uint32_t CELLULAR_RECOVERY_BASE_MS = 30000;
+constexpr uint32_t CELLULAR_RECOVERY_MAX_MS = 900000;
+constexpr uint8_t CELLULAR_RECOVERY_MAX_ATTEMPTS = 6;
+constexpr uint32_t CELLULAR_OPERATION_TIMEOUT_MS = 10000;
