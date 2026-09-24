@@ -19,3 +19,5 @@ enum class SystemState {
 void telemetry_set_state(SystemState state);
 void telemetry_pulse_success();
 void telemetry_tick();
+// Current LED/state machine value — used by the VBAT sag sampler.
+SystemState telemetry_current_state();
