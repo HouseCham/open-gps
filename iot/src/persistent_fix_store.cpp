@@ -102,6 +102,11 @@ bool PersistentFixStore::begin(uint32_t capacity) {
         f.close();
     }
 
+    // probe() below goes through peek(), which no-ops while !readyState.
+    // Leaving readyState false here made every non-empty boot look corrupt
+    // and wipe the queue (HIL: WDT reboot lost next_seq / pending items).
+    readyState = true;
+
     // Drop a corrupt committed front record rather than wedging the queue.
     if (meta.count > 0) {
         FixRecord probe{};
@@ -111,7 +116,6 @@ bool PersistentFixStore::begin(uint32_t capacity) {
         }
     }
 
-    readyState = true;
     Serial.printf(PSTR("[QUEUE] ready size=%lu/%lu lost=%lu next_seq=%lu\n"),
                   (unsigned long)meta.count, (unsigned long)meta.capacity,
                   (unsigned long)meta.lost_count, (unsigned long)meta.next_seq);

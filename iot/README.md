@@ -90,7 +90,7 @@ open-gps-iot/
 │   ├── secrets.cpp             Secrets loader + masked diagnostic print
 │   └── native_stub.cpp         1-line shim so PlatformIO native env has a TU
 ├── include/
-│   ├── config.h                Global constants (API_HOST, FIX_POLL_MS, …)
+│   ├── config.h                Global constants (FIX_POLL_MS, …)
 │   ├── gps_board.h             GpsBoard public interface
 │   ├── transport.h             Transport public interface (forwards Arduino-only types)
 │   ├── secrets.h               Secrets struct + loader signatures
@@ -172,8 +172,8 @@ environments are defined in `platformio.ini`:
 cp config/secrets.example.h config/secrets.h
 # Edit config/secrets.h with your UUID, API key, and WiFi SSID/password.
 
-# 2. Point the firmware at your backend.
-#    Edit include/config.h and set API_HOST to your backend URL.
+# 2. Point the firmware at your backend and set the cellular APN.
+#    Edit API_HOST and CELLULAR_APN in config/secrets.h.
 
 # 3. Build and flash.
 pio run -e esp32s3box -t upload

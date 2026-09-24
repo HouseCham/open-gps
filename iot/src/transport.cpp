@@ -12,16 +12,20 @@
 #include "secrets.h"  // full definitions; transport.h uses forward decls to
                        // avoid pulling <Arduino.h> into native test builds
 #include "secrets_data.h"
+#include "wdt_guard.h"
 
 namespace {
 constexpr size_t URL_BUFFER_SIZE = 256;
 constexpr size_t JSON_BUFFER_SIZE = 320;
-constexpr size_t BATCH_JSON_BUFFER_SIZE = 8192;
+constexpr size_t BATCH_JSON_BUFFER_SIZE = 2048;
 constexpr size_t HOST_BUFFER_SIZE = 128;
 constexpr size_t HTTP_STATUS_BUFFER_SIZE = 16;
 constexpr size_t HTTP_RESPONSE_BUFFER_SIZE = 2048;
 constexpr size_t BATCH_PAYLOAD_CAPACITY = 20;
 constexpr uint32_t HTTP_RESPONSE_TIMEOUT_MS = 10000;
+// SIM7080 +CASEND: one ~900B HTTP shot works; a 3rd CASEND on the same
+// TLS conn always fails (HIL: wrote stuck at 790). Keep each POST ≤ ~900B.
+constexpr size_t SUB_BATCH_ITEMS = 3;
 
 // Reads the HTTP status line, headers (for Content-Length), and body into
 // `body`. Returns the status code, or 0 on transport/parse failure.
@@ -30,8 +34,16 @@ int readHttpResponse(TinyGsmClientSecure& client, char* body, size_t bodyLen) {
     auto timedOut = [&]() {
         return static_cast<long>(millis() - deadline) >= 0;
     };
+    // yield() alone does not reset the ESP32 task WDT; cellular TLS can
+    // stall long enough to trip it mid-POST (observed on hardware).
+    auto waitByte = [&]() {
+        while (!client.available() && !timedOut()) {
+            esp_task_wdt_reset();
+            yield();
+        }
+    };
 
-    while (!client.available() && !timedOut()) yield();
+    waitByte();
     if (!client.available()) return 0;
 
     char status[HTTP_STATUS_BUFFER_SIZE] = {};
@@ -46,7 +58,7 @@ int readHttpResponse(TinyGsmClientSecure& client, char* body, size_t bodyLen) {
     long contentLength = -1;
     char line[128];
     for (;;) {
-        while (!client.available() && !timedOut()) yield();
+        waitByte();
         if (timedOut()) return 0;
         const size_t n = client.readBytesUntil('\n', line, sizeof(line) - 1);
         if (n == 0) return 0;
@@ -72,6 +84,7 @@ int readHttpResponse(TinyGsmClientSecure& client, char* body, size_t bodyLen) {
                     if (got == 0) break;
                     pos += got;
                 } else {
+                    esp_task_wdt_reset();
                     yield();
                 }
             }
@@ -82,6 +95,7 @@ int readHttpResponse(TinyGsmClientSecure& client, char* body, size_t bodyLen) {
                     if (got == 0) break;
                     pos += got;
                 } else {
+                    esp_task_wdt_reset();
                     yield();
                 }
             }
@@ -111,17 +125,58 @@ TransportResult postOnce(const char* url, const char* apiKey,
     if (hostLen == 0 || hostLen >= sizeof(host)) return TransportResult::CONFIG_ERROR;
     memcpy(host, hostStart, hostLen);
     host[hostLen] = '\0';
-    if (!client.connect(host, 443)) return TransportResult::TRANSPORT_ERROR;
-    if (client.printf(PSTR("POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\n"
-                           "X-Device-API-Key: %s\r\nContent-Length: %u\r\nConnection: close\r\n\r\n%s"),
-                      path, host, apiKey, (unsigned)strlen(jsonBody), jsonBody) <= 0) {
+    // TLS handshake + write over LTE-M can exceed WATCHDOG_TIMEOUT_S with
+    // no internal reset point (HIL: task_wdt abort mid-POST). Detach only
+    // for those two calls; readHttpResponse re-arms its own wait-loop resets.
+    bool connected = false;
+    size_t sent = 0;
+    // Single +CASEND for the full request: multi-CASEND dies on the 3rd
+    // send regardless of delay (HIL wrote=790). Sub-batch caller keeps
+    // header+body ≤ ~900B so this one shot fits the modem TX limit.
+    char header[512];
+    int hn = -1;
+    {
+        WdtDetachGuard wdtGuard;
+        connected = client.connect(host, 443);
+        if (connected) {
+            hn = snprintf(header, sizeof(header),
+                "POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\n"
+                "X-Device-API-Key: %s\r\nContent-Length: %u\r\nConnection: close\r\n\r\n",
+                path, host, apiKey, (unsigned)strlen(jsonBody));
+            if (hn > 0 && (size_t)hn < sizeof(header)) {
+                sent = client.write(reinterpret_cast<const uint8_t*>(header), (size_t)hn);
+                if (sent == (size_t)hn) {
+                    const size_t bodyLen = strlen(jsonBody);
+                    const size_t w = client.write(
+                        reinterpret_cast<const uint8_t*>(jsonBody), bodyLen);
+                    // Two CASEND (header, body) was the known-good small-batch
+                    // path; a third never lands. Success = both writes full.
+                    sent = (w == bodyLen) ? 1 : 0;
+                } else {
+                    sent = 0;
+                }
+            }
+        }
+    }
+    if (!connected) {
+        Serial.println(F("[ERR ] TLS/TCP connect failed"));
+        client.stop();
+        return TransportResult::TRANSPORT_ERROR;
+    }
+    if (sent == 0) {
+        Serial.printf(PSTR("[ERR ] HTTP write failed hn=%d body=%u\n"),
+                      hn, (unsigned)strlen(jsonBody));
         client.stop();
         return TransportResult::TRANSPORT_ERROR;
     }
 
     const int code = readHttpResponse(client, response, responseLen);
+    esp_task_wdt_reset();
     client.stop();
-    if (code == 0) return TransportResult::TRANSPORT_ERROR;
+    if (code == 0) {
+        Serial.println(F("[ERR ] HTTP response timeout/parse failed"));
+        return TransportResult::TRANSPORT_ERROR;
+    }
 
     if (code == 201) {
         Serial.println(F("[POST] 201 OK"));
@@ -172,10 +227,13 @@ TransportResult transportPostLocations(const LocationPayload& p, const Secrets& 
         esp_task_wdt_reset();
         yield();
     }
-    TinyGsm& modem = board_modem();
-    if (!modem.isNetworkConnected() && !modem.waitForNetwork(CELLULAR_OPERATION_TIMEOUT_MS, true))
-        return TransportResult::TRANSPORT_ERROR;
-    if (!modem.gprsConnect(CELLULAR_APN, "", "")) return TransportResult::TRANSPORT_ERROR;
+    {
+        WdtDetachGuard wdtGuard;
+        TinyGsm& modem = board_modem();
+        if (!modem.isNetworkConnected() && !modem.waitForNetwork(CELLULAR_OPERATION_TIMEOUT_MS, true))
+            return TransportResult::TRANSPORT_ERROR;
+        if (!modem.gprsConnect(CELLULAR_APN, "", "")) return TransportResult::TRANSPORT_ERROR;
+    }
     return postOnceSingle(url, s.apiKey, body);
 }
 
@@ -215,16 +273,43 @@ TransportResult transportPostBatch(const FixRecord* records, size_t count,
         return TransportResult::CONFIG_ERROR;
     }
 
-    const size_t bn = locationBatchToJson(payloads, count, body, sizeof(body));
-    if (bn == 0) {
-        Serial.println(F("[ERR ] batch JSON overflow"));
-        return TransportResult::CONFIG_ERROR;
-    }
-
-    Serial.printf(PSTR("[POST] batch %u bytes -> %s\n"), (unsigned)bn, url);
+    // SIM7080 TLS: 3rd +CASEND on one connection always fails (HIL wrote=790).
+    // Drain in SUB_BATCH_ITEMS chunks — each is header+body ≈ one small POST
+    // that already proved 201-OK on hardware. Backend acks by sequence_id, so
+    // a mid-loop failure just re-sends unacked front on the next drain.
     char response[HTTP_RESPONSE_BUFFER_SIZE];
-    TransportResult result = postOnce(url, s.apiKey, body, response, sizeof(response));
-    if (result == TransportResult::SENT) {
+    size_t offset = 0;
+    while (offset < count) {
+        const size_t chunk = min(SUB_BATCH_ITEMS, count - offset);
+        const size_t bn = locationBatchToJson(payloads + offset, chunk, body, sizeof(body));
+        if (bn == 0) {
+            Serial.println(F("[ERR ] batch JSON overflow"));
+            return TransportResult::CONFIG_ERROR;
+        }
+
+        Serial.printf(PSTR("[POST] batch %u bytes (%u/%u) -> %s\n"),
+                      (unsigned)bn, (unsigned)chunk, (unsigned)count, url);
+        TransportResult result = postOnce(url, s.apiKey, body, response, sizeof(response));
+        if (result != TransportResult::SENT) {
+            if (result != TransportResult::TRANSPORT_ERROR) return result;
+
+            Serial.printf(PSTR("[RETRY] backing off %u ms\n"), (unsigned)UPLOAD_RETRY_DELAY_MS);
+            const unsigned long retryAt = millis() + UPLOAD_RETRY_DELAY_MS;
+            while (static_cast<long>(millis() - retryAt) < 0) {
+                esp_task_wdt_reset();
+                yield();
+            }
+            {
+                WdtDetachGuard wdtGuard;
+                TinyGsm& modem = board_modem();
+                if (!modem.isNetworkConnected() && !modem.waitForNetwork(CELLULAR_OPERATION_TIMEOUT_MS, true))
+                    return TransportResult::TRANSPORT_ERROR;
+                if (!modem.gprsConnect(CELLULAR_APN, "", "")) return TransportResult::TRANSPORT_ERROR;
+            }
+            result = postOnce(url, s.apiKey, body, response, sizeof(response));
+            if (result != TransportResult::SENT) return result;
+        }
+
         uint32_t acked[BATCH_PAYLOAD_CAPACITY];
         const int n = locationBatchParseAck(response, acked, BATCH_PAYLOAD_CAPACITY);
         if (n > 0) {
@@ -232,21 +317,9 @@ TransportResult transportPostBatch(const FixRecord* records, size_t count,
             for (int i = 0; i < n; ++i) Serial.printf(PSTR(" %lu"), (unsigned long)acked[i]);
             Serial.println();
         }
-        return result;
+        offset += chunk;
     }
-    if (result != TransportResult::TRANSPORT_ERROR) return result;
-
-    Serial.printf(PSTR("[RETRY] backing off %u ms\n"), (unsigned)UPLOAD_RETRY_DELAY_MS);
-    const unsigned long retryAt = millis() + UPLOAD_RETRY_DELAY_MS;
-    while (static_cast<long>(millis() - retryAt) < 0) {
-        esp_task_wdt_reset();
-        yield();
-    }
-    TinyGsm& modem = board_modem();
-    if (!modem.isNetworkConnected() && !modem.waitForNetwork(CELLULAR_OPERATION_TIMEOUT_MS, true))
-        return TransportResult::TRANSPORT_ERROR;
-    if (!modem.gprsConnect(CELLULAR_APN, "", "")) return TransportResult::TRANSPORT_ERROR;
-    return postOnce(url, s.apiKey, body, response, sizeof(response));
+    return TransportResult::SENT;
 }
 
 bool transportCellularBegin() {

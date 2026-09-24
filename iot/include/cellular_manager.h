@@ -13,5 +13,4 @@ public:
     bool ready() const { return policy.ready(); }
 private:
     ConnectivityPolicy policy;
-    bool gnssWasEnabled = true;
 };

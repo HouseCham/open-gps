@@ -2,6 +2,7 @@
 #include <esp_task_wdt.h>
 #include "config.h"
 #include "secrets_data.h"
+#include "wdt_guard.h"
 
 CellularManager::CellularManager()
     : policy(CELLULAR_RECOVERY_BASE_MS, CELLULAR_RECOVERY_MAX_MS,
@@ -23,31 +24,32 @@ void CellularManager::tick(uint32_t nowMs) {
     if (decision.action == ConnectivityAction::NONE) return;
     TinyGsm& modem = board_modem();
     // The SIM7080G shares its radio: keep GNSS off for the recovery transaction.
-    gnssWasEnabled = true;
     if (!modem.disableGPS()) {
         Serial.println(F("[WARN] GNSS was already disabled; continuing recovery"));
     }
     esp_task_wdt_reset();
     bool recovered = false;
-    if (decision.action == ConnectivityAction::CONNECT_PDP) {
-        // A false result is harmless when there was no active PDP context.
-        if (!modem.gprsDisconnect())
-            Serial.println(F("[WARN] PDP was already disconnected; reconnecting"));
-        esp_task_wdt_reset();
-        recovered = modem.isNetworkConnected() && modem.gprsConnect(CELLULAR_APN, "", "");
+    {
+        // gprsConnect / restart / waitForNetwork block past WATCHDOG_TIMEOUT_S.
+        WdtDetachGuard wdtGuard;
+        if (decision.action == ConnectivityAction::CONNECT_PDP) {
+            // A false result is harmless when there was no active PDP context.
+            if (!modem.gprsDisconnect())
+                Serial.println(F("[WARN] PDP was already disconnected; reconnecting"));
+            recovered = modem.isNetworkConnected() && modem.gprsConnect(CELLULAR_APN, "", "");
+        } else if (decision.action == ConnectivityAction::RESTART_MODEM) {
+            recovered = modem.restart();
+            recovered = recovered && modem.waitForNetwork(CELLULAR_OPERATION_TIMEOUT_MS, true);
+            recovered = recovered && modem.gprsConnect(CELLULAR_APN, "", "");
+        }
     }
-    else if (decision.action == ConnectivityAction::RESTART_MODEM) {
-        recovered = modem.restart();
-        esp_task_wdt_reset();
-        recovered = recovered && modem.waitForNetwork(CELLULAR_OPERATION_TIMEOUT_MS, true);
-        esp_task_wdt_reset();
-        recovered = recovered && modem.gprsConnect(CELLULAR_APN, "", "");
+    // ponytail: always restore GNSS after recovery — a failed PDP recovery used
+    // to leave CGNSPWR=0 forever (no more fixes → queue stops growing).
+    if (!modem.enableGPS()) {
+        Serial.println(F("[WARN] GNSS re-enable failed after cellular recovery"));
     }
-    esp_task_wdt_reset();
     if (recovered) {
         policy.event(ConnectivityEvent::PDP_OK, millis());
-        if (gnssWasEnabled && !modem.enableGPS())
-            policy.event(ConnectivityEvent::TRANSPORT_FAILURE, millis());
     } else {
         policy.event(ConnectivityEvent::TRANSPORT_FAILURE, millis());
     }
