@@ -88,6 +88,34 @@ func (h *LocationsHandler) Ingest(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusCreated)
 }
 
+func (h *LocationsHandler) IngestBatch(c fiber.Ctx) error {
+	deviceID, ok := middleware.GetRequestDeviceID(c)
+	if !ok {
+		return middleware.UnauthorizedResponse(c)
+	}
+	req, ok := utils.GetValidatedBody[dto.IngestLocationBatchRequest](c)
+	if !ok {
+		return middleware.BadRequestResponse(c, "invalid request body")
+	}
+	items := make([]domain.Location, 0, len(req.Items))
+	for _, item := range req.Items {
+		loc, err := toDomainIngest(item, deviceID)
+		if err != nil {
+			return middleware.BadRequestResponse(c, "invalid request body")
+		}
+		items = append(items, loc)
+	}
+	accepted, rejected, err := h.service.IngestBatch(c.Context(), items)
+	if err != nil {
+		return fmt.Errorf("LocationsHandler.IngestBatch: %w", err)
+	}
+	responseRejected := make([]dto.BatchRejected, 0, len(rejected))
+	for _, item := range rejected {
+		responseRejected = append(responseRejected, dto.BatchRejected{SequenceID: item.SequenceID, Code: item.Code, Retryable: false})
+	}
+	return c.Status(fiber.StatusCreated).JSON(dto.IngestLocationBatchResponse{AcceptedSequenceIDs: accepted, Rejected: responseRejected})
+}
+
 // Latest handles GET /api/v1/devices/:id/locations/latest.
 // Access (viewer or higher) is enforced by middleware.RequireDeviceRole;
 // the device-existence check is therefore covered by that gate's
@@ -185,7 +213,9 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 	c.Set("X-Accel-Buffering", "no")
 
 	return c.SendStreamWriter(func(writer *bufio.Writer) {
-		if !writeSSE(writer, locations.LiveEvent{ID: h.subscriber.NextID(), Kind: "snapshot", Snapshot: initial}) {
+		const operation = "LocationsHandler:Stream"
+		if err := writeSSE(writer, locations.LiveEvent{ID: h.subscriber.NextID(), Kind: "snapshot", Snapshot: initial}); err != nil {
+			log.Error(operation, "err", err, "deviceID", deviceID, "stage", "snapshot")
 			return
 		}
 		ticker := time.NewTicker(25 * time.Second)
@@ -197,17 +227,31 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 			case <-c.Context().Done():
 				return
 			case event, ok := <-events:
-				if !ok || !writeSSE(writer, event) {
+				if !ok {
+					return
+				}
+				if err := writeSSE(writer, event); err != nil {
+					log.Error(operation, "err", err, "deviceID", deviceID, "stage", "event")
 					return
 				}
 				resetTimer(timer, event.Snapshot.Presence.ExpiresAt)
 			case <-ticker.C:
-				if _, err := writer.WriteString(": keepalive\n\n"); err != nil || writer.Flush() != nil {
+				if _, err := writer.WriteString(": keepalive\n\n"); err != nil {
+					log.Error(operation, "err", err, "deviceID", deviceID, "stage", "keepalive")
+					return
+				}
+				if err := writer.Flush(); err != nil {
+					log.Error(operation, "err", err, "deviceID", deviceID, "stage", "keepalive")
 					return
 				}
 			case <-timer.C:
 				snapshot, err := h.service.GetLive(c.Context(), deviceID, time.Now().UTC())
-				if err != nil || !writeSSE(writer, locations.LiveEvent{ID: h.subscriber.NextID(), Kind: "presence", Snapshot: snapshot}) {
+				if err != nil {
+					log.Error(operation, "err", err, "deviceID", deviceID, "stage", "presence refresh")
+					return
+				}
+				if err := writeSSE(writer, locations.LiveEvent{ID: h.subscriber.NextID(), Kind: "presence", Snapshot: snapshot}); err != nil {
+					log.Error(operation, "err", err, "deviceID", deviceID, "stage", "presence")
 					return
 				}
 				resetTimer(timer, snapshot.Presence.ExpiresAt)
@@ -216,16 +260,20 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 	})
 }
 
-// writeSSE writes a single Server-Sent Event to the writer. It returns false if there was an error.
-func writeSSE(writer *bufio.Writer, event locations.LiveEvent) bool {
+// writeSSE writes a single Server-Sent Event to the writer, wrapping any
+// marshalling or IO error with the stage where it occurred.
+func writeSSE(writer *bufio.Writer, event locations.LiveEvent) error {
 	payload, err := json.Marshal(dto.LiveLocationFromDomain(event.Snapshot))
 	if err != nil {
-		return false
+		return fmt.Errorf("writeSSE: marshal: %w", err)
 	}
 	if _, err = fmt.Fprintf(writer, "event: %s\nid: %d\ndata: %s\n\n", event.Kind, event.ID, payload); err != nil {
-		return false
+		return fmt.Errorf("writeSSE: write: %w", err)
 	}
-	return writer.Flush() == nil
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("writeSSE: flush: %w", err)
+	}
+	return nil
 }
 
 // presenceTimer returns a timer that will fire when the device's presence state is expected to change.
@@ -415,9 +463,10 @@ func toDomainIngest(req dto.IngestLocationRequest, deviceID uuid.UUID) (domain.L
 	}
 	return domain.Location{
 		DeviceID:       deviceID,
+		SequenceID:     req.SequenceID,
 		RecordedAt:     recordedAt,
-		Latitude:       req.Latitude,
-		Longitude:      req.Longitude,
+		Latitude:       *req.Latitude,
+		Longitude:      *req.Longitude,
 		Altitude:       req.Altitude,
 		Speed:          req.Speed,
 		Accuracy:       req.Accuracy,

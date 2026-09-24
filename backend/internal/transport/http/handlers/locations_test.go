@@ -159,6 +159,41 @@ func TestLocationsHandler_AcceptsNilOptionalFields(t *testing.T) {
 	}
 }
 
+func TestLocationsHandler_AcceptsZeroCoordinate(t *testing.T) {
+	// 0,0 (intersection of equator and prime meridian) is a valid coordinate;
+	// `required` must check presence, not non-zero.
+	stub := &recordingWriter{}
+	svc := locations.New(stub, &recordingReader{})
+	app := newApp(t, svc)
+
+	body := map[string]any{
+		"recorded_at": "2026-07-07T12:00:00Z",
+		"latitude":    0.0,
+		"longitude":   0.0,
+	}
+	resp := doRequest(t, app, "/api/v1/devices/esp32-001/locations", body)
+	if resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		t.Errorf("status=%d body=%s want 201", resp.StatusCode, b)
+	}
+	if stub.calls != 1 {
+		t.Errorf("writer called %d times, want 1", stub.calls)
+	}
+}
+
+func TestLocationsHandler_RejectsMissingLatitude(t *testing.T) {
+	stub := &recordingWriter{}
+	svc := locations.New(stub, &recordingReader{})
+	app := newApp(t, svc)
+
+	body := validBody()
+	delete(body, "latitude")
+	resp := doRequest(t, app, "/api/v1/devices/esp32-001/locations", body)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("status=%d, want 400 (missing latitude)", resp.StatusCode)
+	}
+}
+
 // recordingReader is the Reader port mock for the Latest handler tests.
 // The production tests don't hit the DB; the service layer is wired
 // against this struct so each test controls exactly what GetLatest

@@ -156,7 +156,7 @@ ingestion interval, avoiding a misleading line across a reporting gap.
 
 ## POST /api/v1/devices/:uuid_firmware/locations
 
-Persists one GPS + telemetry fix reported by the device. Called once per ~30 s cycle. The handler enforces numeric range checks on top of the DTO's `validate_struct` validation; idempotency on `(device_id, recorded_at)` is enforced at the database layer via `ON CONFLICT DO NOTHING` — clients can retry safely without producing duplicates.
+Persists one GPS + telemetry fix reported by the device. Kept as the single-fix variant of the ingest API; the firmware drains its queue through the batch endpoint below. The handler enforces numeric range checks on top of the DTO's `validate_struct` validation; idempotency on `(device_id, recorded_at)` is enforced at the database layer via `ON CONFLICT DO NOTHING` — clients can retry safely without producing duplicates.
 
 **Authorization:** Requires the IoT device lookup token (issued via `POST /api/v1/devices/:id/api-keys`).
 
@@ -232,6 +232,117 @@ No response body. The status code conveys success; clients can read the inserted
 > 1. DTO validation (range, format) — `validate_struct` middleware.
 > 2. Range re-check in the service layer (defence in depth).
 > 3. Idempotent insert at the DB.
+
+---
+
+## POST /api/v1/devices/:uuid_firmware/locations/batch
+
+Persists up to 20 GPS + telemetry fixes in one request. This is the firmware's primary ingest path: the device queues fixes locally in flash and drains the queue in idempotent batches, so a coverage gap or reboot never loses a point.
+
+**Authorization:** Requires the IoT device lookup token (issued via `POST /api/v1/devices/:id/api-keys`).
+
+**Headers**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Device-API-Key` | Yes | Opaque 256-bit lookup token issued for the device |
+| `Content-Type` | Yes | `application/json` |
+
+**Path Parameters**
+
+| Parameter | Description |
+|-----------|-------------|
+| `uuid_firmware` | ESP32 firmware UUID (matches the `uuid_firmware` of an existing, non-deleted device). Resolved to the device id by the auth middleware, same as the single-item endpoint. |
+
+**Request limits**
+
+| Constraint | Value |
+|------------|-------|
+| `items` | required, 1–20 entries (`dto.MaxBatchItems`) |
+| Per-item fields | identical to the single-item endpoint, plus `sequence_id` (below) |
+| Unknown fields | ignored (not validated, not persisted) — e.g. `satellites_used` sent by firmware is silently dropped |
+
+**Request**
+
+```
+POST /api/v1/devices/aaaaaaaa-bbbb-cccc-dddd-000000000001/locations/batch
+Content-Type: application/json
+X-Device-API-Key: 50I_rlGuoF9EONVelnUahPqKr1vDy6H1hZ0BrXFVldQ
+
+{
+  "items": [
+    {
+      "recorded_at": "2026-07-07T12:00:00Z",
+      "latitude": 19.432608,
+      "longitude": -99.133207,
+      "altitude": 2240.5,
+      "speed": 45.3,
+      "accuracy": 4.1,
+      "battery_voltage": 3.72,
+      "signal_strength": 23,
+      "sequence_id": 41
+    },
+    {
+      "recorded_at": "2026-07-07T12:00:30Z",
+      "latitude": 19.432701,
+      "longitude": -99.133150,
+      "sequence_id": 42
+    }
+  ]
+}
+```
+
+**Fields (per item):** same table as the single-item endpoint above, plus:
+
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `sequence_id` | integer | Effective yes | `gt=0` when present | Monotonic per-device queue id (starts at 1). The per-item idempotency key used by `accepted_sequence_ids` / `rejected`. An item with a missing or non-positive id is **rejected per item** (`invalid_sequence_id`) — the rest of the batch still processes. |
+
+**Response `201 Created`**
+
+```json
+{
+  "accepted_sequence_ids": [41, 42],
+  "rejected": [
+    { "sequence_id": 43, "code": "invalid latitude", "retryable": false }
+  ]
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `accepted_sequence_ids` | Every sequence id that passed validation and is durably stored — including ids that were already ingested earlier (re-sends ACK as accepted without inserting a duplicate). |
+| `rejected` | Per-item failures. `retryable` is always `false` today: a rejected item will fail identically on retry, so clients should drop it, not requeue it. |
+
+**Rejection codes** (values of `rejected[].code`):
+
+| Code | Cause |
+|------|-------|
+| `duplicate_sequence_id` | Same `sequence_id` appears twice within one request |
+| `invalid_sequence_id` | `sequence_id` missing or ≤ 0 |
+| `invalid latitude` / `invalid longitude` | Out of range at the service layer |
+| `invalid altitude` / `invalid speed` / `invalid accuracy` | Out of range at the service layer |
+| `invalid battery voltage` / `invalid signal strength` | Out of range at the service layer |
+
+**Whole-request errors** (nothing is inserted; these short-circuit before per-item processing):
+
+| Status Code | Message | Meaning |
+|-------------|---------|---------|
+| 400 | `Error parsing request body` | Malformed JSON |
+| 400 | field error list | DTO `validate_struct` failed: missing/non-RFC-3339 `recorded_at`, missing or out-of-range `latitude`/`longitude`, `items` empty or over 20 |
+| 400 | `invalid request body` | `toDomainIngest` failed converting an item (e.g. timestamp unparseable) |
+| 401 | `missing X-Device-API-Key header` | Header absent or empty |
+| 401 | `invalid or expired api key` | No active key matches, OR the key's device does not match `:uuid_firmware` |
+| 404 | `device not found` | `:uuid_firmware` does not resolve to an active device |
+| 500 | (error envelope) | DB write failed — the whole batch is rolled back in one transaction |
+
+> **Idempotency (two layers):**
+> 1. `location_ingest_keys (device_id, sequence_id, recorded_at) ON CONFLICT DO NOTHING` — a re-sent item is ACKed as accepted and the `locations` insert is skipped.
+> 2. `locations (device_id, recorded_at) ON CONFLICT DO NOTHING` — the row itself never duplicates.
+>
+> Consequence for clients: after a lost response or crash-restart, re-sending the same front of the queue is always safe; treat every `accepted_sequence_ids` entry as durable.
+
+> **Side effect:** each successful batch updates `devices.last_contact_at`, which drives the live-presence state of `GET /api/v1/devices/:id/locations/live`. A device that only uploads when coverage returns is still marked offline in between.
 
 ---
 

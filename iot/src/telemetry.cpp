@@ -9,6 +9,11 @@ static uint8_t blinkStep = 0;
 static bool successPulse = false;
 static unsigned long successPulseUntil = 0;
 
+static constexpr unsigned long SUCCESS_PULSE_MS = 250;
+static constexpr unsigned long LED_BLINK_STEP_MS = 150;
+// Off-steps after the blink train before the pattern restarts.
+static constexpr uint8_t BLINK_SEQUENCE_PAD = 6;
+
 static uint8_t patternBlinks() {
     switch (currentState) {
         case SystemState::WAITING_GNSS_FIX: return 2;
@@ -46,6 +51,24 @@ static void applyStateLed() {
     }
 }
 
+static const __FlashStringHelper* stateName(SystemState state) {
+    switch (state) {
+        case SystemState::BOOTING: return F("BOOTING");
+        case SystemState::CONNECTING_NETWORK: return F("CONNECTING_NETWORK");
+        case SystemState::WAITING_GNSS_FIX: return F("WAITING_GNSS_FIX");
+        case SystemState::GNSS_FIX_READY: return F("GNSS_FIX_READY");
+        case SystemState::GNSS_NO_RESPONSE: return F("GNSS_NO_RESPONSE");
+        case SystemState::UPLOADING_API: return F("UPLOADING_API");
+        case SystemState::ERR_BOARD: return F("ERR_BOARD");
+        case SystemState::ERR_SECRETS: return F("ERR_SECRETS");
+        case SystemState::ERR_NETWORK: return F("ERR_NETWORK");
+        case SystemState::ERR_API_TRANSPORT: return F("ERR_API_TRANSPORT");
+        case SystemState::ERR_API_HTTP: return F("ERR_API_HTTP");
+        case SystemState::ERR_API_CONFIG: return F("ERR_API_CONFIG");
+    }
+    return F("?");
+}
+
 void telemetry_set_state(SystemState state) {
     if (stateInitialized && currentState == state) return;
     currentState = state;
@@ -54,17 +77,17 @@ void telemetry_set_state(SystemState state) {
     successPulse = false;
     applyStateLed();
 
-    static const char* names[] = {
-        "BOOTING", "CONNECTING_NETWORK", "WAITING_GNSS_FIX", "GNSS_FIX_READY",
-        "GNSS_NO_RESPONSE", "UPLOADING_API", "ERR_BOARD", "ERR_SECRETS",
-        "ERR_NETWORK", "ERR_API_TRANSPORT", "ERR_API_HTTP", "ERR_API_CONFIG"
-    };
-    Serial.printf("[%8lu][STATE] %s\n", millis(), names[static_cast<int>(state)]);
+    Serial.printf(PSTR("[%8lu][STATE] "), millis());
+    Serial.println(stateName(state));
+}
+
+SystemState telemetry_current_state() {
+    return currentState;
 }
 
 void telemetry_pulse_success() {
     successPulse = true;
-    successPulseUntil = millis() + 250;
+    successPulseUntil = millis() + SUCCESS_PULSE_MS;
     board_pmu().setChargingLedMode(XPOWERS_CHG_LED_ON);
 }
 
@@ -82,9 +105,9 @@ void telemetry_tick() {
         return;
     }
 
-    const uint8_t sequenceLength = (targetBlinks * 2) + 6;
+    const uint8_t sequenceLength = (targetBlinks * 2) + BLINK_SEQUENCE_PAD;
 
-    if (now - lastBlinkMs < 150) return;
+    if (now - lastBlinkMs < LED_BLINK_STEP_MS) return;
     lastBlinkMs = now;
     blinkStep++;
 

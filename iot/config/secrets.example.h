@@ -1,5 +1,10 @@
 #pragma once
 
+// Deployment configuration — do not include a trailing slash or path in the
+// host; the transport module appends the API path automatically.
+constexpr const char* API_HOST = "https://your-backend.example.com";
+constexpr const char* CELLULAR_APN = "your-cellular-apn";
+
 // Device identity — replace with values from the dashboard after creating the device.
 constexpr const char* DEVICE_UUID_FIRMWARE = "";  // e.g. "aaaaaaaa-bbbb-cccc-dddd-000000000001"
 constexpr const char* DEVICE_API_KEY = "";         // 43-char base64url token from POST /api/v1/devices/:id/api-keys
@@ -10,6 +15,6 @@ constexpr const char* WIFI_SSID = "";
 constexpr const char* WIFI_PASSWORD = "";
 
 // Fill these, then rename this file to secrets.h (it is gitignored).
-// uuid and api_key are required (empty → boot error). WiFi fields can be
+// uuid and apiKey are required (empty → boot error). WiFi fields can be
 // empty if you only want GPS polling for now (transport_begin() will log
 // a "no WiFi configured" message and skip uploads).

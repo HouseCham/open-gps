@@ -35,6 +35,8 @@ type Service struct {
 // both ports. Following the api-keys service convention: pass the
 // same adapter twice rather than introducing a combined interface.
 func New(w Writer, r Reader, publishers ...LivePublisher) *Service {
+	// Not every Reader implements LiveReader; a failed assertion leaves
+	// live == nil, which GetLive already reports explicitly.
 	live, _ := r.(LiveReader)
 	var publisher LivePublisher
 	if len(publishers) > 0 {
@@ -66,6 +68,64 @@ func (s *Service) GetLive(ctx context.Context, deviceID uuid.UUID, now time.Time
 // ErrInvalidAccuracy / ErrInvalidBatteryVoltage / ErrInvalidSignalStrength
 // to a 400 envelope via the httpErrorHandler.
 func (s *Service) Ingest(ctx context.Context, loc domain.Location) error {
+	if err := validateRanges(loc); err != nil {
+		return err
+	}
+	if err := s.writer.Insert(ctx, loc); err != nil {
+		return fmt.Errorf("Service.Ingest: %w", err)
+	}
+	if s.publisher != nil && s.live != nil {
+		now := time.Now().UTC()
+		if snapshot, err := s.live.GetLive(ctx, loc.DeviceID, now, LivePresenceTimeout, MovingSpeedThresholdMPS); err == nil {
+			s.publisher.Publish(loc.DeviceID, "location", snapshot)
+		}
+	}
+	return nil
+}
+
+type BatchRejection struct {
+	SequenceID uint64
+	Code       string
+}
+
+func (s *Service) IngestBatch(ctx context.Context, items []domain.Location) ([]uint64, []BatchRejection, error) {
+	writer, ok := s.writer.(BatchWriter)
+	if !ok {
+		return nil, nil, errors.New("batch writer unavailable")
+	}
+	valid := make([]domain.Location, 0, len(items))
+	rejected := make([]BatchRejection, 0)
+	seen := make(map[uint64]struct{}, len(items))
+	for _, item := range items {
+		if _, exists := seen[item.SequenceID]; exists {
+			rejected = append(rejected, BatchRejection{SequenceID: item.SequenceID, Code: "duplicate_sequence_id"})
+			continue
+		}
+		seen[item.SequenceID] = struct{}{}
+		if err := validateLocation(item); err != nil {
+			rejected = append(rejected, BatchRejection{SequenceID: item.SequenceID, Code: err.Error()})
+			continue
+		}
+		valid = append(valid, item)
+	}
+	accepted, err := writer.InsertBatch(ctx, valid)
+	if err != nil {
+		return nil, rejected, fmt.Errorf("Service.IngestBatch: %w", err)
+	}
+	return accepted, rejected, nil
+}
+
+func validateLocation(loc domain.Location) error {
+	if loc.SequenceID == 0 {
+		return errors.New("invalid_sequence_id")
+	}
+	return validateRanges(loc)
+}
+
+// validateRanges checks every numeric field against its plausible physical
+// range; shared by the single and batch ingest paths. The single path skips
+// the sequence-id check — it is optional there (omitempty,gt=0 on the DTO).
+func validateRanges(loc domain.Location) error {
 	if loc.Latitude < -90 || loc.Latitude > 90 {
 		return ErrInvalidLatitude
 	}
@@ -86,15 +146,6 @@ func (s *Service) Ingest(ctx context.Context, loc domain.Location) error {
 	}
 	if loc.SignalStrength != nil && (*loc.SignalStrength < MinSignalStrength || *loc.SignalStrength > MaxSignalStrength) {
 		return ErrInvalidSignalStrength
-	}
-	if err := s.writer.Insert(ctx, loc); err != nil {
-		return fmt.Errorf("Service.Ingest: %w", err)
-	}
-	if s.publisher != nil && s.live != nil {
-		now := time.Now().UTC()
-		if snapshot, err := s.live.GetLive(ctx, loc.DeviceID, now, LivePresenceTimeout, MovingSpeedThresholdMPS); err == nil {
-			s.publisher.Publish(loc.DeviceID, "location", snapshot)
-		}
 	}
 	return nil
 }

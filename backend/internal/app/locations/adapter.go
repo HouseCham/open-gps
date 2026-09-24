@@ -67,6 +67,40 @@ func (a *Adapter) Insert(ctx context.Context, loc domain.Location) error {
 	return postgres.WrapPgError(tx.Commit(ctx))
 }
 
+// InsertBatch writes a batch of location rows.
+func (a *Adapter) InsertBatch(ctx context.Context, locations []domain.Location) ([]uint64, error) {
+	tx, err := a.pool.Begin(ctx)
+	if err != nil {
+		return nil, postgres.WrapPgError(err)
+	}
+	defer tx.Rollback(ctx)
+	accepted := make([]uint64, 0, len(locations))
+	for _, loc := range locations {
+		result, err := tx.Exec(ctx, `INSERT INTO location_ingest_keys (device_id, sequence_id, recorded_at) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+			postgres.PgtypeUUID(loc.DeviceID), loc.SequenceID, postgres.PgtypeTimestamptz(loc.RecordedAt))
+		if err != nil {
+			return nil, postgres.WrapPgError(err)
+		}
+		if result.RowsAffected() == 0 {
+			accepted = append(accepted, loc.SequenceID)
+			continue
+		}
+		_, err = tx.Exec(ctx, `INSERT INTO locations (device_id, recorded_at, latitude, longitude, altitude, speed, accuracy, battery_voltage, signal_strength) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (device_id, recorded_at) DO NOTHING`,
+			postgres.PgtypeUUID(loc.DeviceID), postgres.PgtypeTimestamptz(loc.RecordedAt), loc.Latitude, loc.Longitude, loc.Altitude, loc.Speed, loc.Accuracy, loc.BatteryVoltage, loc.SignalStrength)
+		if err != nil {
+			return nil, postgres.WrapPgError(err)
+		}
+		// A duplicate key is already durably accepted and is safe to ACK again.
+		accepted = append(accepted, loc.SequenceID)
+	}
+	if len(locations) > 0 {
+		if _, err = tx.Exec(ctx, `UPDATE devices SET last_contact_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL`, postgres.PgtypeUUID(locations[0].DeviceID)); err != nil {
+			return nil, postgres.WrapPgError(err)
+		}
+	}
+	return accepted, postgres.WrapPgError(tx.Commit(ctx))
+}
+
 // GetLive returns the current location and derived presence state for a device.
 func (a *Adapter) GetLive(ctx context.Context, deviceID uuid.UUID, now time.Time, timeout time.Duration, motionThreshold float64) (domain.LiveLocation, error) {
 	var contact pgtype.Timestamptz

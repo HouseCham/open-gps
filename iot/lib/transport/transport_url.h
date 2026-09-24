@@ -17,8 +17,16 @@
 //
 // api_host is conventionally "https://..." (scheme included); any trailing
 // slash on api_host is safe but not recommended.
-size_t transport_build_url(const char* api_host,
-                           uint16_t    api_port,
-                           const char* uuid,
-                           char*       buf,
-                           size_t      buf_len);
+size_t transportBuildUrl(const char* apiHost,
+                         uint16_t    apiPort,
+                         const char* uuid,
+                         char*       buf,
+                         size_t      bufLen);
+
+// Same as transportBuildUrl but targets POST .../locations/batch.
+// Returns bytes written (excluding NUL), or 0 on overflow / NULL input.
+size_t transportBuildBatchUrl(const char* apiHost,
+                              uint16_t    apiPort,
+                              const char* uuid,
+                              char*       buf,
+                              size_t      bufLen);

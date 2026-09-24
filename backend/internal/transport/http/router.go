@@ -216,6 +216,11 @@ func NewRouter(deps RouterDeps) *fiber.App {
 		middleware.ValidateRequestBody[dto.IngestLocationRequest](),
 		deps.LocationsHandler.Ingest,
 	)
+	apiV1.Post("/devices/:uuid_firmware/locations/batch",
+		middleware.RequireDeviceAPIKey(deps.Queries),
+		middleware.ValidateRequestBody[dto.IngestLocationBatchRequest](),
+		deps.LocationsHandler.IngestBatch,
+	)
 
 	// === Location read ===
 	// Session-cookie + per-device RBAC (viewer or higher). Lives on

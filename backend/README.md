@@ -75,6 +75,7 @@ GET    /api/auth/oauth2/callback/:provider
 GET    /api/auth/me                    (custom Fiber handler — see note below)
 
 # App routes
+POST   /api/v1/devices/:uuid_firmware/locations/batch
 GET    /api/v1/devices
 GET    /api/v1/devices/:id
 POST   /api/v1/devices

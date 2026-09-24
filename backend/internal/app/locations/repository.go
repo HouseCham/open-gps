@@ -16,6 +16,10 @@ type Writer interface {
 	Insert(ctx context.Context, loc domain.Location) error
 }
 
+type BatchWriter interface {
+	InsertBatch(ctx context.Context, locations []domain.Location) ([]uint64, error)
+}
+
 // Reader is the read port for the locations package. The dashboard uses
 // GetLatest for its preview and GetHistory for detective-mode time ranges.
 type Reader interface {
