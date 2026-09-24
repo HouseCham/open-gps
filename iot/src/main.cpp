@@ -103,10 +103,15 @@ static uint16_t chargeModeVbusMv() {
 static void logLine(const __FlashStringHelper* tag, const __FlashStringHelper* message);
 
 [[noreturn]] static void runChargeOnlyMode() {
+    // setup() reaches charge-only before its Serial.begin; bring UART0 up here
+    // so entry/removal logs are observable on the GPIO43/44 TTL header.
+    Serial.begin(115200);
     if (!board.enterChargeOnlyPowerState()) {
         logLine(F("ERR"), F("charge-only rail shutdown failed; restarting"));
+        Serial.flush();
         ESP.restart();
     }
+    logLine(F("CHARGE"), F("entering charge-only mode; waiting for VBUS removal"));
     GpsBoard::ChargerState previous = GpsBoard::ChargerState::UNKNOWN;
     uint32_t nextPollMs = millis();
     for (;;) {
@@ -119,6 +124,7 @@ static void logLine(const __FlashStringHelper* tag, const __FlashStringHelper* m
         nextPollMs = now;
         if (!chargePolicy.update(now, chargeModeVbusMv())) {
             logLine(F("CHARGE"), F("VBUS removed; restarting tracker"));
+            Serial.flush();
             ESP.restart();
         }
         const GpsBoard::ChargerState state = board.chargerState();
@@ -248,7 +254,11 @@ void loop() {
     if (CHARGE_MODE_ENABLED && chargePolicy.update(millis(), chargeModeVbusMv())) {
         chargeModeRequested = true;
     }
-    if (chargeModeRequested) ESP.restart();
+    if (chargeModeRequested) {
+        logLine(F("CHARGE"), F("VBUS detected; restarting into charge-only"));
+        Serial.flush();
+        ESP.restart();
+    }
     telemetry_tick();
 
     static unsigned long lastIdle = 0;
