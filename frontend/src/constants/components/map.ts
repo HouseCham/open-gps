@@ -140,12 +140,6 @@ export const MAP_EMPTY_STATE_ICON_SIZE = 26;
 export const LIVE_POLL_INTERVAL_MS = 15_000;
 /**
  * @constant {number}
- * @description Icon size for the "Go Live" / "Stop Live" action button
- * in the map card header. Mirrors {@link MAP_REFRESH_ICON_SIZE}.
- */
-export const MAP_GO_LIVE_ICON_SIZE = 13;
-/**
- * @constant {number}
  * @description Maximum age (ms) of the most recent polled point before
  * the Live Tracking page displays the device as offline.
  */
@@ -159,6 +153,6 @@ export const LIVE_ROUTE_MAX_POINTS = 1000;
 /**
  * @constant {number}
  * @description Page size for the location history table. Used in both
- * the device detail and live tracking pages.
+ * the device history view.
  */
 export const LOCATION_HISTORY_PAGE_SIZE = 20;

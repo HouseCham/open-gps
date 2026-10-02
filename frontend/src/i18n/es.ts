@@ -657,6 +657,11 @@ export const es: Translation = {
         stale: 'Inactivo',
         neverSeen: 'Nunca visto',
         unknown: 'Desconocido',
+        views: {
+            label: 'Vistas del dispositivo',
+            overview: 'Resumen',
+            history: 'Historial',
+        },
         roles: {
             owner: 'Propietario',
             editor: 'Editor',

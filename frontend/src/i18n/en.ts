@@ -640,6 +640,11 @@ export const en = {
         stale: 'Stale',
         neverSeen: 'Never seen',
         unknown: 'Unknown',
+        views: {
+            label: 'Device views',
+            overview: 'Overview',
+            history: 'History',
+        },
         roles: {
             owner: 'Owner',
             editor: 'Editor',

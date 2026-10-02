@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 //-- Types
 import type {
     ApiError,
@@ -8,13 +8,19 @@ import type {
     LocationRouteResponse,
     PaginationMeta,
 } from '@/types/api';
+import type { LocationRequestOptions } from '@/types';
 //-- Constants
 import {
     LIVE_ROUTE_MAX_POINTS,
     LOCATION_HISTORY_PAGE_SIZE,
 } from '@/constants/components';
 //-- Utils
-import { isApiError, toApiError, withApiErrorToast } from '@/lib/api/api-utils';
+import {
+    isApiError,
+    isEnvelope,
+    toApiError,
+    withApiErrorToast,
+} from '@/lib/api/api-utils';
 import { toastBus } from '@/lib/stores/toast.store';
 //-- Http Client
 import { apiClient } from '@/lib/api/client';
@@ -59,36 +65,21 @@ interface ILocationService {
         maxPoints?: number
     ) => Promise<void>;
 }
-
-interface LocationRequestOptions<T> {
-    request: () => Promise<unknown>;
-    setLoading: (loading: boolean) => void;
-    setError: (error: ApiError | null) => void;
-    onSuccess: (data: T) => void;
-    notify?: boolean;
-    onStatus?: (status: number) => boolean;
-}
-
-function isEnvelope<T>(value: unknown): value is Envelope<T> {
-    return (
-        typeof value === 'object' &&
-        value !== null &&
-        'status_code' in value &&
-        typeof value.status_code === 'number' &&
-        'message' in value &&
-        typeof value.message === 'string' &&
-        'data' in value
-    );
-}
-
-async function runLocationRequest<T>({
-    request,
-    setLoading,
-    setError,
-    onSuccess,
-    notify = true,
-    onStatus,
-}: LocationRequestOptions<T>): Promise<void> {
+/**
+ * Runs a location request, handling loading, error, and success states.
+ * @returns {Promise<void>} Resolves once the request settles.
+ */
+async function runLocationRequest<T>(
+    {
+        request,
+        setLoading,
+        setError,
+        onSuccess,
+        notify = true,
+        onStatus,
+    }: LocationRequestOptions<T>,
+    isCurrent: () => boolean = () => true
+): Promise<void> {
     setLoading(true);
     setError(null);
     try {
@@ -97,6 +88,7 @@ async function runLocationRequest<T>({
             typeof result === 'object' && result !== null && 'data' in result
                 ? result.data
                 : null;
+        if (!isCurrent()) return;
         if (!isEnvelope<T>(response)) {
             setError(toApiError(new Error('empty response')));
             return;
@@ -119,9 +111,10 @@ async function runLocationRequest<T>({
         }
         onSuccess(response.data);
     } catch (error: unknown) {
-        setError(isApiError(error) ? error : toApiError(error));
+        if (isCurrent())
+            setError(isApiError(error) ? error : toApiError(error));
     } finally {
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
     }
 }
 
@@ -134,6 +127,8 @@ async function runLocationRequest<T>({
  * @returns {ILocationService} State + actions.
  */
 export const useLocationService = (): ILocationService => {
+    const latestHistoryRequestId = useRef(0);
+    const latestRouteRequestId = useRef(0);
     const [latestLoading, setLatestLoading] = useState<boolean>(false);
     const [historyLoading, setHistoryLoading] = useState<boolean>(false);
     const [routeLoading, setRouteLoading] = useState<boolean>(false);
@@ -192,67 +187,94 @@ export const useLocationService = (): ILocationService => {
      * @param {number} [pageSize=LOCATION_HISTORY_PAGE_SIZE] - The number of items to retrieve.
      * @returns {Promise<void>} Resolves once the request settles.
      */
-    async function getLocationHistory(
-        deviceId: string,
-        from: string,
-        to: string,
-        timeZone: string,
-        page: number = 1,
-        pageSize: number = LOCATION_HISTORY_PAGE_SIZE
-    ): Promise<void> {
-        setHistory([]);
-        setHistoryPagination(null);
-        await runLocationRequest<LocationHistoryResponse>({
-            request: () =>
-                apiClient<Envelope<LocationHistoryResponse> | null>(
-                    `/devices/${deviceId}/locations`,
-                    {
-                        method: 'GET',
-                        query: {
-                            from,
-                            to,
-                            'time-zone': timeZone,
-                            page,
-                            page_size: pageSize,
-                        },
-                    }
-                ),
-            setLoading: setHistoryLoading,
-            setError: setHistoryError,
-            onSuccess: response => {
-                setHistory(response.items);
-                setHistoryPagination(response.pagination);
-            },
-        });
-    }
-
-    async function getLocationRoute(
-        deviceId: string,
-        from: string,
-        to: string,
-        timeZone: string,
-        maxPoints: number = LIVE_ROUTE_MAX_POINTS
-    ): Promise<void> {
-        setRoute(null);
-        await runLocationRequest<LocationRouteResponse>({
-            request: () =>
-                apiClient<Envelope<LocationRouteResponse> | null>(
-                    `/devices/${deviceId}/locations/route`,
-                    {
-                        method: 'GET',
-                        query: {
-                            from,
-                            to,
-                            'time-zone': timeZone,
-                            max_points: maxPoints,
-                        },
-                    }
-                ),
-            setLoading: setRouteLoading,
-            setError: setRouteError,
-            onSuccess: data => setRoute(data),
-        });
-    }
+    const getLocationHistory = useCallback(
+        async (
+            deviceId: string,
+            from: string,
+            to: string,
+            timeZone: string,
+            page: number = 1,
+            pageSize: number = LOCATION_HISTORY_PAGE_SIZE
+        ): Promise<void> => {
+            const requestId = ++latestHistoryRequestId.current;
+            setHistory([]);
+            setHistoryPagination(null);
+            await runLocationRequest<LocationHistoryResponse>(
+                {
+                    request: () =>
+                        apiClient<Envelope<LocationHistoryResponse> | null>(
+                            `/devices/${deviceId}/locations`,
+                            {
+                                method: 'GET',
+                                query: {
+                                    from,
+                                    to,
+                                    'time-zone': timeZone,
+                                    page,
+                                    page_size: pageSize,
+                                },
+                            }
+                        ),
+                    setLoading: setHistoryLoading,
+                    setError: setHistoryError,
+                    onSuccess: response => {
+                        if (requestId !== latestHistoryRequestId.current)
+                            return;
+                        setHistory(response.items);
+                        setHistoryPagination(response.pagination);
+                    },
+                },
+                () => requestId === latestHistoryRequestId.current
+            );
+        },
+        []
+    );
+    /**
+     * Fetches a route between two points in time. `from` and `to` are local
+     * @param {string} deviceId - UUID of the device to query.
+     * @param {string} from - Local start time in YYYY-MM-DDTHH:mm:ss format.
+     * @param {string} to - Local end time in YYYY-MM-DDTHH:mm:ss format.
+     * @param {string} timeZone - IANA timezone, such as America/Mexico_City.
+     * @param {number} [maxPoints=LIVE_ROUTE_MAX_POINTS] - The maximum number of points to retrieve.
+     * @returns {Promise<void>} Resolves once the request settles.
+     */
+    const getLocationRoute = useCallback(
+        async (
+            deviceId: string,
+            from: string,
+            to: string,
+            timeZone: string,
+            maxPoints: number = LIVE_ROUTE_MAX_POINTS
+        ): Promise<void> => {
+            const requestId = ++latestRouteRequestId.current;
+            setRoute(null);
+            await runLocationRequest<LocationRouteResponse>(
+                {
+                    request: () =>
+                        apiClient<Envelope<LocationRouteResponse> | null>(
+                            `/devices/${deviceId}/locations/route`,
+                            {
+                                method: 'GET',
+                                query: {
+                                    from,
+                                    to,
+                                    'time-zone': timeZone,
+                                    max_points: maxPoints,
+                                },
+                            }
+                        ),
+                    setLoading: setRouteLoading,
+                    setError: setRouteError,
+                    onSuccess: data => {
+                        if (requestId === latestRouteRequestId.current)
+                            setRoute(data);
+                    },
+                },
+                () => requestId === latestRouteRequestId.current
+            );
+        },
+        []
+    );
 
     return {
         latestLoading,
