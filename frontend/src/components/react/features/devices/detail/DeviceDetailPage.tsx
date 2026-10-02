@@ -1,31 +1,44 @@
 import '@/styles/device-detail.css';
 import '@/styles/devices.css';
-import { useEffect, useState, lazy, type JSX, Suspense } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useState,
+    lazy,
+    type JSX,
+    Suspense,
+} from 'react';
 //-- Types
 import type {
     DeviceAccessListItem,
     DeviceDetail,
     DeviceVehicleType,
+    LocationPoint,
 } from '@/types/api';
 import type { Language } from '@/types';
 import type { Translation } from '@/i18n';
 //-- Utils
 import { deviceStatusFromPresence } from '@/lib/device-utils';
 import { useDeviceService } from '@/lib/api/services/deviceService';
-import { useLocationService } from '@/lib/api/services/locationService';
 import { useDeviceLocationStream } from '@/hooks/useDeviceLocationStream';
-import { redirectTo } from '@/lib';
+import { readDeviceIdFromUrl, redirectTo } from '@/lib';
 //-- Components
 import { Breadcrumbs, EmptyState } from '@/components/react/ui';
 import { DeviceDetailError } from './DeviceDetailError';
 import { VehicleDetailHeader } from './VehicleDetailHeader';
 import { DeviceInfoCard } from './DeviceInfoCard';
+import { KpiStrip } from './Kpi';
 import { Button } from '@/components/react/ui/button';
 import { DeviceAccessTable } from '@/components/react/features/devices/access';
 import { GpsTelemetrySection } from './GpsTelemetrySection';
 //-- Icons
 import { AlertTriangle } from 'lucide-react';
 //-- Lazy components
+const DeviceHistoryView = lazy(() =>
+    import('../history/DeviceHistoryView').then(module => ({
+        default: module.DeviceHistoryView,
+    }))
+);
 const EditDeviceModal = lazy(() =>
     import('@/components/react/modal').then(m => ({
         default: m.EditDeviceModal,
@@ -83,33 +96,88 @@ export function DeviceDetailPage({
         updateDevice,
         deleteDevice,
     } = useDeviceService();
-    const { latestLoading: locationLoading, latestError: locationError } =
-        useLocationService();
     const [deviceId, setDeviceId] = useState<string | undefined>();
+    const [activeView, setActiveView] = useState<'overview' | 'history'>(
+        'overview'
+    );
+    const [historyOpened, setHistoryOpened] = useState(false);
+    const [historyRoute, setHistoryRoute] = useState<{
+        segments: LocationPoint[][];
+        style: 'line' | 'dots';
+    }>({ segments: [], style: 'line' });
     const [inviteOpen, setInviteOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [revokeTarget, setRevokeTarget] =
         useState<DeviceAccessListItem | null>(null);
-    const { snapshot, refresh: refreshLive } = useDeviceLocationStream(
-        deviceId ?? null
-    );
+    const {
+        snapshot,
+        route: liveRoutePoints,
+        refresh: refreshLive,
+        error: locationError,
+    } = useDeviceLocationStream(deviceId ?? null);
     const latest = snapshot?.location ?? null;
 
     useEffect(() => {
-        setDeviceId(
-            new URLSearchParams(window.location.search).get('id') ?? ''
-        );
+        const syncFromUrl = (): void => {
+            setDeviceId(readDeviceIdFromUrl() ?? '');
+            const view = new URLSearchParams(window.location.search).get(
+                'view'
+            );
+            const nextView = view === 'history' ? 'history' : 'overview';
+            setActiveView(nextView);
+            if (nextView === 'history') setHistoryOpened(true);
+        };
+        syncFromUrl();
+        window.addEventListener('popstate', syncFromUrl);
+        return (): void => window.removeEventListener('popstate', syncFromUrl);
     }, []);
 
     useEffect(() => {
         if (!deviceId) return;
-        void Promise.all([getDeviceById(deviceId)]);
+        void getDeviceById(deviceId);
     }, [deviceId]);
-
+    /**
+     * Get the device status
+     * @returns {DeviceStatus | null} The device status or null if the device is not available.
+     */
     const status = device
         ? deviceStatusFromPresence(snapshot?.presence.state ?? 'never_seen', t)
         : null;
+    /**
+     * Handle view change to either 'overview' or 'history'.
+     * @param {'overview' | 'history'} view - The view to switch to.
+     * @returns {void}
+     */
+    const handleViewChange = (view: 'overview' | 'history'): void => {
+        if (view === activeView) return;
+        const params = new URLSearchParams(window.location.search);
+        if (view === 'history') {
+            params.set('view', 'history');
+            setHistoryOpened(true);
+        } else {
+            params.delete('view');
+        }
+        const query = params.toString();
+        window.history.pushState(
+            null,
+            '',
+            `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+        );
+        setActiveView(view);
+    };
+    /**
+     * Handle history route change
+     * @param {LocationPoint[][]} segments - Segments of the route.
+     * @param {'line' | 'dots'} style - Style of the route.
+     * @returns {void}
+     */
+    const handleHistoryRouteChange = useCallback(
+        (segments: LocationPoint[][], style: 'line' | 'dots'): void => {
+            setHistoryRoute({ segments, style });
+        },
+        []
+    );
     /**
      * Go back to the devices page
      * @returns {void}
@@ -217,7 +285,6 @@ export function DeviceDetailPage({
                     { label: device.name },
                 ]}
             />
-
             {/* Header Section */}
             <VehicleDetailHeader
                 device={{
@@ -233,7 +300,46 @@ export function DeviceDetailPage({
                 onEdit={() => setEditOpen(true)}
                 onDelete={() => setDeleteOpen(true)}
             />
-
+            {/* Switch Section - Overview/History */}
+            <div
+                className="device-view-switch"
+                role="group"
+                aria-label={t.views.label}
+            >
+                <Button
+                    type="button"
+                    size="sm"
+                    variant={
+                        activeView === 'overview' ? 'primary' : 'secondary'
+                    }
+                    aria-pressed={activeView === 'overview'}
+                    aria-controls="device-overview-panel"
+                    onClick={() => handleViewChange('overview')}
+                >
+                    {t.views.overview}
+                </Button>
+                <Button
+                    type="button"
+                    size="sm"
+                    variant={activeView === 'history' ? 'primary' : 'secondary'}
+                    aria-pressed={activeView === 'history'}
+                    aria-controls="device-history-panel"
+                    onClick={() => handleViewChange('history')}
+                >
+                    {t.views.history}
+                </Button>
+            </div>
+            {/* KPI Strip Section */}
+            {activeView === 'history' && (
+                <KpiStrip
+                    device={device}
+                    location={latest}
+                    status={status}
+                    locale={locale}
+                    translations={t}
+                    date={date}
+                />
+            )}
             {/* Error Section */}
             {(deviceError || locationError) && (
                 <DeviceDetailError
@@ -249,51 +355,84 @@ export function DeviceDetailPage({
 
             {/* GPS Telemetry Section */}
             <GpsTelemetrySection
-                showGoLive
                 title={t.detail.gpsTelemetry}
                 description={t.detail.gpsTelemetryDescription}
                 latest={latest}
                 locale={locale}
                 translations={t}
                 date={date}
-                loading={locationLoading}
+                loading={false}
                 deviceId={deviceId}
                 getLatestLocation={async () => refreshLive()}
+                routeSegments={
+                    activeView === 'history' ? historyRoute.segments : []
+                }
+                routeStyle={historyRoute.style}
+                displayStatus={status}
             />
-
-            {/* Device Information Section */}
-            <section className="dd-section">
-                <div className="dd-section-head">
-                    <div>
-                        <h2>{t.detail.deviceSection}</h2>
-                        <div>{t.detail.deviceSectionDescription}</div>
+            {/* Device Overview Section */}
+            <div id="device-overview-panel" hidden={activeView !== 'overview'}>
+                {/* Device Information Section */}
+                <section className="dd-section">
+                    <div className="dd-section-head">
+                        <div>
+                            <h2>{t.detail.deviceSection}</h2>
+                            <div>{t.detail.deviceSectionDescription}</div>
+                        </div>
                     </div>
-                </div>
-                <DeviceInfoCard
-                    device={device}
-                    locale={locale}
-                    translations={t}
-                    date={date}
-                />
-            </section>
+                    <DeviceInfoCard
+                        device={device}
+                        locale={locale}
+                        translations={t}
+                        date={date}
+                    />
+                </section>
 
-            {/* Device/Users Access Section */}
-            <section className="dd-section">
-                <div className="dd-section-head">
-                    <div>
-                        <h2>{t.detail.access}</h2>
-                        <div>{t.detail.accessDescription}</div>
+                {/* Device/Users Access Section */}
+                <section className="dd-section">
+                    <div className="dd-section-head">
+                        <div>
+                            <h2>{t.detail.access}</h2>
+                            <div>{t.detail.accessDescription}</div>
+                        </div>
                     </div>
-                </div>
-                <DeviceAccessTable
-                    device={device}
-                    locale={locale}
-                    translations={t}
-                    date={date}
-                    onInvite={() => setInviteOpen(true)}
-                    onRevoke={setRevokeTarget}
-                />
-            </section>
+                    <DeviceAccessTable
+                        device={device}
+                        locale={locale}
+                        translations={t}
+                        date={date}
+                        onInvite={() => setInviteOpen(true)}
+                        onRevoke={setRevokeTarget}
+                    />
+                </section>
+            </div>
+
+            {/* Device History Section */}
+            <div id="device-history-panel" hidden={activeView !== 'history'}>
+                {historyOpened && (
+                    <Suspense
+                        fallback={
+                            <div
+                                className="dd-loading"
+                                role="status"
+                                aria-live="polite"
+                            >
+                                {t.live.loadingHistory}
+                            </div>
+                        }
+                    >
+                        <DeviceHistoryView
+                            deviceId={deviceId}
+                            locale={locale}
+                            translations={t}
+                            device={device}
+                            latest={latest}
+                            liveRoutePoints={liveRoutePoints}
+                            onRouteChange={handleHistoryRouteChange}
+                        />
+                    </Suspense>
+                )}
+            </div>
 
             {/* Grant Access Modal */}
             <Suspense fallback={null}>
