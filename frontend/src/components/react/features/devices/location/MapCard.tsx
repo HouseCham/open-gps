@@ -18,7 +18,7 @@ import {
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 //-- Icons
-import { MapPin, Radio, RefreshCw } from 'lucide-react';
+import { MapPin, RefreshCw } from 'lucide-react';
 //-- Utils
 import { useEffect, useMemo, useRef } from 'react';
 import {
@@ -26,7 +26,6 @@ import {
     deriveDeviceStatus,
     formatRelativeTime,
     processSegment,
-    redirectTo,
 } from '@/lib';
 //-- Constants
 import {
@@ -36,7 +35,6 @@ import {
     MAP_EMPTY_STATE_ICON_SIZE,
     MAP_FALLBACK_CENTER,
     MAP_FALLBACK_ZOOM,
-    MAP_GO_LIVE_ICON_SIZE,
     MAP_REFRESH_ICON_SIZE,
     MAP_STYLE_URL,
     ROUTE_COLOR_OFFLINE,
@@ -52,8 +50,6 @@ import {
  * @prop {Translation['date']} date - Date-related translation strings.
  * @prop {boolean} loading - Loading state.
  * @prop {() => void} onRefresh - Callback for the refresh button.
- * @prop {string} deviceId - Device ID.
- * @prop {boolean} showGoLive - Whether to show the go live button.
  * @prop {LocationPoint[][]} routeSegments - Chronological route segments.
  * @prop {DeviceStatus} displayStatus - Optional status override for a selected range.
  */
@@ -63,8 +59,6 @@ interface MapCardProps {
     translations: Translation['device'];
     date: Translation['date'];
     loading: boolean;
-    deviceId: string;
-    showGoLive: boolean;
     onRefresh: () => void;
     routeSegments?: LocationPoint[][];
     displayStatus?: DeviceStatus;
@@ -81,8 +75,6 @@ export function MapCard({
     translations,
     date,
     loading,
-    deviceId,
-    showGoLive,
     onRefresh,
     routeSegments = [],
     displayStatus,
@@ -205,7 +197,7 @@ export function MapCard({
                             : t.noLocation}
                     </div>
                 </div>
-                {/* Refresh + Go Live actions */}
+                {/* Refresh action */}
                 <div className="dd-card-head-actions">
                     {/* Refresh button */}
                     <Button
@@ -218,21 +210,6 @@ export function MapCard({
                     >
                         {t.refresh}
                     </Button>
-                    {/* Go live / stop live button */}
-                    {showGoLive && (
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            className={'dd-go-live-active'}
-                            icon={<Radio size={MAP_GO_LIVE_ICON_SIZE} />}
-                            onClick={() =>
-                                redirectTo(`/devices/live?id=${deviceId}`)
-                            }
-                        >
-                            {t.goLive}
-                        </Button>
-                    )}
                 </div>
             </div>
             <div className="dd-map" aria-label={t.mapLabel}>

@@ -182,6 +182,11 @@
     flex-wrap: wrap;
 }
 
+.live-mode-controls .btn,
+.live-section-head > .btn {
+    min-height: 44px;
+}
+
 .live-route-style {
     display: flex;
     align-items: center;
@@ -191,7 +196,7 @@
 }
 
 .live-route-style select {
-    height: 30px;
+    height: 44px;
     padding: 0 var(--s-2);
     border: 1px solid var(--border);
     border-radius: var(--radius-control);
@@ -381,7 +386,7 @@
 
 .live-form input {
     width: 100%;
-    height: 38px;
+    height: 44px;
     padding: 0 10px;
     border: 1px solid var(--border);
     border-radius: var(--radius-control);
@@ -401,7 +406,7 @@
 }
 
 .live-filter {
-    min-height: 30px;
+    min-height: 44px;
     padding: 0 10px;
     border: 1px solid var(--border);
     border-radius: var(--radius-control);
