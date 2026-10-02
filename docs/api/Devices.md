@@ -578,3 +578,76 @@ No response body is returned.
 - `401` — Unauthorized
 - `403` — Caller is not the device owner
 - `404` — Device does not exist or caller has no access
+
+---
+
+## Temporary guest share links
+
+Device owners can create several independent read-only links for people who do
+not have an Open GPS account. Each link is valid for `1`, `2`, `4`, or `8` hours
+from creation and can be revoked before it expires.
+
+The link contains a 256-bit random bearer token. The database stores only its
+SHA-256 hash. The raw token is returned once by link creation. The frontend puts
+it in the URL fragment (`#token=...`), exchanges it in the request body, then
+removes it from the address bar. The API sets an `HttpOnly`, `SameSite=Strict`
+cookie that expires with the link; the guest page does not require an account
+session.
+
+Guests can see only the device name, current location coordinates/timestamp,
+and presence state. They cannot access history, telemetry, or device controls.
+Live events use SSE. The server rechecks link expiry and revocation while the
+stream is open, so an already-connected guest loses access after revocation.
+
+### Owner endpoints
+
+All three endpoints require an active account session and `owner` access to the
+device.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/api/v1/devices/:id/share-links` | Create an expiring guest link. |
+| `GET` | `/api/v1/devices/:id/share-links` | List active, unexpired links (metadata only). |
+| `DELETE` | `/api/v1/devices/:id/share-links/:linkId` | Revoke a link. Idempotent. |
+
+**Create request**
+
+```json
+{ "duration_hours": 4 }
+```
+
+Only `1`, `2`, `4`, and `8` are accepted.
+
+**Create response `201 Created`**
+
+```json
+{
+  "status_code": 201,
+  "message": "share link created",
+  "data": {
+    "id": "ae0a8d4f-d0f9-4fd0-ad7d-4f40d87c098f",
+    "created_at": "2026-10-02T15:32:08Z",
+    "expires_at": "2026-10-02T19:32:08Z",
+    "token": "<opaque-token-returned-once>"
+  }
+}
+```
+
+`GET` returns link IDs and timestamps only; it never returns the token.
+`DELETE` returns `204 No Content`.
+
+### Guest endpoints
+
+These endpoints require the guest cookie created by token exchange, but no
+Authula user session. Invalid, expired, revoked, and unknown links all return
+`401 Unauthorized`.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/api/v1/guest/share-links/consume` | Validate a link token and set the guest cookie. |
+| `GET` | `/api/v1/guest/device/live` | Retrieve the current location and presence. |
+| `GET` | `/api/v1/guest/device/stream` | Receive current-location and presence SSE events. |
+
+The consume request is `{ "token": "<opaque-token>" }`. Guest responses omit
+device IDs and telemetry fields. The guest cookie is scoped to `/api/v1/guest`
+and is not accessible to JavaScript.

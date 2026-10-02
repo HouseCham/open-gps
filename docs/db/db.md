@@ -1,6 +1,6 @@
 # Database Overview
 
-PostgreSQL database for the GPS Tracker API. Managed via [golang-migrate](https://github.com/golang-migrate/migrate) with 20 migration files.
+PostgreSQL database for the GPS Tracker API. Managed via [golang-migrate](https://github.com/golang-migrate/migrate) with 22 migration files.
 
 ## Entity Relationship
 
@@ -128,6 +128,26 @@ Design decisions:
 - Tokens are 32-byte base64url-encoded random values (256 bits of entropy)
 - One active token per device at a time: creating a new key soft-deletes the prior one
 
+### device_share_links
+
+Temporary read-only capabilities for unauthenticated guests. Multiple active
+links are allowed per device. Tokens are returned once and only their SHA-256
+hash is persisted.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | `uuid` | `PK DEFAULT gen_random_uuid()` | Share-link identifier |
+| device_id | `uuid` | `FK → devices(id) ON DELETE RESTRICT` | Shared device |
+| created_by | `uuid` | `FK → users(id) ON DELETE RESTRICT` | Issuing owner |
+| token_hash | `varchar(64)` | `NOT NULL UNIQUE` | SHA-256 of the random link token |
+| created_at | `timestamptz` | `NOT NULL DEFAULT NOW()` | Issuance time |
+| expires_at | `timestamptz` | `NOT NULL` | Expiry (1, 2, 4, or 8 hours after issue) |
+| revoked_at | `timestamptz` | `NULL` | Early-revocation timestamp |
+
+Guest access also verifies that the device is not soft-deleted. Expired and
+revoked rows remain for audit and are excluded from active-link listing and
+guest authorization.
+
 ## Foreign Key Rules
 
 All foreign keys use `ON DELETE RESTRICT` — no CASCADE deletes anywhere. This prevents accidental data loss: you cannot delete a user or device that has active references in child tables without explicitly revoking/removing those references first.
@@ -138,6 +158,8 @@ All foreign keys use `ON DELETE RESTRICT` — no CASCADE deletes anywhere. This 
 | user_device_access | devices | device_id | RESTRICT |
 | locations | devices | device_id | RESTRICT |
 | device_api_keys | devices | device_id | RESTRICT |
+| device_share_links | devices | device_id | RESTRICT |
+| device_share_links | users | created_by | RESTRICT |
 
 ## Soft Deletes
 
@@ -171,3 +193,5 @@ The `locations` table is partitioned by `RANGE (recorded_at)` with monthly parti
 | 018 | `000018_create_password_reset_tokens` | Create password reset tokens |
 | 019 | `000019_add_device_last_contact_at` | Add `last_contact_at` for presence |
 | 020 | `000020_rename_last_seen_to_last_contact` | Migrate legacy presence column to `last_contact_at` |
+| 021 | `000021_create_location_ingest_keys` | Idempotency keys for batch ingestion |
+| 022 | `000022_create_device_share_links` | Expiring, revocable guest location links |

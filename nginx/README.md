@@ -24,7 +24,8 @@ or `credentials: 'include'` acrobatics required.
 | `/api/v1/*`     | `http://api:8080`      | App routes (devices, users, access)      |
 | `/health`       | `http://api:8080/health` | Health check                            |
 
-The `/api/v1/devices/:id/locations/stream` SSE route is proxied with
+The `/api/v1/devices/:id/locations/stream` and
+`/api/v1/guest/device/stream` SSE routes are proxied with
 `proxy_buffering off`, `proxy_cache off`, `gzip off`, and a long
 `proxy_read_timeout` (75s) so real-time events stream through without
 buffering. Its `location` block is declared *before* the generic `/api/v1/`

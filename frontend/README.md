@@ -26,6 +26,7 @@ The frontend communicates with a Go + Fiber backend and PostgreSQL database to p
 - **Dashboard** — KPI overview, activity feed, device table with search and sort
 - **Device Management** — View, create, edit, and delete GPS devices with role-based access control
 - **Device Detail** — Live location map, telemetry, device/access management, and a lazy-loaded history view with route inspection and CSV export
+- **Guest Device Sharing** — Owner-issued read-only location links with 1/2/4/8-hour expiry, early revocation, and live SSE updates
 - **Live Tracking** — Real-time position and presence (`online_moving`, `online_stationary`, `offline`) via one SSE stream with REST snapshot bootstrap and controlled reconnect/fallback
 - **User Administration** — Manage users, roles, and invitations (super admin)
 - **Profile & Settings** — Edit profile, change password, theme and language preferences
@@ -110,6 +111,7 @@ src/
 - `/[lan]/devices` — Full device list with management actions
 - `/[lan]/devices/detail?id=:id` — Device overview and live location
 - `/[lan]/devices/detail?id=:id&view=history` — Lazy-loaded location history and route inspection
+- `/[lan]/devices/guest#token=:token` — Public, temporary read-only live location view
 - `/[lan]/devices/live?id=:id` — Compatibility redirect to the device history view
 - `/[lan]/admin` — Super admin overview
 - `/[lan]/profile` — User profile and settings

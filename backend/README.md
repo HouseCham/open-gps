@@ -90,6 +90,12 @@ POST   /api/v1/auth/change-password
 GET    /api/v1/system/bootstrap
 GET    /api/v1/devices/:id/locations/live
 GET    /api/v1/devices/:id/locations/stream
+POST   /api/v1/devices/:id/share-links        (requires owner role)
+GET    /api/v1/devices/:id/share-links        (requires owner role)
+DELETE /api/v1/devices/:id/share-links/:linkId (requires owner role)
+POST   /api/v1/guest/share-links/consume      (public link-token exchange)
+GET    /api/v1/guest/device/live              (guest cookie)
+GET    /api/v1/guest/device/stream            (guest cookie, SSE)
 GET    /api/v1/reports/overview
 GET    /api/v1/reports/routes
 GET    /api/v1/reports/health
@@ -119,10 +125,13 @@ replicas so SSE events broadcast across instances.
 
 ### Authentication
 
-All `/api/v1/*` routes require an active session cookie (`authula.session_token`).
-The cookie is set by Authula on sign-in / sign-up and sent automatically by the
-browser via `credentials: 'include'`. The Go middleware (`AuthSession`) reads the
-cookie, resolves the Authula actor, and materialises the local user projection.
+Protected `/api/v1/*` routes require an active session cookie
+(`authula.session_token`). The cookie is set by Authula on sign-in / sign-up and
+sent automatically by the browser via `credentials: 'include'`. The Go
+middleware (`AuthSession`) reads the cookie, resolves the Authula actor, and
+materialises the local user projection. Public exceptions are system bootstrap,
+password recovery, and guest-share link exchange/read routes; guest reads use a
+separate expiring HttpOnly capability cookie.
 
 **Note on `/api/auth/me`:** Authula's built-in `/me` route is bypassed by a
 custom Fiber handler registered at the same path. The reason: Authula's session
@@ -145,7 +154,7 @@ the same `{ user: { id, email, name } }` shape the frontend expects.
 
 ## Database
 
-20 migrations covering: extensions (`pgcrypto`, `pg_partman`, `pg_cron`), users, devices, user-device access (role-based: owner, editor, viewer), location time-series (monthly range partitions via pg_partman, `battery_voltage` + `signal_strength` telemetry, no `satellites`), device API keys (`X-Device-API-Key` lookup tokens — opaque, not bcrypt), protection triggers, and `devices.last_contact_at` for presence (migration 000019).
+22 migrations covering: extensions (`pgcrypto`, `pg_partman`, `pg_cron`), users, devices, user-device access (role-based: owner, editor, viewer), location time-series (monthly range partitions via pg_partman, `battery_voltage` + `signal_strength` telemetry, no `satellites`), device API keys (`X-Device-API-Key` lookup tokens — opaque, not bcrypt), temporary device share links, protection triggers, and `devices.last_contact_at` for presence.
 
 Key decisions:
 - **Soft deletes** on users, devices, access grants and API keys (`deleted_at`).
