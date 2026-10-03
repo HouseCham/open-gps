@@ -25,6 +25,8 @@ type RouterDeps struct {
 	UsersHandler         *handlers.UsersHandler
 	AccessHandler        *handlers.AccessHandler
 	APIKeysHandler       *handlers.APIKeysHandler
+	ShareLinksHandler    *handlers.ShareLinksHandler
+	GuestShareHandler    *handlers.GuestShareHandler
 	LocationsHandler     *handlers.LocationsHandler
 	ReportsHandler       *handlers.ReportsHandler
 	EmailHandler         *handlers.EmailHandler
@@ -116,6 +118,17 @@ func NewRouter(deps RouterDeps) *fiber.App {
 	// outside this group and is unaffected.
 	apiV1.Use(middleware.RequireInitialized(deps.UsersService))
 
+	// === Public guest-share access ===
+	// The link token is exchanged for a short-lived HttpOnly cookie. Guest
+	// reads use only that capability and expose the current location, never
+	// the authenticated device detail/history endpoints.
+	apiV1.Post("/guest/share-links/consume",
+		middleware.ValidateRequestBody[dto.ConsumeShareLinkRequest](),
+		deps.GuestShareHandler.Consume,
+	)
+	apiV1.Get("/guest/device/live", deps.GuestShareHandler.Live)
+	apiV1.Get("/guest/device/stream", deps.GuestShareHandler.Stream)
+
 	// === Devices routes ===
 	// /devices/count is registered on apiV1 directly (not on the group)
 	// so the static segment wins over the /:id route below — Fiber v3
@@ -164,6 +177,25 @@ func NewRouter(deps RouterDeps) *fiber.App {
 		requirePasswordChanged,
 		middleware.RequireDeviceRole(domain.AccessRoleOwner, deps.AccessService),
 		deps.AccessHandler.Revoke,
+	)
+	devices.Post("/:id/share-links",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleOwner, deps.AccessService),
+		middleware.ValidateRequestBody[dto.CreateShareLinkRequest](),
+		deps.ShareLinksHandler.Create,
+	)
+	devices.Get("/:id/share-links",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleOwner, deps.AccessService),
+		deps.ShareLinksHandler.List,
+	)
+	devices.Delete("/:id/share-links/:linkId",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleOwner, deps.AccessService),
+		deps.ShareLinksHandler.Revoke,
 	)
 
 	// === Device API keys (owner-only) ===

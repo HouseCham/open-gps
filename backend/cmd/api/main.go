@@ -17,6 +17,7 @@ import (
 	"github.com/HouseCham/gps-tracker/backend/internal/app/locations"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/passwordreset"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/reports"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/sharelinks"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/users"
 	"github.com/HouseCham/gps-tracker/backend/internal/auth"
 	"github.com/HouseCham/gps-tracker/backend/internal/config"
@@ -106,6 +107,9 @@ func main() {
 	//-- access
 	accessRepo := postgres.NewAccessAdapter(pool)
 	accessService := access.NewAccessService(accessRepo, usersRepo)
+	//-- temporary device share links
+	shareLinksRepo := postgres.NewDeviceShareLinksAdapter(pool)
+	shareLinksService := sharelinks.New(shareLinksRepo)
 
 	//-- api keys (IoT device auth)
 	apiKeysAdapter := apikeys.NewAdapter(pool)
@@ -157,8 +161,10 @@ func main() {
 	sessionManager := authInstance.NewSessionManager()
 	usersHandler := handlers.NewUsersHandler(usersService, devicesService, passwordUpdater, sessionManager)
 	accessHandler := handlers.NewAccessHandler(accessService)
+	shareLinksHandler := handlers.NewShareLinksHandler(shareLinksService)
 	apiKeysHandler := handlers.NewAPIKeysHandler(apiKeysService)
 	locationsHandler := handlers.NewLocationsHandler(locationsService, liveHub)
+	guestShareHandler := handlers.NewGuestShareHandler(shareLinksService, locationsService, liveHub, auth.IsProduction())
 	reportsHandler := handlers.NewReportsHandler(reportsService)
 	emailHandler := handlers.NewEmailHandler(emailService)
 	passwordResetHandler := handlers.NewPasswordResetHandler(passwordResetService)
@@ -169,6 +175,8 @@ func main() {
 		UsersHandler:         usersHandler,
 		AccessHandler:        accessHandler,
 		APIKeysHandler:       apiKeysHandler,
+		ShareLinksHandler:    shareLinksHandler,
+		GuestShareHandler:    guestShareHandler,
 		LocationsHandler:     locationsHandler,
 		ReportsHandler:       reportsHandler,
 		EmailHandler:         emailHandler,
