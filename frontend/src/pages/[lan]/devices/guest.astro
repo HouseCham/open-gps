@@ -1,0 +1,43 @@
+---
+import '@/styles/global.css';
+//-- Types
+import type { GetStaticPaths } from 'astro';
+import type { Language } from '@/types';
+//-- i18n
+import { getTranslation } from '@/i18n';
+//-- Components
+import { GuestDevicePage } from '@/components/react/features/devices/guest/GuestDevicePage';
+
+export const getStaticPaths: GetStaticPaths = () => [
+    { params: { lan: 'en' } },
+    { params: { lan: 'es' } },
+];
+
+const locale = Astro.params.lan as Language;
+const translation = getTranslation(locale);
+const title = `${translation.device.detail.guest.pageTitle} · ${translation.layout.appName}`;
+---
+
+<!doctype html>
+<html lang={locale}>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width" />
+        <meta name="generator" content={Astro.generator} />
+        <meta name="referrer" content="no-referrer" />
+        <title>{title}</title>
+        <meta name="description" content={translation.device.detail.guest.subtitle} />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <script>
+            import '@/scripts/theme-init.js';
+        </script>
+    </head>
+    <body>
+        <GuestDevicePage
+            client:load
+            locale={locale}
+            translations={translation.device}
+            dateTranslations={translation.date}
+        />
+    </body>
+</html>

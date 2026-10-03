@@ -54,6 +54,16 @@ const GrantAccessModal = lazy(() =>
         default: m.GrantAccessModal,
     }))
 );
+const ShareChoiceModal = lazy(() =>
+    import('@/components/react/modal').then(m => ({
+        default: m.ShareChoiceModal,
+    }))
+);
+const GuestShareModal = lazy(() =>
+    import('@/components/react/modal').then(m => ({
+        default: m.GuestShareModal,
+    }))
+);
 const RevokeAccessModal = lazy(() =>
     import('@/components/react/modal').then(m => ({
         default: m.RevokeAccessModal,
@@ -106,6 +116,8 @@ export function DeviceDetailPage({
         style: 'line' | 'dots';
     }>({ segments: [], style: 'line' });
     const [inviteOpen, setInviteOpen] = useState(false);
+    const [shareChoiceOpen, setShareChoiceOpen] = useState(false);
+    const [guestShareOpen, setGuestShareOpen] = useState(false);
     const [editOpen, setEditOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [revokeTarget, setRevokeTarget] =
@@ -118,6 +130,7 @@ export function DeviceDetailPage({
     } = useDeviceLocationStream(deviceId ?? null);
     const latest = snapshot?.location ?? null;
 
+    // Sync the device ID from the URL
     useEffect(() => {
         const syncFromUrl = (): void => {
             setDeviceId(readDeviceIdFromUrl() ?? '');
@@ -133,10 +146,12 @@ export function DeviceDetailPage({
         return (): void => window.removeEventListener('popstate', syncFromUrl);
     }, []);
 
+    // Get the device details when the device ID changes
     useEffect(() => {
         if (!deviceId) return;
         void getDeviceById(deviceId);
     }, [deviceId]);
+    
     /**
      * Get the device status
      * @returns {DeviceStatus | null} The device status or null if the device is not available.
@@ -296,7 +311,11 @@ export function DeviceDetailPage({
                 translations={t}
                 date={date}
                 onBack={goBack}
-                onShare={() => setInviteOpen(true)}
+                onShare={
+                    device.access_role === 'owner'
+                        ? (): void => setShareChoiceOpen(true)
+                        : undefined
+                }
                 onEdit={() => setEditOpen(true)}
                 onDelete={() => setDeleteOpen(true)}
             />
@@ -433,6 +452,34 @@ export function DeviceDetailPage({
                     </Suspense>
                 )}
             </div>
+
+            {/* Share target selection */}
+            <Suspense fallback={null}>
+                <ShareChoiceModal
+                    open={shareChoiceOpen}
+                    onClose={() => setShareChoiceOpen(false)}
+                    onRegisteredUser={() => {
+                        setShareChoiceOpen(false);
+                        setInviteOpen(true);
+                    }}
+                    onGuest={() => {
+                        setShareChoiceOpen(false);
+                        setGuestShareOpen(true);
+                    }}
+                    t={t.detail.sharing}
+                />
+            </Suspense>
+
+            {/* Guest share links */}
+            <Suspense fallback={null}>
+                <GuestShareModal
+                    open={guestShareOpen}
+                    deviceId={device.id}
+                    locale={locale}
+                    onClose={() => setGuestShareOpen(false)}
+                    t={t.detail.sharing}
+                />
+            </Suspense>
 
             {/* Grant Access Modal */}
             <Suspense fallback={null}>
