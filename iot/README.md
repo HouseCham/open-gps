@@ -163,7 +163,7 @@ accumulated during an outage flushes through the same gate.
 ## Persistent fix queue
 
 Accepted fixes are enqueued **before** any network attempt, so a coverage gap
-never loses a point (Phase 2 of `audit-fix-plan.md`).
+never loses a point.
 
 - `lib/fix_queue/` — pure ring-buffer logic: fixed 64-byte `FixRecord`
   (scaled integers, no float ABI dependency), CRC-16 versioned encode/decode.
@@ -213,7 +213,7 @@ never loses a point (Phase 2 of `audit-fix-plan.md`).
 
 - `lib/power_manager/` maps a `PowerProfile`
   (`MOVING / STATIONARY / NO_NETWORK / LOW_BATTERY / CHARGING`) to allowed
-  actions; `main.cpp` logs `[PWR] profile=… dtr=… deep=… psm=… up=…` on
+  actions; `main.cpp` logs `[PWR ] profile=… dtr=… deep=… psm=… up=…` on
   every profile change.
 - All actuators ship **disabled** behind compile-time flags in
   `include/config.h`: `POWER_MODEM_DTR`, `POWER_DEEP_SLEEP`, `POWER_PSM_EDRX`
@@ -274,7 +274,6 @@ open-gps-iot/
 ├── platformio.ini              Build config (3 envs: esp32s3box, esp32s3box-debug, native)
 ├── Makefile                    make test | make esp32 | make debug
 ├── AGENTS.md                   Coding conventions and review rules
-├── audit-fix-plan.md           Phased reliability plan (source of the roadmap below)
 ├── src/
 │   ├── main.cpp                setup() + loop() — orchestrates, no logic
 │   ├── gps_board.cpp           GpsBoard class — PMU + modem + GNSS bring-up
@@ -318,9 +317,13 @@ open-gps-iot/
 │   └── test_vbat_sag/          Sag tracker maths
 ├── scripts/
 │   └── pre_build_secrets.py    SCons hook: forces rebuild when secrets.h changes
-└── config/
-    ├── secrets.example.h       Template — copy to secrets.h, fill in, never commit
-    └── secrets.h               (gitignored) real device UUID + API key + APN
+├── config/
+│   ├── secrets.example.h       Template — copy to secrets.h, fill in, never commit
+│   └── secrets.h               (gitignored) real device UUID + API key + APN
+├── 3d/
+│   └── lilygo/                 # Enclosure case — FreeCAD source + printable STLs
+└── docs/
+    └── lilygo/README.md        # Board dimensions & clearances for case modeling
 ```
 
 ### Architectural split
@@ -452,8 +455,8 @@ Tests run on the host; `-DUNITY_INCLUDE_DOUBLE` is set because the JSON
 serialiser uses `double`-typed fields.
 
 Hardware-in-the-loop test procedures (VBUS sequence, queue power-cut
-persistence, backlog drain) are tracked in `audit-fix-plan.md` — always
-verify new logic on real hardware before merging.
+persistence, backlog drain) gate every release — always verify new logic on
+real hardware before merging.
 
 ## Key design decisions
 
@@ -611,9 +614,7 @@ then acks the whole peeked prefix. Authentication is the per-device API key
 (`X-Device-API-Key`, one active key per device; rotation soft-deletes the
 prior key).
 
-## Roadmap (audit-fix-plan)
-
-Live plan: [`audit-fix-plan.md`](./audit-fix-plan.md).
+## Roadmap
 
 | Phase | Status | Scope |
 |---|---|---|

@@ -2,7 +2,7 @@
 
 Self-contained, one-shot Docker image for running database migrations in
 production. Wraps the official [`migrate/migrate`](https://github.com/golang-migrate/migrate)
-binary with the project's SQL migration files baked in.
+v4.17.0 binary with the project's SQL migration files baked in.
 
 ## Why a separate image
 
@@ -16,7 +16,7 @@ backend codebase.
 
 ```
 migrate/
-├── Dockerfile         # FROM migrate/migrate, COPY migrations
+├── Dockerfile         # FROM migrate/migrate:v4.17.0, COPY migrations
 ├── README.md          # this file
 └── migrations/        # *.up.sql / *.down.sql (was backend/migrations/)
 ```
@@ -32,29 +32,47 @@ docker build -t chamito/open-gps-migrate:dev ./migrate
 docker push  chamito/open-gps-migrate:dev
 ```
 
-Push only when migration files change. The image is tiny (~20 MB on top
-of the base) and rebuilds in seconds.
+Manual pushes are only needed when migration files change. The image is
+tiny (~20 MB on top of the base) and rebuilds in seconds.
+
+CI does this for you: the `backend-docker` job in
+`.github/workflows/backend.yml` builds and pushes
+`chamito/open-gps-migrate:dev` automatically on every push to `main` or
+`dev` (after tests and build pass).
 
 ## Run locally (against the docker-compose stack)
 
 The `docker-compose.local.yml` already wires this image into the `migrate`
-service. Migrations run automatically before the API starts:
+service — it builds from `./migrate` and tags it `open-gps-migrate`.
+Migrations run automatically before the API starts
+(`api` waits on `service_completed_successfully`):
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.local.yml up
 ```
 
+Shortcuts from the repository root Makefile:
+
+```bash
+make run        # full local stack (down -v + up --build)
+make docker-db  # just db + migrate
+```
+
 ## Run in production (one-shot)
 
-Against any reachable Postgres — Dokploy's internal DB host, a managed
-Postgres, or the public endpoint:
+Production (`docker-compose.yml`) uses the pushed
+`chamito/open-gps-migrate:dev` image directly. Against any reachable
+Postgres — Dokploy's internal DB host, a managed Postgres, or the public
+endpoint:
 
 ```bash
 docker run --rm chamito/open-gps-migrate:dev \
-  -path /migrations \
   -database "postgres://USER:PASS@HOST:5432/DB?sslmode=disable" \
   up
 ```
+
+The Dockerfile's `ENTRYPOINT` already bakes in `-path /migrations`, so only
+the database URL and the subcommand are needed.
 
 Useful subcommands:
 
@@ -74,7 +92,7 @@ Useful subcommands:
 3. Run `sqlc generate` from `backend/` if the migration introduces or
    changes tables used by typed queries (see `backend/sqlc.yaml`).
 4. Build & push a new `migrate` image so production can pick up the
-   change.
+   change (or wait for CI on push to `main`/`dev`).
 
 ## Adding new migration files from `backend/`
 

@@ -185,7 +185,7 @@ The IoT ingest route (`POST /api/v1/devices/:uuid_firmware/locations`) uses **pe
 
 - 32 random bytes (256 bits of entropy) base64url-encoded.
 - 43 characters of `[A-Za-z0-9_-]` — header-safe, no escaping required.
-- One active token per device at any time; creating a new one (via `POST /api/v1/devices/:id/api-keys`) soft-deletes the prior active token.
+- One active token per device at any time; `POST /api/v1/devices/:id/api-keys` returns `409 conflict` while a key is active — revoke it with `DELETE` first, then issue.
 
 ### How it works
 
@@ -207,11 +207,11 @@ The IoT ingest route (`POST /api/v1/devices/:uuid_firmware/locations`) uses **pe
 
 ### Why not bcrypt?
 
-The original schema anticipated bcrypt-on-verify, but bcrypt at default cost (~80 ms) at IoT scale (one POST / 30 s × 2 880 cycles/day × 100 devices = ~7 hours of CPU/day just for auth) is impractical. The "hash" column name is now misleading — it stores the token directly. We rely on TLS to protect the token in transit, on the partial unique index to keep lookups a single seek, and on rotation to revoke compromised tokens.
+The original schema anticipated bcrypt-on-verify, but bcrypt at default cost (~80 ms) at IoT scale (one POST / 30 s × 2 880 cycles/day × 100 devices = ~7 hours of CPU/day just for auth) is impractical. The `key_hash` column name is now misleading — it stores the token directly. We rely on TLS to protect the token in transit, on the partial unique index to keep lookups a single seek, and on revocation to withdraw compromised tokens.
 
 ### Rotation
 
-Issuing a new key for a device soft-deletes the prior active key in the same transaction. The firmware update pushes the new key; from the moment the cell reconnects, only the new token authenticates. The old token is dead the instant `POST /api/v1/devices/:id/api-keys` returns.
+Rotation is a two-step operation: `DELETE /api/v1/devices/:id/api-keys/:keyId` revokes the active key, then `POST /api/v1/devices/:id/api-keys` issues the replacement (issuing while a key is active returns `409 conflict`). The firmware update pushes the new key; from the moment the cell reconnects, only the new token authenticates. The old token dies the moment the `DELETE` returns.
 
 ### Threat model
 

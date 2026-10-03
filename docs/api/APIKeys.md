@@ -6,7 +6,7 @@ Base URL: `/api/v1`
 
 IoT devices authenticate to the API not with a session cookie but with a per-device opaque lookup token carried in the `X-Device-API-Key` header. The owner of a device issues the token through these endpoints and flashes it onto the device firmware.
 
-A device has **at most one active key at any time**. Issuing a new key soft-deletes the prior active key in the same transaction, so the firmware-update path stays a single-value lookup and a leaked firmware blob can be revoked by rotation alone.
+A device has **at most one active key at any time** (enforced by a service pre-check and a partial UNIQUE index). Rotation is a two-step operation: revoke the current key with `DELETE`, then issue the new one with `POST` — issuing while a key is active returns `409 conflict`.
 
 The plain token is returned **only at creation time**. `GET` and `DELETE` never surface it; the backend has no copy outside the response payload.
 
@@ -58,7 +58,7 @@ All responses follow the standard envelope:
 
 ### POST /api/v1/devices/:id/api-keys
 
-Issues a fresh key for the device. Revokes any prior active key in the same transaction so the single-active invariant always holds.
+Issues a fresh key for the device. Fails with `409 conflict` if the device already has an active key — revoke it first (two-step rotation).
 
 The response carries the plain token — this is the **one place** it ever travels on the wire. The admin UI must display it and discard; the service retains no copy.
 
@@ -91,12 +91,14 @@ No request body.
 - `id` — UUID of the new key row
 - `created_at` — ISO 8601 timestamp when the key was issued
 - `plain_key` — The lookup token to flash onto the device. **Returned exactly once.** Store it in the firmware's secure storage (NVS / Preferences) and never log it.
+- `last_used_at`, `expires_at` — Present only once set (omitted while null)
 
 **Error Responses**
 - `400` — Invalid device id
 - `401` — Unauthorized
 - `403` — Caller is not the device owner
 - `404` — Device does not exist or caller has no access
+- `409` — Device already has an active API key (revoke it first)
 
 ---
 
@@ -123,8 +125,7 @@ Cookie: authula.session_token=<owner-cookie>
     {
       "id": "ae0a8d4f-d0f9-4fd0-ad7d-4f40d87c098f",
       "created_at": "2026-07-07T15:32:08Z",
-      "last_used_at": null,
-      "expires_at": null
+      "last_used_at": "2026-07-07T16:00:00Z"
     }
   ]
 }
@@ -133,8 +134,8 @@ Cookie: authula.session_token=<owner-cookie>
 **Fields (`data[]`):**
 - `id` — UUID of the key row
 - `created_at` — ISO 8601 timestamp when the key was issued
-- `last_used_at` — ISO 8601 timestamp of the most recent IoT auth, or `null` if never used
-- `expires_at` — ISO 8601 expiration timestamp, or `null` if the key never expires
+- `last_used_at` — ISO 8601 timestamp of the most recent IoT auth (omitted when the key has never been used)
+- `expires_at` — ISO 8601 expiration timestamp (omitted when the key never expires)
 
 **Error Responses**
 - `400` — Invalid device id
@@ -224,8 +225,8 @@ Cookie: authula.session_token=<cookie>
 
 ## Token lifecycle
 
-1. **Issue** — `POST /api/v1/devices/:id/api-keys` returns the `plain_key` once. The backend stores only the lookup value (a column named `hash` for historical reasons but the value is the token itself, see [Authentication.md -> IoT device auth](./Authentication.md#why-not-bcrypt)) and the device binding. No copy of the plain key is ever persisted.
+1. **Issue** — `POST /api/v1/devices/:id/api-keys` returns the `plain_key` once. The backend stores only the lookup value (a column named `key_hash` for historical reasons but the value is the token itself, see [Authentication.md -> IoT device auth](./Authentication.md#why-not-bcrypt)) and the device binding. No copy of the plain key is ever persisted.
 2. **Flash** — The owner flashes the firmware with the token stored in NVS / Preferences (ideally encrypted at rest with the MCU's secure element).
-3. **Authenticate** — On every cycle the device sends the token in the `X-Device-API-Key` header. The IoT middleware (`RequireDeviceAPIKey`) hashes-and-looks-up against `:uuid_firmware` and rejects mismatches.
-4. **Rotate** — Issuing a new key soft-deletes the prior active key in the same transaction. The firmware update pushes the new key; from the moment the cell reconnects, only the new token authenticates. The old token is dead the instant `POST` returns.
+3. **Authenticate** — On every cycle the device sends the token in the `X-Device-API-Key` header. The IoT middleware (`RequireDeviceAPIKey`) looks the token up by exact match against `:uuid_firmware` and rejects mismatches.
+4. **Rotate** — Revoke the active key with `DELETE`, then issue the new one with `POST`. The firmware update pushes the new key; from the moment the cell reconnects, only the new token authenticates. Issuing without revoking first returns `409 conflict`.
 5. **Revoke** — `DELETE /api/v1/devices/:id/api-keys/:keyId` soft-deletes the row. Idempotent: revoking an already-revoked or unknown key returns `204`. The next `GET /api/v1/api-keys` no longer surfaces it.

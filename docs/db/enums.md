@@ -78,4 +78,4 @@ The system needs a single administrator account for managing users and devices w
 - **Non-deletable** — the `super_admin` user cannot be soft-deleted
 - **Unique** — only one `super_admin` exists at any time
 
-The first user to register is promoted to `super_admin` by application logic in the `LazyUser` middleware.
+The first user to register is promoted to `super_admin` by application logic in the `AuthSession` middleware.

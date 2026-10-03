@@ -112,7 +112,7 @@ Nullable telemetry fields (`altitude`, `speed`, `accuracy`, `battery_voltage`, `
 |-------------|---------|---------|
 | 400 | `invalid device id` | `:id` is not a valid UUID |
 | 401 | `unauthorized` | No session cookie or session expired |
-| 403 | `must change password` | Caller has `must_change_password=true` |
+| 403 | `must_change_password` | Caller has `must_change_password=true` |
 | 404 | (per RBAC) | Caller has no access to the device (security-through-obscurity) |
 | 404 | `no location reported for this device yet` | The device has never sent a location row |
 
@@ -215,7 +215,7 @@ Content-Length: 7
 Created
 ```
 
-No response body. The status code conveys success; clients can read the inserted row back via `GET /api/v1/devices/:id/locations/latest`.
+The body is the literal status text `Created` (Fiber's `SendStatus` fills an empty body with the status message). Success is the `201` status code; clients can read the inserted row back via `GET /api/v1/devices/:id/locations/latest`.
 
 **Error Responses**
 
@@ -355,13 +355,95 @@ X-Device-API-Key: 50I_rlGuoF9EONVelnUahPqKr1vDy6H1hZ0BrXFVldQ
 **Why are `from` and `to` local times?** The frontend sends wall-clock values without an offset and supplies the user's IANA timezone separately. The backend resolves those values to UTC before querying PostgreSQL.
 
 **Why aren't GPS-only devices rejected?** A bare GPS + ESP32 can fill in lat/lng/recorded_at/altitude/speed/accuracy; the other five fields are optional. The empty `signal_strength` case is common in indoor benches, etc.
-# Live location and presence
 
-`GET /api/v1/devices/:id/locations/live` returns the latest location together
-with server-owned presence. Presence states are `never_seen`,
-`online_moving`, `online_stationary`, and `offline`. The backend uses
-`devices.last_contact_at` and a six-minute deadline; `recorded_at` remains the
-GPS fix time and is not used for connectivity.
+---
 
-The SSE stream uses the same session cookie and viewer-or-higher device access.
-Reconnects receive a fresh snapshot; durable replay is not provided.
+## Live location and presence
+
+### GET /api/v1/devices/:id/locations/live
+
+Returns the latest location together with server-owned presence. Presence states are `never_seen`, `online_moving`, `online_stationary`, and `offline`. The backend uses `devices.last_contact_at` and a six-minute deadline; `recorded_at` remains the GPS fix time and is not used for connectivity.
+
+**Authorization:** Session cookie (Authula) + `viewer` (or higher) access on the device.
+
+**Response `200 OK`**
+
+```json
+{
+  "status_code": 200,
+  "message": "live location retrieved",
+  "data": {
+    "device_id": "550e8400-e29b-41d4-a716-446655440001",
+    "location": {
+      "device_id": "550e8400-e29b-41d4-a716-446655440001",
+      "recorded_at": "2026-08-17T19:00:00Z",
+      "latitude": 19.432608,
+      "longitude": -99.133207,
+      "altitude": 2240.5,
+      "speed": 45.3,
+      "accuracy": 4.1,
+      "battery_voltage": 3.72,
+      "signal_strength": 23
+    },
+    "presence": {
+      "state": "online_moving",
+      "last_contact_at": "2026-08-17T19:00:10Z",
+      "expires_at": "2026-08-17T19:06:10Z"
+    },
+    "server_time": "2026-08-17T19:00:15Z"
+  }
+}
+```
+
+`location` is `null` when the device has never reported; `presence.state` stays `never_seen` in that case.
+
+**Error Responses**
+- `400` — `invalid device id`
+- `401` — No session cookie or session expired
+- `403` — `must_change_password` is true
+- `404` — Caller has no access to the device, or the device does not exist
+
+---
+
+### GET /api/v1/devices/:id/locations/stream
+
+Server-Sent Events stream of live location and presence updates for one device. Uses the same session cookie and `viewer`-or-higher device access as the live endpoint.
+
+On connect the server sends an initial `snapshot` event, then publishes `location` events on each new ingest and `presence` events when the presence deadline is reached. A `: keepalive` comment is written every 25 seconds so proxies do not idle out the connection. Reconnects receive a fresh snapshot; durable replay is not provided.
+
+**Authorization:** Session cookie (Authula) + `viewer` (or higher) access on the device.
+
+**Request**
+
+```
+GET /api/v1/devices/550e8400-e29b-41d4-a716-446655440001/locations/stream
+Cookie: authula.session_token=...
+Accept: text/event-stream
+```
+
+**Response `200 OK`**
+
+```
+Content-Type: text/event-stream; charset=utf-8
+Cache-Control: no-cache, no-transform
+X-Accel-Buffering: no
+
+event: snapshot
+id: 1
+data: {"device_id":"550e8400-e29b-41d4-a716-446655440001","location":{...},"presence":{"state":"online_moving","last_contact_at":"...","expires_at":"..."},"server_time":"..."}
+
+event: location
+id: 2
+data: {"device_id":"550e8400-e29b-41d4-a716-446655440001","location":{...},"presence":{...},"server_time":"..."}
+
+: keepalive
+
+```
+
+Each event's `data` is the same `LiveLocationResponse` shape as the live endpoint.
+
+**Error Responses**
+- `400` — `invalid device id`
+- `401` — No session cookie or session expired
+- `403` — `must_change_password` is true
+- `404` — Caller has no access to the device, or the device does not exist

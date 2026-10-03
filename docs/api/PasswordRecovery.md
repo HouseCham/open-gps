@@ -29,7 +29,7 @@ All responses follow the standard envelope:
 | 400 | `invalid request body` | Body failed validation (missing fields, bad email, bad URL, weak password, etc.). |
 | 400 | `invalid language` | `locale` is not one of the configured languages (`en`, `es`). |
 | 400 | `invalid or expired token` | The consume token is unknown, expired, or already used. The three failure modes are deliberately indistinguishable on the wire — callers cannot probe token validity. |
-| 503 | `application not initialized` | System has zero users; the user must hit `/api/v1/system/bootstrap` first. |
+| 503 | `system not initialized` | System has zero users; the user must hit `/api/v1/system/bootstrap` first. |
 | 502 | `upstream email provider failed` | The Resend API rejected the call (network error, bad API key, suspended template, etc.). |
 | 500 | `internal server error` | Unhandled error. |
 
