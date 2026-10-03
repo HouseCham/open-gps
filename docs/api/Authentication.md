@@ -104,6 +104,16 @@ Two endpoints under `/api/v1/auth/{generate,consume}-pwd-recovery-token` cover t
 
 See [PasswordRecovery.md](./PasswordRecovery.md) for the full contract, including the anti-enumeration and rate-limit semantics.
 
+### Temporary guest device access
+
+Guest links are a separate capability flow, not an Authula account session.
+`POST /api/v1/guest/share-links/consume` exchanges the link token for a short-lived
+HttpOnly cookie. Guest live-location and SSE routes validate that capability
+cookie against link expiry and revocation; they do not accept the Authula
+session cookie as a substitute. The routes expose only current location and
+presence. See [Devices.md](./Devices.md#temporary-guest-share-links) for the
+link lifecycle and endpoint contract.
+
 ### `POST /api/v1/auth/change-password`
 
 Change the signed-in user's password. Verifies the current password against Authula's credential store, hashes the new one, writes it back, and clears the local `must_change_password` flag. **Not** gated by `RequirePasswordChanged` — a user who hasn't changed their temporary password yet must be able to hit this endpoint.

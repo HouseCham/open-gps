@@ -70,6 +70,17 @@ INDEX ON device_api_keys (device_id) WHERE deleted_at IS NULL;
 - **Purpose**: Accelerates the admin UI query that lists all active keys for a device.
 - **Migration**: 000008
 
+### idx_device_share_links_active_device
+
+```
+INDEX ON device_share_links (device_id, created_at DESC) WHERE revoked_at IS NULL;
+```
+
+- **Table**: device_share_links
+- **Type**: Partial, B-tree
+- **Purpose**: Lists active guest links for a device in creation order.
+- **Migration**: 000022
+
 ## Full-Table Indexes
 
 The `locations` table does not use partial indexes because it has no soft-delete column. Its primary key (`device_id`, `recorded_at`) serves as the main access path:
@@ -87,4 +98,5 @@ The `locations` table does not use partial indexes because it has no soft-delete
 | idx_user_device_access_active_user | user_device_access | B-tree | Yes | User device listing |
 | idx_device_api_keys_active_hash | device_api_keys | Unique | Yes | IoT key auth |
 | idx_device_api_keys_active_device | device_api_keys | B-tree | Yes | Key listing |
+| idx_device_share_links_active_device | device_share_links | B-tree | Yes | Active guest-link listing |
 | locations_pkey | locations | Primary | No | Location queries |

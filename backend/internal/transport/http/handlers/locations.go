@@ -282,8 +282,9 @@ func presenceTimer(expiresAt *time.Time) *time.Timer {
 		return time.NewTimer(time.Hour)
 	}
 	delay := time.Until(*expiresAt)
-	if delay < 0 {
-		delay = 0
+	if delay <= 0 {
+		// An expired deadline means presence is already offline; avoid a zero-delay refresh loop.
+		delay = time.Hour
 	}
 	return time.NewTimer(delay)
 }
@@ -299,8 +300,9 @@ func resetTimer(timer *time.Timer, expiresAt *time.Time) {
 	delay := time.Hour
 	if expiresAt != nil {
 		delay = time.Until(*expiresAt)
-		if delay < 0 {
-			delay = 0
+		if delay <= 0 {
+			// ponytail: offline streams recheck hourly; live events still deliver a sooner state change.
+			delay = time.Hour
 		}
 	}
 	timer.Reset(delay)

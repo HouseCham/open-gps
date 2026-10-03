@@ -1,4 +1,4 @@
-import type { ApiError } from "./api";
+import type { ApiError } from './api';
 
 /**
  * Interface for a GeoJSON object representing a route

@@ -2,6 +2,8 @@ export * from './AddAccessKeyModal';
 export * from './AddDeviceModal';
 export * from './EditDeviceModal';
 export * from './GrantAccessModal';
+export * from './GuestShareModal';
+export * from './ShareChoiceModal';
 export * from './deleteModal/RevokeAccessModal';
 export * from './AddUserModal';
 export * from './TempPasswordModal';
