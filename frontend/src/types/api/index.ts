@@ -18,3 +18,4 @@ export * from './system.types';
 export * from './api-keys.types';
 export * from './locations.types';
 export * from './reports.types';
+export * from './share-links.types';

@@ -22,3 +22,9 @@ export const MODAL_VARIANT_CLASS: Record<ToastVariant, string> = {
     warning: 'toast--warning',
     info: 'toast--info',
 };
+/**
+ * @constant
+ * @description Durations for guest share modals
+ * @type {readonly number[]}
+ */
+export const GUEST_SHARE_DURATIONS: readonly number[] = [1, 2, 4, 8] as const;
