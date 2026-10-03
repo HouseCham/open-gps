@@ -302,4 +302,4 @@ device presence.
 
 ## License
 
-MIT
+MIT — see [LICENSE](../LICENSE).
