@@ -429,6 +429,91 @@ export const en = {
         localNote: 'Preferences are stored in this browser.',
     },
     page: {
+        home: {
+            title: 'Home',
+            eyebrow: 'Your tracking workspace',
+            heading: 'Know where your devices are.',
+            sub: 'Open GPS keeps live location, history, and access in one place, on infrastructure you control.',
+            actions: {
+                viewDevices: 'View devices',
+            },
+            live: {
+                title: 'Live overview',
+                sub: 'A quick read of your connected fleet.',
+                status: 'Stream connected',
+                sample: 'Sample data',
+                mapAlt: 'Illustrated route map with three connected device positions',
+                mapLabels: {
+                    northLoop: 'NORTH LOOP',
+                    eastDepot: 'EAST DEPOT',
+                    cityCentre: 'CITY CENTRE',
+                },
+                cardTitle: 'Van 04 · Moving',
+                cardMeta: 'Last update 12 sec ago',
+                legendRoute: 'Recent route',
+                legendNode: 'Online device',
+                legendSse: 'SSE live updates',
+            },
+            features: {
+                presence: {
+                    title: 'Real-time presence',
+                    desc: 'One SSE stream keeps moving, stationary, offline, and never-seen states current.',
+                    link: 'Open live tracking',
+                },
+                history: {
+                    title: 'History you can inspect',
+                    desc: 'Replay routes on an interactive map and export the exact trail as CSV.',
+                    link: 'Explore reports',
+                },
+                sharing: {
+                    title: 'Share without handing over access',
+                    desc: 'Create read-only live links that expire after 1, 2, 4, or 8 hours.',
+                    link: 'View sharing options',
+                },
+            },
+            capabilities: {
+                code: 'What you can do',
+                heading: 'Built for the way tracking work actually happens.',
+                desc: 'Start with the live map, then move from location to context, reports, and controlled access.',
+                reports: {
+                    title: 'Reports with useful shape',
+                    desc: 'Overview, health, quality, and route sections with filters plus CSV and GPX export.',
+                    foot: 'overview · health · routes',
+                    link: 'Open reports',
+                },
+                access: {
+                    title: 'Access at device level',
+                    desc: 'Roles and per-device grants keep collaboration clear, while API keys handle ingestion.',
+                    foot: 'owner · editor · viewer',
+                    link: 'Manage access',
+                },
+                local: {
+                    title: 'Made to stay yours',
+                    desc: 'Open source, MIT licensed, and self-hosted with append-only location history.',
+                    foot: '12-month retention',
+                    link: 'About Open GPS',
+                },
+            },
+            ownership: {
+                eyebrow: 'Your infrastructure',
+                heading: 'Tracking that answers to your team.',
+                desc: 'Keep location data on your server, choose who can see each device, and share only what a guest needs.',
+                cta: 'Review workspace settings',
+            },
+            protocol: {
+                title: 'At a glance',
+                rows: [
+                    { label: 'Languages', value: 'EN / ES' },
+                    { label: 'Theme modes', value: 'LIGHT / DARK' },
+                    { label: 'Ingestion', value: 'DEVICE API KEYS' },
+                    { label: 'Auth', value: 'PASSWORD / GOOGLE' },
+                ],
+            },
+            footer: {
+                left: 'Open GPS · self-hosted real-time tracking',
+                right: 'Workspace / Home',
+            },
+        },
         devices: {
             title: 'Devices',
             subtitle: 'Manage your Open GPS devices',

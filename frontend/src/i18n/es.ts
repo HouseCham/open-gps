@@ -441,6 +441,92 @@ export const es: Translation = {
         localNote: 'Las preferencias se guardan en este navegador.',
     },
     page: {
+        home: {
+            title: 'Inicio',
+            eyebrow: 'Tu espacio de rastreo',
+            heading: 'Sabe dónde están tus dispositivos.',
+            sub: 'Open GPS mantiene la ubicación en vivo, el historial y el acceso en un solo lugar, en infraestructura que tú controlas.',
+            actions: {
+                viewDevices: 'Ver dispositivos',
+            },
+            live: {
+                title: 'Resumen en vivo',
+                sub: 'Una lectura rápida de tu flota conectada.',
+                status: 'Flujo conectado',
+                sample: 'Datos de ejemplo',
+                mapAlt: 'Mapa ilustrado de una ruta con tres posiciones de dispositivos conectados',
+                mapLabels: {
+                    northLoop: 'ANILLO NORTE',
+                    eastDepot: 'DEPÓSITO ESTE',
+                    cityCentre: 'CENTRO CIUDAD',
+                },
+                cardTitle: 'Furgoneta 04 · En movimiento',
+                cardMeta: 'Última actualización hace 12 s',
+                legendRoute: 'Ruta reciente',
+                legendNode: 'Dispositivo en línea',
+                legendSse: 'Actualizaciones SSE en vivo',
+            },
+            features: {
+                presence: {
+                    title: 'Presencia en tiempo real',
+                    desc: 'Un solo flujo SSE mantiene actualizados los estados en movimiento, detenido, desconectado y nunca visto.',
+                    link: 'Abrir rastreo en vivo',
+                },
+                history: {
+                    title: 'Historial que puedes inspeccionar',
+                    desc: 'Reproduce rutas en un mapa interactivo y exporta el rastro exacto en CSV.',
+                    link: 'Explorar informes',
+                },
+                sharing: {
+                    title: 'Comparte sin entregar acceso',
+                    desc: 'Crea enlaces de solo lectura que expiran después de 1, 2, 4 u 8 horas.',
+                    link: 'Ver opciones de compartir',
+                },
+            },
+            capabilities: {
+                code: 'Lo que puedes hacer',
+                heading:
+                    'Pensado para la forma en que realmente trabaja el rastreo.',
+                desc: 'Empieza con el mapa en vivo y pasa de la ubicación al contexto, los informes y el acceso controlado.',
+                reports: {
+                    title: 'Informes con forma útil',
+                    desc: 'Secciones de resumen, salud, calidad y rutas con filtros más exportación CSV y GPX.',
+                    foot: 'resumen · salud · rutas',
+                    link: 'Abrir informes',
+                },
+                access: {
+                    title: 'Acceso a nivel de dispositivo',
+                    desc: 'Los roles y los permisos por dispositivo mantienen la colaboración clara, mientras las claves de API manejan la ingesta.',
+                    foot: 'propietario · editor · visor',
+                    link: 'Gestionar acceso',
+                },
+                local: {
+                    title: 'Hecho para seguir siendo tuyo',
+                    desc: 'Código abierto, licencia MIT y autoalojado con historial de ubicaciones de solo inserción.',
+                    foot: 'retención de 12 meses',
+                    link: 'Acerca de Open GPS',
+                },
+            },
+            ownership: {
+                eyebrow: 'Tu infraestructura',
+                heading: 'Rastreo que responde a tu equipo.',
+                desc: 'Mantén los datos de ubicación en tu servidor, elige quién puede ver cada dispositivo y comparte solo lo que un invitado necesita.',
+                cta: 'Revisar ajustes del espacio',
+            },
+            protocol: {
+                title: 'De un vistazo',
+                rows: [
+                    { label: 'Idiomas', value: 'EN / ES' },
+                    { label: 'Modos de tema', value: 'CLARO / OSCURO' },
+                    { label: 'Ingesta', value: 'CLAVES DE API' },
+                    { label: 'Autenticación', value: 'CONTRASEÑA / GOOGLE' },
+                ],
+            },
+            footer: {
+                left: 'Open GPS · rastreo en tiempo real autoalojado',
+                right: 'Espacio de trabajo / Inicio',
+            },
+        },
         devices: {
             title: 'Dispositivos',
             subtitle: 'Gestiona tus dispositivos GPS',
