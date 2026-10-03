@@ -1,5 +1,6 @@
 import type { Translation } from '@/i18n';
 import type { AdminStatItem, DeviceStatus } from '@/types/components';
+import type { DevicePresenceState } from '@/types/api';
 import {
     DEVICE_OFFLINE_THRESHOLD_MIN,
     DEVICE_ONLINE_THRESHOLD_MIN,
@@ -34,6 +35,29 @@ export function deriveDeviceStatus(
     }
     return { key: 'offline', label: strings.offline, dot: 'danger' };
 }
+/**
+ * Derives the connection status of a device from its presence state.
+ * @param {DevicePresenceState} state - The presence state of the device.
+ * @param {Translation['device']} strings - Localized labels.
+ * @returns {DeviceStatus} The status key, label, and dot tone.
+ */
+export function deviceStatusFromPresence(
+    state: DevicePresenceState,
+    strings: Translation['device']
+): DeviceStatus {
+    if (state === 'never_seen')
+        return { key: 'never-seen', label: strings.neverSeen, dot: 'never' };
+    if (state === 'offline')
+        return { key: 'offline', label: strings.offline, dot: 'danger' };
+    return {
+        key: 'online',
+        label:
+            state === 'online_moving'
+                ? strings.online
+                : (strings.onlineStationary ?? strings.online),
+        dot: 'success',
+    };
+}
 
 /**
  * Get the demo KPI items for the admin dashboard.
@@ -41,6 +65,7 @@ export function deriveDeviceStatus(
  * @returns {AdminStatItem[]} The demo KPI items for the admin dashboard.
  */
 export function getDemoKpiItems(t: Translation): Array<AdminStatItem> {
+    // Preserve literal values so each demo item satisfies its discriminated union fields.
     return [
         {
             label: t.admin.totalDevices,

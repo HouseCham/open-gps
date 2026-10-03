@@ -9,7 +9,7 @@ import MainLayout from '@/components/astro/layout/MainLayout.astro';
 import { NoAccessNotice } from '@/components/react/features/no-access/NoAccessNotice';
 
 /**
- * Static paths — same locales as the rest of the authenticated pages.
+ * @type {GetStaticPaths}
  */
 export const getStaticPaths: GetStaticPaths = () => {
     return [{ params: { lan: 'en' } }, { params: { lan: 'es' } }];

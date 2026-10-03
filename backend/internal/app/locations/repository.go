@@ -3,6 +3,7 @@ package locations
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -15,13 +16,21 @@ type Writer interface {
 	Insert(ctx context.Context, loc domain.Location) error
 }
 
-// Reader is the read port for the locations package. The dashboard's
-// "latest location" preview uses GetLatest; the paginated history
-// endpoint (GetHistory + Count) lands in the follow-up PR together with
-// the LivePreview component — declared here so the adapter implements it
-// the moment the SQL queries are wired up.
+type BatchWriter interface {
+	InsertBatch(ctx context.Context, locations []domain.Location) ([]uint64, error)
+}
+
+// Reader is the read port for the locations package. The dashboard uses
+// GetLatest for its preview and GetHistory for detective-mode time ranges.
 type Reader interface {
 	GetLatest(ctx context.Context, deviceID uuid.UUID) (domain.Location, error)
+	GetHistory(ctx context.Context, deviceID uuid.UUID, from, to time.Time, limit, offset int) ([]domain.Location, int, error)
+	GetRoute(ctx context.Context, deviceID uuid.UUID, from, to time.Time, maxPoints int) ([]domain.Location, int, bool, error)
+}
+
+// LiveReader is the read port for current location and presence state.
+type LiveReader interface {
+	GetLive(ctx context.Context, deviceID uuid.UUID, now time.Time, timeout time.Duration, motionThreshold float64) (domain.LiveLocation, error)
 }
 
 // Errors returned by the ingest service. The handlers translate these

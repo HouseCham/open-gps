@@ -10,6 +10,11 @@ export * from './layout-utils';
 export * from './copy-to-clipboard';
 export * from './number-utils';
 export * from './i18n-utils';
+export * from './email-utils';
+export * from './files-utils';
+export * from './location-utils';
+export * from './settings';
+export * from './reports-utils';
 
 /**
  * Interpolate the given template with the given variables.

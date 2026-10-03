@@ -1,8 +1,11 @@
 ---
-import type { GetStaticPaths } from 'astro';
-import MainLayout from '@/components/astro/layout/MainLayout.astro';
+//-- i18n
 import { getTranslation } from '@/i18n';
+//-- Types
+import type { GetStaticPaths } from 'astro';
 import type { Language } from '@/types';
+//-- Components
+import MainLayout from '@/components/astro/layout/MainLayout.astro';
 import { DeviceDetailPage } from '@/components/react/features/devices/detail';
 
 export const getStaticPaths: GetStaticPaths = () => [

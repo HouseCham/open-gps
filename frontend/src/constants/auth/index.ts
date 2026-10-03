@@ -27,6 +27,24 @@ export const LOGIN_PATH = '/login';
 export const SIGNUP_PATH = '/signup';
 
 /**
+ * Path to the password-recovery page. The form on this page only
+ * dispatches the recovery email — the actual token-consume / new-password
+ * flow lives at `${RESET_PASSWORD_PATH}` and is rendered by a separate
+ * page. The locale is resolved by `index.astro`.
+ * @constant {string}
+ */
+export const FORGOT_PASSWORD_PATH = '/forgot-password';
+
+/**
+ * Path the user lands on after clicking the reset link in the recovery
+ * email. The token is appended as `?token=…` by the backend. Not wired
+ * to a page yet — this constant exists so the email template can match
+ * the eventual route name without a follow-up rename.
+ * @constant {string}
+ */
+export const RESET_PASSWORD_PATH = '/reset-password';
+
+/**
  * Path to the authenticated dashboard. Used by `<PublicOnlyRoute />`
  * to redirect users who are already signed in away from the sign-in
  * and sign-up pages. The locale is resolved by `index.astro`.
@@ -43,3 +61,9 @@ export const DASHBOARD_PATH = '/';
  * @constant {string}
  */
 export const DENIED_ROUTE_STORAGE_KEY = 'ogps:denied-route';
+
+/**
+ * Cooldown window (seconds) before the user can hit resend again.
+ * @constant {number}
+ */
+export const PASSWORD_RECOVERY_RESEND_COOLDOWN_SECONDS = 60;

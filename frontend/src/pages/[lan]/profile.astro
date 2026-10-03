@@ -4,7 +4,9 @@ import { getTranslation } from '@/i18n';
 import type { Language } from '@/types';
 import MainLayout from '@/components/astro/layout/MainLayout.astro';
 import { ProfilePage } from '@/components/react/features/profile/ProfilePage';
-
+/**
+ * @type {GetStaticPaths}
+ */
 export const getStaticPaths: GetStaticPaths = () => {
     return [{ params: { lan: 'en' } }, { params: { lan: 'es' } }];
 };

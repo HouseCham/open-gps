@@ -1,25 +1,32 @@
 import '@/styles/components/form/login-form.css';
-import { useState } from 'react';
+import { lazy, useState } from 'react';
 //-- Types
 import type { LoginFormStrings } from '@/types/components';
 import type { ChangeEvent, FormEvent, JSX } from 'react';
 //-- Utils
 import { isApiError } from '@/lib/api/api-utils';
+import { redirectTo } from '@/lib';
 //-- Services
 import { useAuthService } from '@/lib/api/services';
+//-- Constants
+import { REPO_ENVIRONMENT } from '@/constants';
 //-- Components
 import { Alert } from '@/components/react/ui/Alert';
-import { Badge } from '@/components/react/ui/Badge';
 import { Button } from '@/components/react/ui/button';
 import { Checkbox, Field, Input } from '@/components/react/form/ui';
 import {
-    ApiInspector,
     GoogleLogo,
     OrDivider,
     PasswordField,
 } from '@/components/react/form/shared';
 //-- Icons
 import { AlertCircle, ArrowRight, Mail } from 'lucide-react';
+//-- Lazy components
+const ApiInspector = lazy(() =>
+    import('@/components/react/form/shared/ApiInspector').then(module => ({
+        default: module.ApiInspector,
+    }))
+);
 
 /**
  * Props for the LoginForm component.
@@ -69,9 +76,6 @@ export function LoginForm({ strings, firstUser }: LoginFormProps): JSX.Element {
     return (
         <>
             <div className="heading">
-                {firstUser ? (
-                    <Badge tone="accent">{strings.firstAdminBadge}</Badge>
-                ) : null}
                 <h1>{strings.loginTitle}</h1>
                 <div className="sub">{strings.loginSubtitle}</div>
             </div>
@@ -127,7 +131,11 @@ export function LoginForm({ strings, firstUser }: LoginFormProps): JSX.Element {
                         checked={remember}
                         onChange={setRemember}
                     />
-                    <a href="#" className="mono forgot-link">
+                    <a
+                        href="#"
+                        className="mono forgot-link"
+                        onClick={() => redirectTo('/forgot-password')}
+                    >
                         {strings.forgotPassword}
                     </a>
                 </div>
@@ -163,25 +171,21 @@ export function LoginForm({ strings, firstUser }: LoginFormProps): JSX.Element {
                     <GoogleLogo />
                     {strings.signInWithGoogle}
                 </button>
-
-                <div className="alt">
-                    {strings.noAccount}{' '}
-                    <a href="#" onClick={e => e.preventDefault()}>
-                        {strings.createOne}
-                    </a>
-                </div>
             </form>
 
-            <ApiInspector
-                method="POST"
-                path="/api/auth/email-password/sign-in"
-                body={{
-                    email: email || strings.emailPlaceholder,
-                    password: password ? '••••••••' : '…',
-                }}
-                title={strings.apiInspectorTitle}
-                cookieNote={strings.apiInspectorCookieNote}
-            />
+            {/* Dev API inspector */}
+            {REPO_ENVIRONMENT === 'development' && (
+                <ApiInspector
+                    method="POST"
+                    path="/api/auth/email-password/sign-in"
+                    body={{
+                        email: email || strings.emailPlaceholder,
+                        password: password ? '••••••••' : '…',
+                    }}
+                    title={strings.apiInspectorTitle}
+                    cookieNote={strings.apiInspectorCookieNote}
+                />
+            )}
         </>
     );
 }

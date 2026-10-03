@@ -104,7 +104,11 @@ export function AccessKeysTable({
                             <td
                                 className={`access-cell-time${row.created_at ? '' : ' never'}`}
                             >
-                                {formatRelativeTime(row.created_at, locale, date)}
+                                {formatRelativeTime(
+                                    row.created_at,
+                                    locale,
+                                    date
+                                )}
                             </td>
                             {/* Last used — ApiKeyRow omits this; backend
                                 endpoint will add it later. */}

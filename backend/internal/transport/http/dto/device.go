@@ -7,12 +7,12 @@ import (
 )
 
 type DeviceResponse struct {
-	ID           string                `json:"id"`
-	UuidFirmware string                `json:"uuid_firmware"`
-	Name         string                `json:"name"`
-	VehicleType  domain.DeviceVehicleType `json:"vehicle_type"`
-	CreatedAt    time.Time             `json:"created_at"`
-	LastSeenAt   *time.Time            `json:"last_seen_at,omitempty"`
+	ID            string                   `json:"id"`
+	UuidFirmware  string                   `json:"uuid_firmware"`
+	Name          string                   `json:"name"`
+	VehicleType   domain.DeviceVehicleType `json:"vehicle_type"`
+	CreatedAt     time.Time                `json:"created_at"`
+	LastContactAt *time.Time               `json:"last_contact_at,omitempty"`
 }
 
 type CreateDeviceRequest struct {
@@ -56,12 +56,12 @@ type DeviceCountResponse struct {
 // DeviceFromDomain converts a *domain.Device to a DeviceResponse
 func DeviceFromDomain(d *domain.Device) DeviceResponse {
 	return DeviceResponse{
-		ID:           d.ID.String(),
-		UuidFirmware: d.UuidFirmware,
-		Name:         d.Name,
-		VehicleType:  d.VehicleType,
-		CreatedAt:    d.CreatedAt,
-		LastSeenAt:   d.LastSeenAt,
+		ID:            d.ID.String(),
+		UuidFirmware:  d.UuidFirmware,
+		Name:          d.Name,
+		VehicleType:   d.VehicleType,
+		CreatedAt:     d.CreatedAt,
+		LastContactAt: d.LastContactAt,
 	}
 }
 

@@ -20,21 +20,21 @@ import (
 )
 
 type TestApp struct {
-	App              *fiber.App
-	SessionAuth      *MockSessionAuthenticator
-	UserLookup       *MockUserLookup
-	HealthHandler    *handlers.HealthHandler
-	PasswordUpdater  *MockPasswordUpdater
-	SessionManager   *MockSessionManager
-	DevicesRepo      *MockDevicesRepository
-	UsersRepo        *MockUsersRepository
-	AccessRepo       *MockAccessRepository
-	DevicesService   *devices.Service
-	UsersService     *users.Service
-	AccessService    *access.AccessService
-	DevicesHandler   *handlers.DevicesHandler
-	UsersHandler     *handlers.UsersHandler
-	AccessHandler    *handlers.AccessHandler
+	App               *fiber.App
+	SessionAuth       *MockSessionAuthenticator
+	UserLookup        *MockUserLookup
+	HealthHandler     *handlers.HealthHandler
+	PasswordUpdater   *MockPasswordUpdater
+	SessionManager    *MockSessionManager
+	DevicesRepo       *MockDevicesRepository
+	UsersRepo         *MockUsersRepository
+	AccessRepo        *MockAccessRepository
+	DevicesService    *devices.Service
+	UsersService      *users.Service
+	AccessService     *access.AccessService
+	DevicesHandler    *handlers.DevicesHandler
+	UsersHandler      *handlers.UsersHandler
+	AccessHandler     *handlers.AccessHandler
 	SessionCookieName string
 }
 
@@ -43,23 +43,18 @@ type TestAppOption func(*TestApp)
 func WithDevicesRepo(repo *MockDevicesRepository) TestAppOption {
 	return func(ta *TestApp) {
 		ta.DevicesRepo = repo
-		ta.DevicesService = devices.New(repo)
 	}
 }
 
 func WithUsersRepo(repo *MockUsersRepository) TestAppOption {
 	return func(ta *TestApp) {
 		ta.UsersRepo = repo
-		ta.UsersService = users.NewService(repo, &MockUserCreator{})
 	}
 }
 
 func WithAccessRepo(repo *MockAccessRepository) TestAppOption {
 	return func(ta *TestApp) {
 		ta.AccessRepo = repo
-		if ta.UsersRepo != nil {
-			ta.AccessService = access.NewAccessService(repo, ta.UsersRepo)
-		}
 	}
 }
 
@@ -75,13 +70,13 @@ func NewTestApp(opts ...TestAppOption) *TestApp {
 		SessionCookieName: "authula.session_token",
 	}
 
-	ta.DevicesService = devices.New(ta.DevicesRepo)
-		ta.UsersService = users.NewService(ta.UsersRepo, &MockUserCreator{})
-	ta.AccessService = access.NewAccessService(ta.AccessRepo, ta.UsersRepo)
-
 	for _, opt := range opts {
 		opt(ta)
 	}
+
+	ta.DevicesService = devices.New(ta.DevicesRepo)
+	ta.UsersService = users.NewService(ta.UsersRepo, &MockUserCreator{})
+	ta.AccessService = access.NewAccessService(ta.AccessRepo, ta.UsersRepo)
 
 	ta.App = fiber.New(fiber.Config{
 		AppName:      "gps-tracker-test",
@@ -261,6 +256,17 @@ func (m *MockPasswordUpdater) UpdatePassword(_ context.Context, _, _, _ string) 
 		m.UpdatedPasswords = make(map[string]bool)
 	}
 	m.UpdatedPasswords["updated"] = true
+	return nil
+}
+
+func (m *MockPasswordUpdater) ResetPassword(_ context.Context, _, _ string) error {
+	if m.Err != nil {
+		return m.Err
+	}
+	if m.UpdatedPasswords == nil {
+		m.UpdatedPasswords = make(map[string]bool)
+	}
+	m.UpdatedPasswords["reset"] = true
 	return nil
 }
 

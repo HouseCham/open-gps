@@ -19,6 +19,7 @@ import (
 // flatten reporting analytics).
 type Location struct {
 	DeviceID       uuid.UUID
+	SequenceID     uint64
 	RecordedAt     time.Time
 	Latitude       float64
 	Longitude      float64

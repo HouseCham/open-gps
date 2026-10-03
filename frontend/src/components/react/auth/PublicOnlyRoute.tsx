@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 //-- Hooks
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useAuth } from '@/lib/hooks';
 //-- Constants
 import { DASHBOARD_PATH, LOGIN_PATH, SIGNUP_PATH } from '@/constants/auth';
 //-- Utils
@@ -29,6 +29,7 @@ interface PublicOnlyRouteProps {
     children: ReactNode;
     fallback?: ReactNode;
     isLoginPage?: boolean;
+    loadingMessage: string;
 }
 
 /**
@@ -41,6 +42,7 @@ export function PublicOnlyRoute({
     children,
     fallback,
     isLoginPage = false,
+    loadingMessage,
 }: PublicOnlyRouteProps): React.JSX.Element {
     const { isAuthenticated, isAuthLoading } = useAuth();
     const [bootstrapStatus, setBootstrapStatus] =
@@ -51,7 +53,10 @@ export function PublicOnlyRoute({
         bootstrapService
             .getStatus()
             .then(status => setBootstrapStatus(status))
-            .catch(() => setBootstrapStatus({ needsSetup: false }));
+            .catch(error => {
+                console.error('Bootstrap status failed', error);
+                setBootstrapStatus({ needsSetup: false });
+            });
     }, [isAuthenticated, bootstrapStatus]);
 
     useEffect(() => {
@@ -68,7 +73,7 @@ export function PublicOnlyRoute({
     }, [isAuthLoading, isAuthenticated, bootstrapStatus, isLoginPage]);
 
     if (isAuthLoading) {
-        return <>{fallback ?? <RouteFallback />}</>;
+        return <>{fallback ?? <RouteFallback message={loadingMessage} />}</>;
     }
 
     if (isAuthenticated) {
@@ -77,7 +82,7 @@ export function PublicOnlyRoute({
     }
 
     if (bootstrapStatus === null) {
-        return <>{fallback ?? <RouteFallback />}</>;
+        return <>{fallback ?? <RouteFallback message={loadingMessage} />}</>;
     }
 
     if (isLoginPage && bootstrapStatus.needsSetup) {

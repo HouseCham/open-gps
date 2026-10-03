@@ -23,6 +23,12 @@ func PgtypeTimestamptz(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
 }
 
+// PgtypeInterval converts a time.Duration to a pgtype.Interval so it
+// can be bound to a Postgres INTERVAL parameter.
+func PgtypeInterval(d time.Duration) pgtype.Interval {
+	return pgtype.Interval{Microseconds: d.Microseconds(), Valid: true}
+}
+
 // UuidFromPgtype is the inverse of PgtypeUUID: returns uuid.Nil when
 // the pgtype value is SQL NULL.
 func UuidFromPgtype(p pgtype.UUID) uuid.UUID {
@@ -45,11 +51,11 @@ func timestamptzToPtr(t pgtype.Timestamptz) *time.Time {
 // the conversion lives in one place.
 func toDomainDevice(id pgtype.UUID, uuidFirmware, name string, vehicleType DeviceVehicleType, createdAt, lastSeenAt pgtype.Timestamptz) *domain.Device {
 	return &domain.Device{
-		ID:           UuidFromPgtype(id),
-		UuidFirmware: uuidFirmware,
-		Name:         name,
-		VehicleType:  domain.DeviceVehicleType(vehicleType),
-		CreatedAt:    createdAt.Time,
-		LastSeenAt:   timestamptzToPtr(lastSeenAt),
+		ID:            UuidFromPgtype(id),
+		UuidFirmware:  uuidFirmware,
+		Name:          name,
+		VehicleType:   domain.DeviceVehicleType(vehicleType),
+		CreatedAt:     createdAt.Time,
+		LastContactAt: timestamptzToPtr(lastSeenAt),
 	}
 }

@@ -62,10 +62,14 @@ const currentPath = Astro.url.pathname;
     <body>
         <ToastProvider client:idle />
         <AuthProvider client:idle>
-            <ProtectedRoute client:load>
+            <ProtectedRoute client:load loadingMessage={t.auth.loading}>
                 {
                     onlyAdmin ? (
-                        <OnlyAdminRoute client:load locale={locale}>
+                        <OnlyAdminRoute
+                            client:load
+                            locale={locale}
+                            loadingMessage={t.auth.loading}
+                        >
                             <AppShell
                                 locale={locale}
                                 class={className}

@@ -7,17 +7,15 @@ import { $user } from '@/lib/stores/auth';
 import type { Translation } from '@/i18n';
 import type { Language } from '@/types';
 //-- Hooks
-import { useAuth } from '@/lib/hooks/useAuth';
-import { useTheme } from '@/lib/hooks/useTheme';
+import { useAuth, useTheme } from '@/lib/hooks';
 //-- Constants
 import { MOBILE_BREAKPOINT } from '@/constants/layout';
 //-- Utils
 import { getInitials } from '@/lib';
 //-- Icons
-import { Bell, Menu, Settings as SettingsIcon } from 'lucide-react';
+import { Menu } from 'lucide-react';
 //-- Components
 import { ProfileDropdown } from './ProfileDropdown';
-import { NotificationsDropdown } from './NotificationDropdown';
 import { ThemeGlyph } from './ThemeGlyph';
 import { LanguageToggle } from '@/components/react/ui';
 
@@ -41,7 +39,8 @@ export function Topbar({ locale, layout }: TopbarProps): JSX.Element {
     const user = useStore($user);
     const [theme, setTheme] = useTheme();
     const { signOut } = useAuth();
-    const [notifOpen, setNotifOpen] = useState(false);
+    //? logic commented out for now, as notifications are not implemented yet
+    // const [notifOpen, setNotifOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const searchRef = useRef<HTMLInputElement>(null);
@@ -109,7 +108,8 @@ export function Topbar({ locale, layout }: TopbarProps): JSX.Element {
                 {/* Language toggle */}
                 <LanguageToggle locale={locale} />
                 {/* Notifications */}
-                <div className="chrome-pop">
+                {/* TODO: implement notifications */}
+                {/* <div className="chrome-pop">
                     <button
                         type="button"
                         className={`chrome-icon-btn${notifOpen ? ' is-active' : ''}`}
@@ -128,16 +128,7 @@ export function Topbar({ locale, layout }: TopbarProps): JSX.Element {
                             handleClose={() => setNotifOpen(false)}
                         />
                     )}
-                </div>
-                {/* Settings */}
-                <button
-                    type="button"
-                    className="chrome-icon-btn"
-                    aria-label={layout.settingsLabel}
-                    title={layout.settingsLabel}
-                >
-                    <SettingsIcon size={16} strokeWidth={1.6} />
-                </button>
+                </div> */}
                 {/* Profile */}
                 <div className="chrome-pop">
                     <button
@@ -145,7 +136,7 @@ export function Topbar({ locale, layout }: TopbarProps): JSX.Element {
                         className={`chrome-icon-btn chrome-icon-btn--avatar${profileOpen ? ' is-active' : ''}`}
                         onClick={() => {
                             setProfileOpen(o => !o);
-                            setNotifOpen(false);
+                            // setNotifOpen(false);
                         }}
                         aria-label={layout.profileMenu}
                     >

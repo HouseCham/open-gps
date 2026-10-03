@@ -181,6 +181,14 @@ func (s *Service) SetMustChangePassword(ctx context.Context, userID uuid.UUID, m
 	return s.repo.SetMustChangePassword(ctx, userID, mustChange)
 }
 
+// GetByEmail is the package-level lookup used by flows that need to
+// resolve an email address to a local user (e.g. the password-reset
+// request endpoint). Thin pass-through to the repo; lives on the
+// service so callers don't have to reach into the repository port.
+func (s *Service) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	return s.repo.GetByEmail(ctx, email)
+}
+
 func (s *Service) SoftDeleteUser(ctx context.Context, requestingUserID, targetUserID uuid.UUID) error {
 	requestingUser, err := s.repo.GetByID(ctx, requestingUserID)
 	if err != nil {

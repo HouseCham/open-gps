@@ -7,6 +7,15 @@ import { FirstRunGate } from '@/components/react/auth';
     <meta charset="utf-8" />
     <title>Open GPS</title>
     <FirstRunGate client:load />
+    <script is:inline>
+      (function() {
+        var supported = new Set(["en", "es"]);
+        var lang = (navigator.language || "en").split("-")[0];
+        if (!supported.has(lang)) lang = "es";
+        localStorage.setItem('language', lang);
+        window.location.replace("/" + lang + "/");
+      })();
+    </script>
   </head>
   <body></body>
 </html>

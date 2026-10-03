@@ -17,4 +17,8 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrCannotRevokeSelf   = errors.New("cannot revoke your own device access")
 	ErrMustChangePassword = errors.New("must change password")
+	// ErrInvalidResetToken is returned by the password-reset consume path
+	// when the token is unknown, expired, or already used. The single
+	// error avoids leaking which condition failed.
+	ErrInvalidResetToken = errors.New("invalid or expired reset token")
 )

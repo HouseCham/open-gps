@@ -9,7 +9,7 @@ import MainLayout from '@/components/astro/layout/MainLayout.astro';
 import { AccessPage } from '@/components/react/access/AccessPage';
 
 /**
- * Static paths — same locales as the rest of the authenticated pages.
+ * @type {GetStaticPaths}
  */
 export const getStaticPaths: GetStaticPaths = () => {
     return [{ params: { lan: 'en' } }, { params: { lan: 'es' } }];

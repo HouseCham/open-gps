@@ -1,6 +1,9 @@
-import { useTheme } from '@/lib/hooks/useTheme';
-import { Moon, Sun } from 'lucide-react';
+//-- Types
 import type { JSX } from 'react/jsx-runtime';
+//-- Hooks
+import { useTheme } from '@/lib/hooks';
+//-- Icons
+import { Moon, Sun } from 'lucide-react';
 
 /**
  * ThemeToggle — sun/moon icon button that reads/writes the data-theme attribute.

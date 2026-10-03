@@ -61,7 +61,7 @@ export type DeviceStatusFilter = (typeof DEVICE_STATUS_FILTER_OPTIONS)[number];
 
 /**
  * Sort options for the devices table. The `recent` and `oldest` modes
- * sort by `last_seen_at`; null timestamps sort last/first respectively.
+ * sort by `last_contact_at`; null timestamps sort last/first respectively.
  */
 export const DEVICE_SORT_OPTIONS = [
     'name-asc',

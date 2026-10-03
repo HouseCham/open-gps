@@ -1,4 +1,4 @@
-import type { ApiError } from '@/types/api';
+import type { ApiError, Envelope } from '@/types/api';
 import { BetterFetchError } from '@better-fetch/fetch';
 /**
  * Checks if the provided value is an ApiError object.
@@ -75,3 +75,19 @@ export function handleApiError(error: unknown): never {
 }
 
 export { withApiErrorToast } from './helpers/with-api-error-toast';
+/**
+ * Checks if the provided value is an Envelope object from the API documentation.
+ * @param {unknown} value - The value to check.
+ * @returns {boolean} True if the value is an Envelope object, false otherwise.
+ */
+export function isEnvelope<T>(value: unknown): value is Envelope<T> {
+    return (
+        typeof value === 'object' &&
+        value !== null &&
+        'status_code' in value &&
+        typeof value.status_code === 'number' &&
+        'message' in value &&
+        typeof value.message === 'string' &&
+        'data' in value
+    );
+}

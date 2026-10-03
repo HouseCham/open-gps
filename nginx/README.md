@@ -1,8 +1,10 @@
 # nginx — Reverse Proxy
 
-Single entry point for the full GPS Tracker stack. Sits between the browser
-and the three internal services (Astro SPA, Go API, Authula), terminating
-TLS and routing requests to the right upstream.
+Single entry point for the full GPS Tracker stack. Sits between the
+browser and the two internal upstreams — the Astro static build and the
+Go API (which embeds Authula) — routing requests to the right target.
+TLS is handled per environment: self-signed certs in local dev,
+Traefik in production (see *Local vs production*).
 
 ## Why a reverse proxy?
 
@@ -17,23 +19,52 @@ or `credentials: 'include'` acrobatics required.
 
 ## Routes
 
+Both configs (`nginx.conf` and `nginx.local.conf`) share the same route
+table:
+
 | Path prefix     | Upstream               | Purpose                                  |
 |-----------------|------------------------|------------------------------------------|
-| `/`             | frontend `/var/www/html` | Astro static build (SPA fallback)        |
+| `/`             | static `/var/www/html` | Astro static build (SPA fallback)        |
 | `/api/auth/*`   | `http://api:8080`      | Authula routes + custom /me handler (Fiber) |
 | `/api/v1/*`     | `http://api:8080`      | App routes (devices, users, access)      |
 | `/health`       | `http://api:8080/health` | Health check                            |
 
-Plain HTTP (`:80`) is redirected to HTTPS (`:443`) — see the first `server`
-block in `nginx.conf`.
+The two SSE routes get special treatment: `proxy_buffering off`,
+`proxy_cache off`, `gzip off`, and a long `proxy_read_timeout` (75s) so
+real-time events stream through without buffering:
+
+- `/api/v1/devices/:id/locations/stream` — regex location
+  (`~ ^/api/v1/devices/[^/]+/locations/stream$`)
+- `/api/v1/guest/device/stream` — exact match (`= ...`)
+
+nginx gives exact (`=`) and regex locations precedence over the generic
+`/api/v1/` prefix regardless of declaration order, so no ordering trick
+is needed.
+
+## Local vs production
+
+| | Local (`docker-compose.local.yml`) | Production (`docker-compose.yml`) |
+|---|---|---|
+| Config file | `nginx.local.conf` (mounted over `/etc/nginx/conf.d/default.conf`) | `nginx.conf` (baked into the image) |
+| TLS | Self-signed cert, terminates in this nginx (`:443`); `:80` redirects to HTTPS | Plain HTTP/`80` only — Traefik terminates TLS upstream and injects `X-Forwarded-Proto` |
+| Static files | Named volume `frontend_dist` mounted read-only at `/var/www/html` | Astro `dist/` baked into the image at build time |
+| Image | Built from `./nginx` with `additional_contexts: frontend=service:frontend` | Prebuilt `chamito/open-gps-nginx:dev` (CI builds it with `--build-context frontend=docker-image://…`) |
+
+Local stack:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up
+# or: make run
+```
 
 ## Layout
 
 ```
 nginx/
-├── Dockerfile         # nginx:alpine + the config
-├── nginx.conf         # The reverse proxy config (routes + TLS)
-├── certs/             # Local TLS cert (gitignored, generated)
+├── Dockerfile         # Multi-stage: nginx:alpine + config + baked frontend dist
+├── nginx.conf         # Production config (routes, SPA fallback; TLS is Traefik's job)
+├── nginx.local.conf   # Local dev config (TLS with self-signed cert, HTTP→HTTPS redirect)
+├── certs/             # Local TLS certs (gitignored, generated)
 │   ├── localhost.crt
 │   └── localhost.key
 └── README.md          # This file
@@ -41,15 +72,28 @@ nginx/
 
 ## How the static files reach nginx
 
-The `frontend` service is a tiny Alpine image that exists only to hold a
-named Docker volume (`frontend_dist`) containing the Astro `dist/`. Nginx
+**Local:** the `frontend` service is an Alpine runtime image whose only
+job is to hold the named Docker volume (`frontend_dist`) containing the
+Astro `dist/` (the container just runs `tail -f /dev/null`). Nginx
 mounts the same volume read-only at `/var/www/html` and serves it
 directly — no second nginx bundled inside the frontend image.
 
+**Production:** there is no `frontend` service at runtime. The nginx
+image bakes the static build in via a multi-stage copy
+(`COPY --from=frontend /app/dist /var/www/html`); CI feeds the frontend
+image in as a build context. Ship the contents of `dist/` to a CDN /
+object store instead if you want to skip nginx's static role entirely.
+
 ## TLS / local certificates
 
-For local development the repo expects a self-signed cert at
-`nginx/certs/localhost.crt` and matching key at `nginx/certs/localhost.key`.
+TLS applies to **local development only** — the production config
+(`nginx.conf`) has no cert files at all; Traefik terminates TLS before
+traffic reaches this container.
+
+For local dev the repo expects a self-signed cert at
+`nginx/certs/localhost.crt` and matching key at
+`nginx/certs/localhost.key`, mounted read-only at `/etc/nginx/certs/`
+and referenced by `nginx.local.conf`.
 
 Two ways to get them:
 
@@ -70,56 +114,47 @@ cd nginx/certs
 sudo mkcert -key-file localhost.key \
             -cert-file localhost.crt \
             localhost 127.0.0.1
-docker compose restart nginx
+docker compose -f docker-compose.yml -f docker-compose.local.yml restart nginx
 ```
 `https://localhost` will show a green padlock with no warning.
 
-For production, replace `localhost.crt` and `localhost.key` with a
-real cert (Let's Encrypt, your CA, etc.). The nginx config references
-both files by path, so swapping them is enough.
-
-## Common errors
+## Troubleshooting
 
 | Symptom | Check | Fix |
 |---------|-------|-----|
-| `404` on all `/api/v1/*` routes | `docker compose ps api` shows api up | Add `API_PORT: ${API_PORT}` to the api service in `docker-compose.yml` |
-| `404` on all `/api/*` routes | `docker logs gps-tracker-api` | Go binary defaults to port 3000; `API_PORT` env var must be set to `8080` |
-| `host not found in upstream "api"` | `docker compose ps api` | nginx started before the api container — `docker compose restart nginx` |
+| `404` on all `/api/v1/*` routes | `docker compose ps api` shows api up | Ensure `API_PORT=8080` (`.env`); compose passes it as `API_PORT: ${API_PORT}` |
+| `404` on all `/api/*` routes | `docker logs open-gps-api` | Go binary defaults to port 3000; `API_PORT` env var must be set to `8080` |
+| `host not found in upstream "api"` | `docker compose ps api` | nginx started before the api container — restart it: `docker compose … restart nginx` |
 | `502 Bad Gateway` on `/api/*` | `docker compose logs api` | api container is down or crashing — check logs |
 | Cookie not set on sign-in | DevTools → Network → check `Set-Cookie` header | `AUTHULA_BASE_URL` must match the public origin nginx exposes (`https://localhost` in dev) |
 | OAuth redirect 404 at `/api/auth/oauth2/callback/google` | Same as above | Authula's redirect URL in Google Cloud Console must match `AUTHULA_BASE_URL` + `/api/auth/oauth2/callback/google` |
+| Self-signed warning in Chrome/Firefox | — | See *Option B* above (mkcert) |
 
 ## Common operations
 
+Container names below are the explicit ones from
+`docker-compose.local.yml` (production containers are
+project-prefixed, e.g. `<project>-nginx-1` — adjust accordingly):
+
 ```bash
 # Validate the config without reloading
-docker exec gps-tracker-nginx nginx -t
+docker exec open-gps-nginx nginx -t
 
 # Reload after editing nginx.conf (no downtime)
-docker exec gps-tracker-nginx nginx -s reload
+docker exec open-gps-nginx nginx -s reload
 
 # Tail logs
-docker logs -f gps-tracker-nginx
+docker logs -f open-gps-nginx
 
 # Tail access + error logs (the second one is more useful in dev)
-docker exec gps-tracker-nginx tail -f /var/log/nginx/error.log
+docker exec open-gps-nginx tail -f /var/log/nginx/error.log
 ```
-
-## Troubleshooting
-
-| Symptom                                 | Likely cause                                         |
-|-----------------------------------------|------------------------------------------------------|
-| `host not found in upstream "api"`      | nginx started before the `api` container was healthy |
-| 502 Bad Gateway on `/api/*`             | api container is down — `docker compose ps api`      |
-| Cookie not set on sign-in               | `AUTHULA_BASE_URL` doesn't match the public origin   |
-| OAuth callback returns 404              | Same: Authula's redirect URL must match `https://localhost` |
-| Self-signed warning in Chrome/Firefox   | See *Option B* above                                 |
 
 ## Production notes (intentionally out of scope for this README)
 
-- Replace self-signed cert with a real one, set `secure = true` on the
-  Authula session cookie (`backend/config.toml`).
+- TLS and the `secure` flag on the Authula session cookie are handled at
+  the Traefik layer upstream of this container.
 - HSTS, rate-limiting, and security headers — add as separate `server`
-  block.
+  block if you terminate TLS in this nginx instead.
 - CORS: leave `CORS_ALLOWED_ORIGINS` empty for same-origin deployments;
   set it when the API and SPA are hosted on different domains.

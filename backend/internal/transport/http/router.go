@@ -18,22 +18,28 @@ import (
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/ports"
 )
 
+// RouterDeps contains the handlers, services, and dependencies used to build the HTTP router.
 type RouterDeps struct {
-	HealthHandler    *handlers.HealthHandler
-	DevicesHandler   *handlers.DevicesHandler
-	UsersHandler     *handlers.UsersHandler
-	AccessHandler    *handlers.AccessHandler
-	APIKeysHandler   *handlers.APIKeysHandler
-	LocationsHandler *handlers.LocationsHandler
-	BootstrapHandler *handlers.BootstrapHandler
-	AccessService    *access.AccessService
-	UsersService     *users.Service
-	Queries          *postgres.Queries
-	AuthHandler      http.Handler
-	SessionCookieName string
-	AuthSession      ports.SessionAuthenticator
-	AuthUserLookup   ports.UserLookup
-	SessionManager   ports.SessionManager
+	HealthHandler        *handlers.HealthHandler
+	DevicesHandler       *handlers.DevicesHandler
+	UsersHandler         *handlers.UsersHandler
+	AccessHandler        *handlers.AccessHandler
+	APIKeysHandler       *handlers.APIKeysHandler
+	ShareLinksHandler    *handlers.ShareLinksHandler
+	GuestShareHandler    *handlers.GuestShareHandler
+	LocationsHandler     *handlers.LocationsHandler
+	ReportsHandler       *handlers.ReportsHandler
+	EmailHandler         *handlers.EmailHandler
+	PasswordResetHandler *handlers.PasswordResetHandler
+	BootstrapHandler     *handlers.BootstrapHandler
+	AccessService        *access.AccessService
+	UsersService         *users.Service
+	Queries              *postgres.Queries
+	AuthHandler          http.Handler
+	SessionCookieName    string
+	AuthSession          ports.SessionAuthenticator
+	AuthUserLookup       ports.UserLookup
+	SessionManager       ports.SessionManager
 	// CORSOrigins enables the CORS middleware when non-empty. Each
 	// entry is an allowed origin (e.g. "http://localhost:4321"). When
 	// the frontend and backend share an origin (reverse-proxied or
@@ -112,6 +118,17 @@ func NewRouter(deps RouterDeps) *fiber.App {
 	// outside this group and is unaffected.
 	apiV1.Use(middleware.RequireInitialized(deps.UsersService))
 
+	// === Public guest-share access ===
+	// The link token is exchanged for a short-lived HttpOnly cookie. Guest
+	// reads use only that capability and expose the current location, never
+	// the authenticated device detail/history endpoints.
+	apiV1.Post("/guest/share-links/consume",
+		middleware.ValidateRequestBody[dto.ConsumeShareLinkRequest](),
+		deps.GuestShareHandler.Consume,
+	)
+	apiV1.Get("/guest/device/live", deps.GuestShareHandler.Live)
+	apiV1.Get("/guest/device/stream", deps.GuestShareHandler.Stream)
+
 	// === Devices routes ===
 	// /devices/count is registered on apiV1 directly (not on the group)
 	// so the static segment wins over the /:id route below — Fiber v3
@@ -160,6 +177,25 @@ func NewRouter(deps RouterDeps) *fiber.App {
 		requirePasswordChanged,
 		middleware.RequireDeviceRole(domain.AccessRoleOwner, deps.AccessService),
 		deps.AccessHandler.Revoke,
+	)
+	devices.Post("/:id/share-links",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleOwner, deps.AccessService),
+		middleware.ValidateRequestBody[dto.CreateShareLinkRequest](),
+		deps.ShareLinksHandler.Create,
+	)
+	devices.Get("/:id/share-links",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleOwner, deps.AccessService),
+		deps.ShareLinksHandler.List,
+	)
+	devices.Delete("/:id/share-links/:linkId",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleOwner, deps.AccessService),
+		deps.ShareLinksHandler.Revoke,
 	)
 
 	// === Device API keys (owner-only) ===
@@ -212,19 +248,55 @@ func NewRouter(deps RouterDeps) *fiber.App {
 		middleware.ValidateRequestBody[dto.IngestLocationRequest](),
 		deps.LocationsHandler.Ingest,
 	)
+	apiV1.Post("/devices/:uuid_firmware/locations/batch",
+		middleware.RequireDeviceAPIKey(deps.Queries),
+		middleware.ValidateRequestBody[dto.IngestLocationBatchRequest](),
+		deps.LocationsHandler.IngestBatch,
+	)
 
 	// === Location read ===
 	// Session-cookie + per-device RBAC (viewer or higher). Lives on
 	// the `devices` group so the standard authSession +
 	// RequireDeviceRole pipeline applies. The paginated history
-	// endpoint lands in the same follow-up PR as the LivePreview
-	// component — see project-gps-tracker status row.
+	// endpoint accepts a local time range and IANA timezone.
+	devices.Get("/:id/locations/stream",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleViewer, deps.AccessService),
+		deps.LocationsHandler.Stream,
+	)
+	devices.Get("/:id/locations/live",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleViewer, deps.AccessService),
+		deps.LocationsHandler.Live,
+	)
+	devices.Get("/:id/locations",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleViewer, deps.AccessService),
+		deps.LocationsHandler.History,
+	)
+	devices.Get("/:id/locations/route",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleViewer, deps.AccessService),
+		deps.LocationsHandler.Route,
+	)
 	devices.Get("/:id/locations/latest",
 		authSession,
 		requirePasswordChanged,
 		middleware.RequireDeviceRole(domain.AccessRoleViewer, deps.AccessService),
 		deps.LocationsHandler.Latest,
 	)
+
+	// === Reports routes ===
+	reports := apiV1.Group("/reports")
+	reports.Get("/overview", authSession, requirePasswordChanged, deps.ReportsHandler.Overview)
+	reports.Get("/routes", authSession, requirePasswordChanged, deps.ReportsHandler.Routes)
+	reports.Get("/health", authSession, requirePasswordChanged, deps.ReportsHandler.Health)
+	reports.Get("/data-quality", authSession, requirePasswordChanged, deps.ReportsHandler.Quality)
+	reports.Get("/export", authSession, requirePasswordChanged, deps.ReportsHandler.Export)
 
 	// === Users routes ===
 	users := apiV1.Group("/users")
@@ -262,6 +334,36 @@ func NewRouter(deps RouterDeps) *fiber.App {
 		authSession,
 		middleware.ValidateRequestBody[dto.ChangePasswordRequest](),
 		deps.UsersHandler.ChangePassword,
+	)
+
+	// === Email routes ===
+	// Welcome email dispatch. super_admin only — the same gate that
+	// produces the temporary password on POST /api/v1/users. Lives
+	// at /api/v1/email/welcome so the URL reads as the resource
+	// being acted on (the welcome dispatch) rather than a verb.
+	email := apiV1.Group("/email")
+	email.Post("/welcome",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireUserRole(domain.UserRoleSuperAdmin),
+		middleware.ValidateRequestBody[dto.SendWelcomeEmailRequest](),
+		deps.EmailHandler.SendWelcome,
+	)
+
+	// === Password recovery (public) ===
+	// Two endpoints, both unauthenticated: a user who has lost their
+	// password cannot sign in to recover it. RequireInitialized still
+	// applies (the user would be sent to the bootstrap page otherwise),
+	// so the reset flow is only reachable after the first user exists.
+	// Both endpoints live under /api/v1/auth/* so they share a path
+	// group with /change-password above.
+	authAPI.Post("/generate-pwd-recovery-token",
+		middleware.ValidateRequestBody[dto.GeneratePasswordRecoveryTokenRequest](),
+		deps.PasswordResetHandler.GenerateRecoveryToken,
+	)
+	authAPI.Post("/consume-pwd-recovery-token",
+		middleware.ValidateRequestBody[dto.ConsumePasswordRecoveryTokenRequest](),
+		deps.PasswordResetHandler.ConsumeRecoveryToken,
 	)
 
 	return app

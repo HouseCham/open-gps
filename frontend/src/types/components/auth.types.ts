@@ -39,6 +39,7 @@ export interface LoginFormStrings {
     orContinueWith: string;
     rememberDevice: string;
     forgotPassword: string;
+    resetPassword: string;
     noAccount: string;
     createOne: string;
     firstAdminBadge: string;
@@ -183,3 +184,119 @@ export interface ChangePasswordStrings {
     strengthStrong: string;
     passwordHelp: string;
 }
+/**
+ * @interface PasswordForgottenFormStrings
+ * @property {string} emailPlaceholder - Placeholder for the email field.
+ * @property {string} badge - Heading chip on the request form.
+ * @property {string} title - Heading on the request form.
+ * @property {string} sentTitle - Heading on the confirmation card.
+ * @property {string} subtitle - Body copy on the request form.
+ * @property {string} sentSubtitle - Body copy on the confirmation card.
+ * @property {string} emailLabel - Label for the email field.
+ * @property {string} emailHelp - Helper text under the email field.
+ * @property {string} submit - Label for the submit button at rest.
+ * @property {string} submitting - Label for the submit button while in flight.
+ * @property {string} backToLogin - Anchor copy under the request form.
+ * @property {string} sentTitlePrefix - Sentence prefix above the masked email chip on the sent card.
+ * @property {string} copyEmail - "Copy" link button label on the sent card.
+ * @property {string} copiedEmail - "Copied" link button label after a copy.
+ * @property {string} useDifferentEmail - Link that returns the user to the request form.
+ * @property {string} expiresIn - Prefix on the countdown row of the sent card.
+ * @property {string} singleUseToken - Suffix on the countdown row of the sent card.
+ * @property {string} resendPrompt - Body copy on the resend row.
+ * @property {string} resendCta - Resend button label when the cooldown elapsed.
+ * @property {string} resendResent - Resend button label right after a successful resend.
+ * @property {string} resendCooldown - Prefix on the countdown timer in the resend row.
+ * @property {string} mailHelper - Label preceding the mail-app shortcut buttons.
+ * @property {string} mailApple - Apple Mail shortcut label.
+ * @property {string} mailGmail - Gmail shortcut label.
+ * @property {string} mailOutlook - Outlook shortcut label.
+ * @property {string} identityFrom - Key label for the "From" row.
+ * @property {string} identityFromValue - Value of the "From" row.
+ * @property {string} identityFromBadge - Pill badge next to the "From" value.
+ * @property {string} identitySubject - Key label for the "Subject" row.
+ * @property {string} identitySubjectValue - Value of the "Subject" row.
+ * @property {string} identityReplyTo - Key label for the "Reply-to" row.
+ * @property {string} identityReplyToValue - Value of the "Reply-to" row.
+ * @property {string} emailRequired - Inline error when the email is empty.
+ * @property {string} emailInvalid - Inline error when the email is malformed.
+ * @property {string} requestFailed - Fallback error message when the API call fails.
+ * @property {{ email: string; redirectPath: string }} apiInspectorBody - Fake values shown in the dev `ApiInspector` body preview.
+ * @property {string} rateLimitNote - Note rendered under the inspector explaining the rate-limit bucket.
+ */
+export interface PasswordForgottenFormStrings {
+    emailPlaceholder: string;
+    badge: string;
+    title: string;
+    sentTitle: string;
+    subtitle: string;
+    sentSubtitle: string;
+    emailLabel: string;
+    emailHelp: string;
+    submit: string;
+    submitting: string;
+    backToLogin: string;
+    sentTitlePrefix: string;
+    copyEmail: string;
+    copiedEmail: string;
+    useDifferentEmail: string;
+    expiresIn: string;
+    singleUseToken: string;
+    resendPrompt: string;
+    resendCta: string;
+    resendResent: string;
+    resendCooldown: string;
+    mailHelper: string;
+    mailApple: string;
+    mailGmail: string;
+    mailOutlook: string;
+    identityFrom: string;
+    identityFromValue: string;
+    identityFromBadge: string;
+    identitySubject: string;
+    identitySubjectValue: string;
+    identityReplyTo: string;
+    identityReplyToValue: string;
+    emailRequired: string;
+    emailInvalid: string;
+    requestFailed: string;
+    apiInspectorBody: { email: string; redirectPath: string };
+    rateLimitNote: string;
+}
+
+export interface ResetPasswordFormStrings {
+    badge: string;
+    title: string;
+    subtitle: string;
+    newPassword: string;
+    newPasswordPlaceholder: string;
+    confirmPassword: string;
+    confirmPasswordPlaceholder: string;
+    submit: string;
+    submitting: string;
+    successTitle: string;
+    successMessage: string;
+    missingTokenTitle: string;
+    missingTokenMessage: string;
+    invalidTokenTitle: string;
+    invalidTokenMessage: string;
+    resetFailed: string;
+    backToLogin: string;
+    passwordsDoNotMatch: string;
+    pickStrongerPassword: string;
+    passwordRequired: string;
+    passwordHelp: string;
+    showPassword: string;
+    hidePassword: string;
+    strengthLabel: string;
+    strengthTooShort: string;
+    strengthWeak: string;
+    strengthFair: string;
+    strengthGood: string;
+    strengthStrong: string;
+}
+/**
+ * @typedef PasswordRecoveryPhase
+ * @type {('request' | 'sent')}
+ */
+export type PasswordRecoveryPhase = 'request' | 'sent';

@@ -13,14 +13,19 @@ import (
 	"github.com/HouseCham/gps-tracker/backend/internal/app/access"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/apikeys"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/devices"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/email"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/locations"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/passwordreset"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/reports"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/sharelinks"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/users"
 	"github.com/HouseCham/gps-tracker/backend/internal/auth"
 	"github.com/HouseCham/gps-tracker/backend/internal/config"
+	"github.com/HouseCham/gps-tracker/backend/internal/infra/live"
 	"github.com/HouseCham/gps-tracker/backend/internal/infra/postgres"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/handlers"
-	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/ports"
+	"github.com/resend/resend-go/v3"
 )
 
 func main() {
@@ -102,6 +107,9 @@ func main() {
 	//-- access
 	accessRepo := postgres.NewAccessAdapter(pool)
 	accessService := access.NewAccessService(accessRepo, usersRepo)
+	//-- temporary device share links
+	shareLinksRepo := postgres.NewDeviceShareLinksAdapter(pool)
+	shareLinksService := sharelinks.New(shareLinksRepo)
 
 	//-- api keys (IoT device auth)
 	apiKeysAdapter := apikeys.NewAdapter(pool)
@@ -111,7 +119,36 @@ func main() {
 	// The same adapter instance satisfies both Writer and Reader ports;
 	// the api-keys service follows the same convention.
 	locationsAdapter := locations.NewAdapter(pool)
-	locationsService := locations.New(locationsAdapter, locationsAdapter)
+	liveHub := live.NewHub()
+	locationsService := locations.New(locationsAdapter, locationsAdapter, liveHub)
+	reportsService := reports.New(postgres.NewReportsAdapter(pool))
+
+	//-- email (Resend). Config is required at startup; the loader
+	//   fails the process if anything is missing.
+	emailCfg, err := config.LoadEmailConfig()
+	if err != nil {
+		log.Error("load email config", "err", err)
+		os.Exit(1)
+	}
+	resendClient := resend.NewClient(emailCfg.APIKey)
+	emailService := email.New(resendClient, emailCfg.From, map[string]string{
+		"en": emailCfg.TemplateWelcome.EN,
+		"es": emailCfg.TemplateWelcome.ES,
+	}, map[string]string{
+		"en": emailCfg.TemplatePasswordReset.EN,
+		"es": emailCfg.TemplatePasswordReset.ES,
+	})
+
+	//-- password recovery
+	passwordResetTokens := postgres.NewPasswordResetTokensAdapter(pool)
+	passwordResetService := passwordreset.New(
+		passwordResetTokens,
+		passwordResetTokens,
+		usersService,
+		authInstance.NewPasswordUpdater(),
+		emailService,
+		nil, // default clock = time.Now
+	)
 
 	//-- queries pool — kept separate so the IoT auth middleware can
 	//   use it without taking a service dependency.
@@ -124,26 +161,36 @@ func main() {
 	sessionManager := authInstance.NewSessionManager()
 	usersHandler := handlers.NewUsersHandler(usersService, devicesService, passwordUpdater, sessionManager)
 	accessHandler := handlers.NewAccessHandler(accessService)
+	shareLinksHandler := handlers.NewShareLinksHandler(shareLinksService)
 	apiKeysHandler := handlers.NewAPIKeysHandler(apiKeysService)
-	locationsHandler := handlers.NewLocationsHandler(locationsService)
+	locationsHandler := handlers.NewLocationsHandler(locationsService, liveHub)
+	guestShareHandler := handlers.NewGuestShareHandler(shareLinksService, locationsService, liveHub, auth.IsProduction())
+	reportsHandler := handlers.NewReportsHandler(reportsService)
+	emailHandler := handlers.NewEmailHandler(emailService)
+	passwordResetHandler := handlers.NewPasswordResetHandler(passwordResetService)
 
 	app := http.NewRouter(http.RouterDeps{
-		HealthHandler:     healthHandler,
-		DevicesHandler:    devicesHandler,
-		UsersHandler:      usersHandler,
-		AccessHandler:     accessHandler,
-		APIKeysHandler:    apiKeysHandler,
-		LocationsHandler:  locationsHandler,
-		BootstrapHandler:  handlers.NewBootstrapHandler(usersService),
-		AccessService:     accessService,
-		UsersService:      usersService,
-		Queries:           queries,
-		AuthHandler:       authInstance.Handler(),
-		SessionCookieName: authInstance.CookieName(),
-		AuthSession:       authInstance.NewSessionAuthenticator(),
-		AuthUserLookup:    authInstance.NewUserLookup().(ports.UserLookup),
-		SessionManager:    sessionManager,
-		CORSOrigins:       config.LoadCORSOrigins(),
+		HealthHandler:        healthHandler,
+		DevicesHandler:       devicesHandler,
+		UsersHandler:         usersHandler,
+		AccessHandler:        accessHandler,
+		APIKeysHandler:       apiKeysHandler,
+		ShareLinksHandler:    shareLinksHandler,
+		GuestShareHandler:    guestShareHandler,
+		LocationsHandler:     locationsHandler,
+		ReportsHandler:       reportsHandler,
+		EmailHandler:         emailHandler,
+		PasswordResetHandler: passwordResetHandler,
+		BootstrapHandler:     handlers.NewBootstrapHandler(usersService),
+		AccessService:        accessService,
+		UsersService:         usersService,
+		Queries:              queries,
+		AuthHandler:          authInstance.Handler(),
+		SessionCookieName:    authInstance.CookieName(),
+		AuthSession:          authInstance.NewSessionAuthenticator(),
+		AuthUserLookup:       authInstance.NewUserLookup(),
+		SessionManager:       sessionManager,
+		CORSOrigins:          config.LoadCORSOrigins(),
 	})
 
 	server := http.NewServer(app, http.ServerConfig{

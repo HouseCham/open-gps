@@ -1,26 +1,23 @@
 ---
-import type { GetStaticPaths } from 'astro';
-//-- Translations
+//-- i18n
 import { getTranslation } from '@/i18n';
 //-- Types
+import type { GetStaticPaths } from 'astro';
 import type { Language } from '@/types';
 //-- Components
 import MainLayout from '@/components/astro/layout/MainLayout.astro';
-/**
- * @type {GetStaticPaths}
- */
-export const getStaticPaths = (() => {
-    return [{ params: { lan: 'en' } }, { params: { lan: 'es' } }];
-}) satisfies GetStaticPaths;
+import HomePage from '@/components/astro/home/HomePage.astro';
+
+export const getStaticPaths: GetStaticPaths = () => [
+    { params: { lan: 'en' } },
+    { params: { lan: 'es' } },
+];
 
 const locale = Astro.params.lan as Language;
 const translation = getTranslation(locale);
+const title = `${translation.page.home.title} · ${translation.layout.appName}`;
 ---
 
-<MainLayout
-    locale={locale}
-    title={"Open GPS"}
-    pageLabel={"Open GPS"}
->
-    <h1>{"Hello World"}</h1>
+<MainLayout locale={locale} title={title} pageLabel={translation.page.home.title}>
+    <HomePage locale={locale} translations={translation.page.home} />
 </MainLayout>

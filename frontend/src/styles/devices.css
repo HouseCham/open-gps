@@ -520,6 +520,16 @@
     color: var(--text-muted);
 }
 
+@media (max-width: 720px) {
+    .dev-table-wrap {
+        overflow-x: auto;
+    }
+
+    .dev-table {
+        min-width: 720px;
+    }
+}
+
 @media (max-width: 560px) {
     .dev-filter-bar {
         padding: var(--s-3);

@@ -1,0 +1,210 @@
+#include "gps_board.h"
+#include <Arduino.h>
+#include <esp_sleep.h>
+#include "utilities.h"
+#define XPOWERS_CHIP_AXP2101
+#include "XPowersLib.h"
+#include <TinyGsmClient.h>
+#include <esp_task_wdt.h>
+
+static XPowersPMU PMU;
+static TinyGsm modem(Serial1);
+
+XPowersPMU& board_pmu() { return PMU; }
+TinyGsm& board_modem() { return modem; }
+
+#ifdef WAIT_FOR_SERIAL
+#define BOARD_PRINTF(...) Serial.printf(__VA_ARGS__)
+#else
+#define BOARD_PRINTF(...) do { } while (0)
+#endif
+
+static void logLine(const __FlashStringHelper* tag, const __FlashStringHelper* message) {
+    Serial.printf(PSTR("[%8lu]["), millis());
+    Serial.print(tag);
+    Serial.print(F("] "));
+    Serial.println(message);
+}
+
+// ----- PMU prologue --------------------------------------------------------
+// Canonical sequence from ATDebug.ino:36-95. Disable unused rails for low
+// quiescent draw, then raise the three rails the modem path needs.
+bool GpsBoard::beginPmuOnly() {
+    logLine(F("PMU"), F("initializing AXP2101 over I2C"));
+    if (!PMU.begin(Wire, AXP2101_SLAVE_ADDRESS, I2C_SDA, I2C_SCL)) {
+        logLine(F("ERR"), F("AXP2101 init failed"));
+        return false;
+    }
+    logLine(F("PMU"), F("AXP2101 online; enabling diagnostic LED"));
+
+    // Earliest visible heartbeat: if this never lights on battery, the ESP32
+    // did not complete PMU I2C initialization or the PMU LED path is unpowered.
+    PMU.setChargingLedMode(XPOWERS_CHG_LED_ON);
+
+    // Keep tracker rails off until the application confirms VBUS is absent.
+    PMU.disableDC2(); PMU.disableDC4(); PMU.disableDC5();
+    PMU.disableALDO1(); PMU.disableALDO2(); PMU.disableALDO3(); PMU.disableALDO4();
+    PMU.disableBLDO2(); PMU.disableCPUSLDO(); PMU.disableDLDO1(); PMU.disableDLDO2();
+
+    // BLDO1 powers the modem UART level conversion. Keep it alive across resets.
+    // Only remove DC3 on a true power cycle; cycling it on every ESP restart can
+    // leave the modem and the ESP32 out of sync.
+    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED) {
+        PMU.disableDC3();
+        delay(200);
+    }
+
+    PMU.disableTSPinMeasure();
+
+    if (!PMU.enableBattDetection() || !PMU.enableBattVoltageMeasure() ||
+        !PMU.enableVbusVoltageMeasure()) {
+        logLine(F("ERR"), F("AXP2101 measurement setup failed"));
+        return false;
+    }
+    BOARD_PRINTF(PSTR("[%8lu][PMU  ] measurement ready; battery=%umV vbus=%umV\n"),
+                 millis(),
+                 (unsigned)PMU.getBattVoltage(),
+                 (unsigned)PMU.getVbusVoltage());
+
+    return true;
+}
+
+// H606 recovery pulse: LOW 100ms, HIGH 1500ms, LOW.
+static void modemPwrOn() {
+    logLine(F("MODEM"), F("pulsing PWRKEY"));
+    pinMode(BOARD_MODEM_PWR_PIN, OUTPUT);
+    digitalWrite(BOARD_MODEM_PWR_PIN, LOW);  delay(100);
+    digitalWrite(BOARD_MODEM_PWR_PIN, HIGH); delay(1500);
+    digitalWrite(BOARD_MODEM_PWR_PIN, LOW);
+    delay(2000);
+}
+
+bool GpsBoard::beginTrackerHardware() {
+    if (!PMU.setBLDO1Voltage(3300) || !PMU.enableBLDO1() ||
+        !PMU.setDC3Voltage(3000) || !PMU.enableDC3() ||
+        !PMU.setBLDO2Voltage(3300) || !PMU.enableBLDO2()) {
+        logLine(F("ERR"), F("tracker rail startup failed"));
+        return false;
+    }
+    // Isolated boot sequencing: no concurrent runtime work exists before this returns.
+    delay(3000);
+
+    logLine(F("MODEM"), F("starting UART1 at 115200"));
+    Serial1.begin(115200, SERIAL_8N1, BOARD_MODEM_RXD_PIN, BOARD_MODEM_TXD_PIN);
+    pinMode(BOARD_MODEM_PWR_PIN, OUTPUT);
+    pinMode(BOARD_MODEM_DTR_PIN, OUTPUT);
+    digitalWrite(BOARD_MODEM_DTR_PIN, LOW);
+    logLine(F("MODEM"), F("DTR forced awake"));
+
+    // Some H606/AXP2101 revisions start the modem as soon as DC3 is enabled;
+    // pulsing PWRKEY unconditionally can then turn that already-running modem off.
+    // Probe first, matching LilyGO's ATDebug example, and only pulse PWRKEY after
+    // repeated failures.
+    int tries = 1;
+    bool is_modem_responsive = false;
+    
+    for (tries = 1; tries <= 30; ++tries) {
+        BOARD_PRINTF(PSTR("[%8lu][MODEM] AT probe %d/30\n"), millis(), tries);
+        if (modem.testAT(1000)) {
+            is_modem_responsive = true;
+            break;
+        }
+        if (tries == 10 || tries == 20) {
+            logLine(F("MODEM"), F("AT silent; sending delayed PWRKEY start pulse"));
+            modemPwrOn();
+        }
+        esp_task_wdt_reset();
+    }
+    
+    if (!is_modem_responsive) {
+        logLine(F("ERR"), F("modem did not respond to AT"));
+        return false;
+    }
+    logLine(F("MODEM"), F("AT responsive"));
+
+    return true;
+}
+
+bool GpsBoard::begin() { return beginPmuOnly() && beginTrackerHardware(); }
+
+bool GpsBoard::isVbusPresent() { return PMU.isVbusIn(); }
+uint16_t GpsBoard::vbusVoltageMv() { return PMU.getVbusVoltage(); }
+
+GpsBoard::ChargerState GpsBoard::chargerState() {
+    if (!isVbusPresent()) return ChargerState::NO_VBUS;
+    switch (PMU.getChargerStatus()) {
+        case XPOWERS_AXP2101_CHG_PRE_STATE:
+        case XPOWERS_AXP2101_CHG_CC_STATE:
+        case XPOWERS_AXP2101_CHG_CV_STATE: return ChargerState::CHARGING;
+        case XPOWERS_AXP2101_CHG_DONE_STATE: return ChargerState::CHARGE_COMPLETE;
+        case XPOWERS_AXP2101_CHG_STOP_STATE: return ChargerState::FAULT;
+        default: return ChargerState::UNKNOWN;
+    }
+}
+
+bool GpsBoard::enterChargeOnlyPowerState() {
+    const bool modemRail = PMU.disableDC3();
+    const bool uartRail = PMU.disableBLDO1();
+    const bool gnssRail = PMU.disableBLDO2();
+    if (!modemRail || !uartRail || !gnssRail) {
+        logLine(F("ERR"), F("charge-only rail shutdown failed"));
+    }
+    return modemRail && uartRail && gnssRail;
+}
+
+void GpsBoard::setChargeIndicator(ChargerState state) {
+    switch (state) {
+        case ChargerState::CHARGING: PMU.setChargingLedMode(XPOWERS_CHG_LED_BLINK_1HZ); break;
+        case ChargerState::CHARGE_COMPLETE: PMU.setChargingLedMode(XPOWERS_CHG_LED_ON); break;
+        case ChargerState::FAULT:
+        case ChargerState::UNKNOWN: PMU.setChargingLedMode(XPOWERS_CHG_LED_BLINK_4HZ); break;
+        default: PMU.setChargingLedMode(XPOWERS_CHG_LED_OFF); break;
+    }
+}
+
+bool GpsBoard::enableGps() { return modem.enableGPS(); }
+bool GpsBoard::disableGps() { return modem.disableGPS(); }
+
+bool GpsBoard::pollFix(float &lat, float &lon, float &alt) {
+    LocationPayload payload = {};
+    if (!pollFixPayload(payload)) return false;
+    lat = payload.latitude;
+    lon = payload.longitude;
+    alt = payload.altitude;
+    return true;
+}
+
+size_t GpsBoard::rawGnssState(char* buffer, size_t bufferSize) {
+    if (buffer == nullptr || bufferSize == 0) return 0;
+    const String response = modem.getGPSraw();
+    const size_t length = response.length() < bufferSize - 1
+                              ? response.length() : bufferSize - 1;
+    memcpy(buffer, response.c_str(), length);
+    buffer[length] = '\0';
+    return length;
+}
+
+bool GpsBoard::pollFixPayload(LocationPayload& out) {
+    // Zero the payload first so a failed poll leaves it cleanly empty
+    // (no stale lat/lon from a previous fix leaking through).
+    memset(&out, 0, sizeof(out));
+
+    float lat = 0, lon = 0, spd = 0, alt = 0, acc = 0;
+    int vsat = 0, usat = 0;
+    int yy = 0, mo = 0, dd = 0, hh = 0, mi = 0, ss = 0;
+
+    if (!modem.getGPS(&lat, &lon, &spd, &alt,
+                      &vsat, &usat, &acc,
+                      &yy, &mo, &dd, &hh, &mi, &ss)) {
+        _vsat = 0;
+        _usat = 0;
+        return false;
+    }
+    // TinyGSM uses -1 for an unavailable satellite count. Do not cast that
+    // sentinel to uint32_t: it becomes 4294967295 and corrupts diagnostics.
+    _vsat = vsat > 0 ? static_cast<uint32_t>(vsat) : 0;
+    _usat = usat > 0 ? static_cast<uint32_t>(usat) : 0;
+    locationPayloadFromFix(out, lat, lon, spd, alt, usat, acc,
+                              yy, mo, dd, hh, mi, ss);
+    return true;
+}

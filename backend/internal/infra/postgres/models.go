@@ -100,13 +100,13 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 }
 
 type Device struct {
-	ID           pgtype.UUID
-	UuidFirmware string
-	Name         string
-	CreatedAt    pgtype.Timestamptz
-	LastSeenAt   pgtype.Timestamptz
-	DeletedAt    pgtype.Timestamptz
-	VehicleType  DeviceVehicleType
+	ID            pgtype.UUID
+	UuidFirmware  string
+	Name          string
+	CreatedAt     pgtype.Timestamptz
+	DeletedAt     pgtype.Timestamptz
+	VehicleType   DeviceVehicleType
+	LastContactAt pgtype.Timestamptz
 }
 
 type DeviceApiKey struct {
@@ -119,6 +119,16 @@ type DeviceApiKey struct {
 	DeletedAt  pgtype.Timestamptz
 }
 
+type DeviceShareLink struct {
+	ID        pgtype.UUID
+	DeviceID  pgtype.UUID
+	CreatedBy pgtype.UUID
+	TokenHash string
+	CreatedAt pgtype.Timestamptz
+	ExpiresAt pgtype.Timestamptz
+	RevokedAt pgtype.Timestamptz
+}
+
 type Location struct {
 	DeviceID       pgtype.UUID
 	RecordedAt     pgtype.Timestamptz
@@ -129,6 +139,23 @@ type Location struct {
 	Accuracy       *float64
 	BatteryVoltage *float64
 	SignalStrength *int32
+}
+
+type LocationIngestKey struct {
+	DeviceID   pgtype.UUID
+	SequenceID int64
+	RecordedAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+}
+
+type PasswordResetToken struct {
+	ID        pgtype.UUID
+	UserID    pgtype.UUID
+	TokenHash string
+	IpAddress string
+	ExpiresAt pgtype.Timestamptz
+	UsedAt    pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
 }
 
 type User struct {

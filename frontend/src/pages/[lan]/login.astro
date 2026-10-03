@@ -21,7 +21,7 @@ const translation = getTranslation(locale);
 const loginStrings = parseLoginStrings(translation.auth);
 ---
 
-<AuthLayout isLoginPage title={`${translation.auth.loginTitle} · Open GPS`}>
+<AuthLayout locale={locale} isLoginPage title={`${translation.auth.loginTitle} · Open GPS`}>
     <LoginForm 
         client:load 
         strings={loginStrings} 

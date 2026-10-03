@@ -206,6 +206,21 @@
     margin-bottom: var(--s-7);
 }
 
+.device-view-switch {
+    display: flex;
+    gap: var(--s-2);
+    margin-bottom: var(--s-4);
+}
+
+.device-view-switch .btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.device-view-switch .btn {
+    min-height: 44px;
+}
+
 .dd-section-head {
     display: flex;
     align-items: flex-start;
@@ -716,6 +731,10 @@
     z-index: 2;
 }
 
+.dd-marker--disconnected .dd-marker-dot {
+    background: #808080;
+}
+
 .dd-marker-pulse {
     position: absolute;
     inset: 0;
@@ -757,26 +776,6 @@
     margin-top: var(--s-2);
 }
 
-.btn.dd-go-live-active {
-    border-color: #ea4335;
-    background: color-mix(in srgb, #ea4335 14%, var(--bg-surface));
-    color: #ea4335;
-    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.5);
-    animation: dd-go-live-pulse 2.4s ease-out infinite;
-}
-
-@keyframes dd-go-live-pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.5);
-    }
-    70% {
-        box-shadow: 0 0 0 10px rgba(234, 67, 53, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(234, 67, 53, 0);
-    }
-}
-
 .dd-live-entries {
     max-height: 240px;
     overflow-y: auto;
@@ -798,4 +797,11 @@
     color: var(--text-muted);
     font-family: var(--font-sans);
     font-size: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dd-marker-pulse,
+    .dd-pulse {
+        animation: none;
+    }
 }

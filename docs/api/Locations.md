@@ -1,0 +1,449 @@
+# Locations API Documentation
+
+Base URL: `/api/v1`
+
+The `locations` endpoint group serves both the IoT ingestion path (write, device-authenticated) and the dashboard read path (session-authenticated). Device-auth routes are reachable via `X-Device-API-Key`; user-auth routes follow the standard session-cookie + per-device RBAC pipeline. See [Authentication.md](./Authentication.md) for both auth models and [Devices.md](./Devices.md#device-api-keys) for how devices obtain their tokens.
+
+---
+
+## GET /api/v1/devices/:id/locations
+
+Returns a paginated history of the device's locations within a local-time range. The `from` and `to` values are interpreted using the supplied IANA timezone and converted to UTC before querying the database.
+
+**Authorization:** Session cookie (Authula) + `viewer` (or higher) access on the device. The access check is enforced by `middleware.RequireDeviceRole(viewer)`.
+
+**Query Parameters**
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `from` | Yes | Local start time in `YYYY-MM-DDTHH:mm:ss` format. Inclusive. |
+| `to` | Yes | Local end time in `YYYY-MM-DDTHH:mm:ss` format. Exclusive. |
+| `time-zone` | Yes | IANA timezone, for example `America/Mexico_City`. |
+| `page` | No | Page number. Defaults to `1`. |
+| `page_size` | No | Items per page. Defaults to `20`, maximum `100`. |
+
+**Request**
+
+```
+GET /api/v1/devices/550e8400-e29b-41d4-a716-446655440001/locations?from=2026-08-17T12:00:00&to=2026-08-17T14:00:00&time-zone=America/Mexico_City&page=1&page_size=20
+Cookie: authula.session_token=...
+```
+
+The example requests 12:00–14:00 in Mexico City. The backend queries the corresponding UTC range, 18:00–20:00 for this date.
+
+**Response `200 OK`**
+
+```json
+{
+  "status_code": 200,
+  "message": "location history retrieved",
+  "data": {
+    "items": [
+      {
+        "device_id": "550e8400-e29b-41d4-a716-446655440001",
+        "recorded_at": "2026-08-17T19:00:00Z",
+        "latitude": 19.432608,
+        "longitude": -99.133207,
+        "altitude": 2240.5,
+        "speed": 45.3,
+        "accuracy": 4.1,
+        "battery_voltage": 3.72,
+        "signal_strength": 23
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "page_size": 20,
+      "total": 1,
+      "total_pages": 1
+    }
+  }
+}
+```
+
+An empty time range returns `200 OK` with an empty `items` array. Invalid or missing time parameters return `400 Bad Request`.
+
+---
+
+## GET /api/v1/devices/:id/locations/latest
+
+Returns the device's most recent location — the one-row read that powers the dashboard's "last location" preview on the device-detail page.
+
+**Authorization:** Session cookie (Authula) + `viewer` (or higher) access on the device. The access check is enforced by `middleware.RequireDeviceRole(viewer)`; a user without access receives a `404` (security-through-obscurity, same as the rest of the per-device routes).
+
+**Path Parameters**
+
+| Parameter | Description |
+|-----------|-------------|
+| `id` | Device UUID. Must resolve to an active device the caller has at least `viewer` access to. |
+
+**Request**
+
+```
+GET /api/v1/devices/550e8400-e29b-41d4-a716-446655440001/locations/latest
+Cookie: authula.session_token=...
+```
+
+**Response `200 OK`**
+
+```json
+{
+  "status_code": 200,
+  "message": "latest location retrieved",
+  "data": {
+    "device_id": "550e8400-e29b-41d4-a716-446655440001",
+    "recorded_at": "2026-07-15T12:00:00Z",
+    "latitude": 19.432608,
+    "longitude": -99.133207,
+    "altitude": 2240.5,
+    "speed": 45.3,
+    "accuracy": 4.1,
+    "battery_voltage": 3.72,
+    "signal_strength": 23
+  }
+}
+```
+
+Nullable telemetry fields (`altitude`, `speed`, `accuracy`, `battery_voltage`, `signal_strength`) are returned as JSON `null` when the device did not report them on that cycle.
+
+**Error Responses**
+
+| Status Code | Message | Meaning |
+|-------------|---------|---------|
+| 400 | `invalid device id` | `:id` is not a valid UUID |
+| 401 | `unauthorized` | No session cookie or session expired |
+| 403 | `must_change_password` | Caller has `must_change_password=true` |
+| 404 | (per RBAC) | Caller has no access to the device (security-through-obscurity) |
+| 404 | `no location reported for this device yet` | The device has never sent a location row |
+
+> **Why a 404 for "never reported":** `GETLatestLocationForDevice` is `LIMIT 1` on an empty result set, which surfaces as `pgx.ErrNoRows` and maps to `domain.ErrNotFound`. The handler turns it into a distinct 404 so the dashboard can render a "Never seen" badge without inspecting 5xx errors.
+
+> **Why a separate route:** the latest endpoint returns one location object, while this endpoint returns a paginated list. Keeping the shapes separate makes each endpoint predictable.
+
+---
+
+## GET /api/v1/devices/:id/locations/route
+
+Returns a chronological route suitable for map rendering. The route is
+bounded to at most `max_points` samples (default and maximum `1000`). Large
+ranges are sampled server-side while preserving the first and last location;
+the paginated history endpoint remains the source for the exact table data.
+
+**Authorization:** Session cookie (Authula) + `viewer` (or higher) access on the device.
+
+**Query Parameters:** The same `from`, `to`, and `time-zone` parameters as the
+history endpoint, plus optional `max_points`.
+
+**Response `200 OK`**
+
+```json
+{
+  "status_code": 200,
+  "message": "location route retrieved",
+  "data": {
+    "items": [ /* chronological LocationResponse values */ ],
+    "total_points": 2500,
+    "returned": 1001,
+    "sampled": true
+  }
+}
+```
+
+The frontend can split segments when adjacent timestamps exceed the expected
+ingestion interval, avoiding a misleading line across a reporting gap.
+
+---
+
+## POST /api/v1/devices/:uuid_firmware/locations
+
+Persists one GPS + telemetry fix reported by the device. Kept as the single-fix variant of the ingest API; the firmware drains its queue through the batch endpoint below. The handler enforces numeric range checks on top of the DTO's `validate_struct` validation; idempotency on `(device_id, recorded_at)` is enforced at the database layer via `ON CONFLICT DO NOTHING` — clients can retry safely without producing duplicates.
+
+**Authorization:** Requires the IoT device lookup token (issued via `POST /api/v1/devices/:id/api-keys`).
+
+**Headers**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Device-API-Key` | Yes | Opaque 256-bit lookup token issued for the device |
+| `Content-Type` | Yes | `application/json` |
+
+**Path Parameters**
+
+| Parameter | Description |
+|-----------|-------------|
+| `uuid_firmware` | ESP32 firmware UUID (matches the `uuid_firmware` of an existing, non-deleted device). The middleware resolves this to the device id and verifies the token belongs to the same device before the handler runs. |
+
+**Request**
+
+```
+POST /api/v1/devices/aaaaaaaa-bbbb-cccc-dddd-000000000001/locations
+Content-Type: application/json
+X-Device-API-Key: 50I_rlGuoF9EONVelnUahPqKr1vDy6H1hZ0BrXFVldQ
+
+{
+  "recorded_at": "2026-07-07T12:00:00Z",
+  "latitude": 19.432608,
+  "longitude": -99.133207,
+  "altitude": 2240.5,
+  "speed": 45.3,
+  "accuracy": 4.1,
+  "battery_voltage": 3.72,
+  "signal_strength": 23
+}
+```
+
+**Fields (request body):**
+
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `recorded_at` | string (RFC 3339 / ISO 8601) | Yes | `required`, RFC 3339 format | GPS fix timestamp from the device clock |
+| `latitude` | number | Yes | `required`, `-90 ≤ x ≤ 90` | WGS84 latitude in decimal degrees |
+| `longitude` | number | Yes | `required`, `-180 ≤ x ≤ 180` | WGS84 longitude in decimal degrees |
+| `altitude` | number | No | `-500 ≤ x ≤ 10000` | Altitude above sea level (meters). `null` if the device could not read it |
+| `speed` | number | No | `x ≥ 0` | Ground speed (m/s). `null` if unknown |
+| `accuracy` | number | No | `x ≥ 0` | Position accuracy (meters). `null` if unknown |
+| `battery_voltage` | number | No | `0 ≤ x ≤ 6` | Reported battery voltage (volts). `null` if not measured |
+| `signal_strength` | integer | No | `0 ≤ x ≤ 31` | Cellular RSSI from `AT+CSQ` (`0`=−113 dBm, `31`=−51 dBm). `null` if unknown |
+
+**Response `201 Created`**
+
+```
+HTTP/1.1 201 Created
+Content-Type: text/plain; charset=utf-8
+Content-Length: 7
+
+Created
+```
+
+The body is the literal status text `Created` (Fiber's `SendStatus` fills an empty body with the status message). Success is the `201` status code; clients can read the inserted row back via `GET /api/v1/devices/:id/locations/latest`.
+
+**Error Responses**
+
+| Status Code | Message | Meaning |
+|-------------|---------|---------|
+| 400 | `invalid request body` | Body failed the validator's per-field checks (range, required, RFC 3339) |
+| 401 | `missing X-Device-API-Key header` | Header absent or empty |
+| 401 | `invalid or expired api key` | Header present but no active key matches, OR the key's `device_id` does not match `:uuid_firmware` |
+| 404 | `device not found` | `:uuid_firmware` does not resolve to an active device |
+
+> **Idempotency:** `201 Created` does not mean "new row inserted" — the same `(device_id, recorded_at)` always returns 201 because the DB upserts with `ON CONFLICT DO NOTHING`. The contract is "the server has accepted your packet" not "a row was added". Clients can treat every 201 as success.
+
+> **Order of operations in the handler:**
+> 1. DTO validation (range, format) — `validate_struct` middleware.
+> 2. Range re-check in the service layer (defence in depth).
+> 3. Idempotent insert at the DB.
+
+---
+
+## POST /api/v1/devices/:uuid_firmware/locations/batch
+
+Persists up to 20 GPS + telemetry fixes in one request. This is the firmware's primary ingest path: the device queues fixes locally in flash and drains the queue in idempotent batches, so a coverage gap or reboot never loses a point.
+
+**Authorization:** Requires the IoT device lookup token (issued via `POST /api/v1/devices/:id/api-keys`).
+
+**Headers**
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Device-API-Key` | Yes | Opaque 256-bit lookup token issued for the device |
+| `Content-Type` | Yes | `application/json` |
+
+**Path Parameters**
+
+| Parameter | Description |
+|-----------|-------------|
+| `uuid_firmware` | ESP32 firmware UUID (matches the `uuid_firmware` of an existing, non-deleted device). Resolved to the device id by the auth middleware, same as the single-item endpoint. |
+
+**Request limits**
+
+| Constraint | Value |
+|------------|-------|
+| `items` | required, 1–20 entries (`dto.MaxBatchItems`) |
+| Per-item fields | identical to the single-item endpoint, plus `sequence_id` (below) |
+| Unknown fields | ignored (not validated, not persisted) — e.g. `satellites_used` sent by firmware is silently dropped |
+
+**Request**
+
+```
+POST /api/v1/devices/aaaaaaaa-bbbb-cccc-dddd-000000000001/locations/batch
+Content-Type: application/json
+X-Device-API-Key: 50I_rlGuoF9EONVelnUahPqKr1vDy6H1hZ0BrXFVldQ
+
+{
+  "items": [
+    {
+      "recorded_at": "2026-07-07T12:00:00Z",
+      "latitude": 19.432608,
+      "longitude": -99.133207,
+      "altitude": 2240.5,
+      "speed": 45.3,
+      "accuracy": 4.1,
+      "battery_voltage": 3.72,
+      "signal_strength": 23,
+      "sequence_id": 41
+    },
+    {
+      "recorded_at": "2026-07-07T12:00:30Z",
+      "latitude": 19.432701,
+      "longitude": -99.133150,
+      "sequence_id": 42
+    }
+  ]
+}
+```
+
+**Fields (per item):** same table as the single-item endpoint above, plus:
+
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `sequence_id` | integer | Effective yes | `gt=0` when present | Monotonic per-device queue id (starts at 1). The per-item idempotency key used by `accepted_sequence_ids` / `rejected`. An item with a missing or non-positive id is **rejected per item** (`invalid_sequence_id`) — the rest of the batch still processes. |
+
+**Response `201 Created`**
+
+```json
+{
+  "accepted_sequence_ids": [41, 42],
+  "rejected": [
+    { "sequence_id": 43, "code": "invalid latitude", "retryable": false }
+  ]
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `accepted_sequence_ids` | Every sequence id that passed validation and is durably stored — including ids that were already ingested earlier (re-sends ACK as accepted without inserting a duplicate). |
+| `rejected` | Per-item failures. `retryable` is always `false` today: a rejected item will fail identically on retry, so clients should drop it, not requeue it. |
+
+**Rejection codes** (values of `rejected[].code`):
+
+| Code | Cause |
+|------|-------|
+| `duplicate_sequence_id` | Same `sequence_id` appears twice within one request |
+| `invalid_sequence_id` | `sequence_id` missing or ≤ 0 |
+| `invalid latitude` / `invalid longitude` | Out of range at the service layer |
+| `invalid altitude` / `invalid speed` / `invalid accuracy` | Out of range at the service layer |
+| `invalid battery voltage` / `invalid signal strength` | Out of range at the service layer |
+
+**Whole-request errors** (nothing is inserted; these short-circuit before per-item processing):
+
+| Status Code | Message | Meaning |
+|-------------|---------|---------|
+| 400 | `Error parsing request body` | Malformed JSON |
+| 400 | field error list | DTO `validate_struct` failed: missing/non-RFC-3339 `recorded_at`, missing or out-of-range `latitude`/`longitude`, `items` empty or over 20 |
+| 400 | `invalid request body` | `toDomainIngest` failed converting an item (e.g. timestamp unparseable) |
+| 401 | `missing X-Device-API-Key header` | Header absent or empty |
+| 401 | `invalid or expired api key` | No active key matches, OR the key's device does not match `:uuid_firmware` |
+| 404 | `device not found` | `:uuid_firmware` does not resolve to an active device |
+| 500 | (error envelope) | DB write failed — the whole batch is rolled back in one transaction |
+
+> **Idempotency (two layers):**
+> 1. `location_ingest_keys (device_id, sequence_id, recorded_at) ON CONFLICT DO NOTHING` — a re-sent item is ACKed as accepted and the `locations` insert is skipped.
+> 2. `locations (device_id, recorded_at) ON CONFLICT DO NOTHING` — the row itself never duplicates.
+>
+> Consequence for clients: after a lost response or crash-restart, re-sending the same front of the queue is always safe; treat every `accepted_sequence_ids` entry as durable.
+
+> **Side effect:** each successful batch updates `devices.last_contact_at`, which drives the live-presence state of `GET /api/v1/devices/:id/locations/live`. A device that only uploads when coverage returns is still marked offline in between.
+
+---
+
+## Common questions
+
+**Why is `device_id` not in the body?** It comes from the URL `:uuid_firmware` via the IoT auth middleware. The handler never reads the path param itself — only `c.Locals("device_id")` which the middleware verified against the token.
+
+**Why does idempotency live in the DB layer?** ESP32 cellular radios have lossy links and the firmware retries every POST until it gets a response. Without idempotency a 30-second cycle can produce duplicates every time the network blips. `ON CONFLICT (device_id, recorded_at) DO NOTHING` makes retries a no-op.
+
+**Why are `from` and `to` local times?** The frontend sends wall-clock values without an offset and supplies the user's IANA timezone separately. The backend resolves those values to UTC before querying PostgreSQL.
+
+**Why aren't GPS-only devices rejected?** A bare GPS + ESP32 can fill in lat/lng/recorded_at/altitude/speed/accuracy; the other five fields are optional. The empty `signal_strength` case is common in indoor benches, etc.
+
+---
+
+## Live location and presence
+
+### GET /api/v1/devices/:id/locations/live
+
+Returns the latest location together with server-owned presence. Presence states are `never_seen`, `online_moving`, `online_stationary`, and `offline`. The backend uses `devices.last_contact_at` and a six-minute deadline; `recorded_at` remains the GPS fix time and is not used for connectivity.
+
+**Authorization:** Session cookie (Authula) + `viewer` (or higher) access on the device.
+
+**Response `200 OK`**
+
+```json
+{
+  "status_code": 200,
+  "message": "live location retrieved",
+  "data": {
+    "device_id": "550e8400-e29b-41d4-a716-446655440001",
+    "location": {
+      "device_id": "550e8400-e29b-41d4-a716-446655440001",
+      "recorded_at": "2026-08-17T19:00:00Z",
+      "latitude": 19.432608,
+      "longitude": -99.133207,
+      "altitude": 2240.5,
+      "speed": 45.3,
+      "accuracy": 4.1,
+      "battery_voltage": 3.72,
+      "signal_strength": 23
+    },
+    "presence": {
+      "state": "online_moving",
+      "last_contact_at": "2026-08-17T19:00:10Z",
+      "expires_at": "2026-08-17T19:06:10Z"
+    },
+    "server_time": "2026-08-17T19:00:15Z"
+  }
+}
+```
+
+`location` is `null` when the device has never reported; `presence.state` stays `never_seen` in that case.
+
+**Error Responses**
+- `400` — `invalid device id`
+- `401` — No session cookie or session expired
+- `403` — `must_change_password` is true
+- `404` — Caller has no access to the device, or the device does not exist
+
+---
+
+### GET /api/v1/devices/:id/locations/stream
+
+Server-Sent Events stream of live location and presence updates for one device. Uses the same session cookie and `viewer`-or-higher device access as the live endpoint.
+
+On connect the server sends an initial `snapshot` event, then publishes `location` events on each new ingest and `presence` events when the presence deadline is reached. A `: keepalive` comment is written every 25 seconds so proxies do not idle out the connection. Reconnects receive a fresh snapshot; durable replay is not provided.
+
+**Authorization:** Session cookie (Authula) + `viewer` (or higher) access on the device.
+
+**Request**
+
+```
+GET /api/v1/devices/550e8400-e29b-41d4-a716-446655440001/locations/stream
+Cookie: authula.session_token=...
+Accept: text/event-stream
+```
+
+**Response `200 OK`**
+
+```
+Content-Type: text/event-stream; charset=utf-8
+Cache-Control: no-cache, no-transform
+X-Accel-Buffering: no
+
+event: snapshot
+id: 1
+data: {"device_id":"550e8400-e29b-41d4-a716-446655440001","location":{...},"presence":{"state":"online_moving","last_contact_at":"...","expires_at":"..."},"server_time":"..."}
+
+event: location
+id: 2
+data: {"device_id":"550e8400-e29b-41d4-a716-446655440001","location":{...},"presence":{...},"server_time":"..."}
+
+: keepalive
+
+```
+
+Each event's `data` is the same `LiveLocationResponse` shape as the live endpoint.
+
+**Error Responses**
+- `400` — `invalid device id`
+- `401` — No session cookie or session expired
+- `403` — `must_change_password` is true
+- `404` — Caller has no access to the device, or the device does not exist

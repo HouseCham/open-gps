@@ -16,11 +16,6 @@ import {
 } from 'lucide-react';
 
 /**
- * Storage key for the user's theme.
- * @constant {string}
- */
-export const THEME_STORAGE_KEY = 'open-gps:theme';
-/**
  * Breakpoint for mobile layout.
  * @constant {number}
  */

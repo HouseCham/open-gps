@@ -22,7 +22,7 @@ const translation = getTranslation(locale);
 const signupStrings = parseSignUpStrings(translation.auth);
 ---
 
-<AuthLayout title={`${translation.auth.signupTitle} · Open GPS`}>
+<AuthLayout locale={locale} title={`${translation.auth.signupTitle} · Open GPS`}>
     <SignupForm 
         client:load 
         strings={signupStrings} 

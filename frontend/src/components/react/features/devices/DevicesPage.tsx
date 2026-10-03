@@ -150,7 +150,7 @@ export function DevicesPage({
                 return false;
             }
             if (statusFilter !== 'all') {
-                const s = deriveDeviceStatus(d.last_seen_at, t).key;
+                const s = deriveDeviceStatus(d.last_contact_at, t).key;
                 if (s !== statusFilter) return false;
             }
             return true;
@@ -163,13 +163,13 @@ export function DevicesPage({
                     return b.name.localeCompare(a.name);
                 case 'recent':
                     return (
-                        new Date(b.last_seen_at ?? 0).getTime() -
-                        new Date(a.last_seen_at ?? 0).getTime()
+                        new Date(b.last_contact_at ?? 0).getTime() -
+                        new Date(a.last_contact_at ?? 0).getTime()
                     );
                 case 'oldest':
                     return (
-                        new Date(a.last_seen_at ?? 0).getTime() -
-                        new Date(b.last_seen_at ?? 0).getTime()
+                        new Date(a.last_contact_at ?? 0).getTime() -
+                        new Date(b.last_contact_at ?? 0).getTime()
                     );
                 default:
                     return 0;
@@ -191,7 +191,7 @@ export function DevicesPage({
     };
 
     for (const d of devices) {
-        counts[deriveDeviceStatus(d.last_seen_at, t).key]++;
+        counts[deriveDeviceStatus(d.last_contact_at, t).key]++;
     }
     /**
      * Handle the creation of a new device.

@@ -36,7 +36,7 @@ VALUES (
   $2,
   $3::device_vehicle_type
 )
-RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_seen_at, deleted_at
+RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_contact_at, deleted_at
 `
 
 type CreateDeviceParams struct {
@@ -46,13 +46,13 @@ type CreateDeviceParams struct {
 }
 
 type CreateDeviceRow struct {
-	ID           pgtype.UUID
-	UuidFirmware string
-	Name         string
-	VehicleType  DeviceVehicleType
-	CreatedAt    pgtype.Timestamptz
-	LastSeenAt   pgtype.Timestamptz
-	DeletedAt    pgtype.Timestamptz
+	ID            pgtype.UUID
+	UuidFirmware  string
+	Name          string
+	VehicleType   DeviceVehicleType
+	CreatedAt     pgtype.Timestamptz
+	LastContactAt pgtype.Timestamptz
+	DeletedAt     pgtype.Timestamptz
 }
 
 // Creates a new device. uuid_firmware must be globally unique (DB-enforced).
@@ -65,26 +65,26 @@ func (q *Queries) CreateDevice(ctx context.Context, arg CreateDeviceParams) (Cre
 		&i.Name,
 		&i.VehicleType,
 		&i.CreatedAt,
-		&i.LastSeenAt,
+		&i.LastContactAt,
 		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const getDeviceByID = `-- name: GetDeviceByID :one
-SELECT id, uuid_firmware, name, vehicle_type, created_at, last_seen_at, deleted_at
+SELECT id, uuid_firmware, name, vehicle_type, created_at, last_contact_at, deleted_at
 FROM devices
 WHERE id = $1 AND deleted_at IS NULL
 `
 
 type GetDeviceByIDRow struct {
-	ID           pgtype.UUID
-	UuidFirmware string
-	Name         string
-	VehicleType  DeviceVehicleType
-	CreatedAt    pgtype.Timestamptz
-	LastSeenAt   pgtype.Timestamptz
-	DeletedAt    pgtype.Timestamptz
+	ID            pgtype.UUID
+	UuidFirmware  string
+	Name          string
+	VehicleType   DeviceVehicleType
+	CreatedAt     pgtype.Timestamptz
+	LastContactAt pgtype.Timestamptz
+	DeletedAt     pgtype.Timestamptz
 }
 
 // Standard lookup by primary key. Filters out soft-deleted devices.
@@ -97,7 +97,7 @@ func (q *Queries) GetDeviceByID(ctx context.Context, id pgtype.UUID) (GetDeviceB
 		&i.Name,
 		&i.VehicleType,
 		&i.CreatedAt,
-		&i.LastSeenAt,
+		&i.LastContactAt,
 		&i.DeletedAt,
 	)
 	return i, err
@@ -110,7 +110,7 @@ SELECT
   d.name,
   d.vehicle_type,
   d.created_at,
-  d.last_seen_at,
+  d.last_contact_at,
   uda.role AS access_role
 FROM devices d
 INNER JOIN user_device_access uda
@@ -126,13 +126,13 @@ type GetDeviceByIDForUserParams struct {
 }
 
 type GetDeviceByIDForUserRow struct {
-	ID           pgtype.UUID
-	UuidFirmware string
-	Name         string
-	VehicleType  DeviceVehicleType
-	CreatedAt    pgtype.Timestamptz
-	LastSeenAt   pgtype.Timestamptz
-	AccessRole   string
+	ID            pgtype.UUID
+	UuidFirmware  string
+	Name          string
+	VehicleType   DeviceVehicleType
+	CreatedAt     pgtype.Timestamptz
+	LastContactAt pgtype.Timestamptz
+	AccessRole    string
 }
 
 // Returns the device only if the given user has access (any role).
@@ -147,26 +147,26 @@ func (q *Queries) GetDeviceByIDForUser(ctx context.Context, arg GetDeviceByIDFor
 		&i.Name,
 		&i.VehicleType,
 		&i.CreatedAt,
-		&i.LastSeenAt,
+		&i.LastContactAt,
 		&i.AccessRole,
 	)
 	return i, err
 }
 
 const getDeviceByUUIDFirmware = `-- name: GetDeviceByUUIDFirmware :one
-SELECT id, uuid_firmware, name, vehicle_type, created_at, last_seen_at, deleted_at
+SELECT id, uuid_firmware, name, vehicle_type, created_at, last_contact_at, deleted_at
 FROM devices
 WHERE uuid_firmware = $1 AND deleted_at IS NULL
 `
 
 type GetDeviceByUUIDFirmwareRow struct {
-	ID           pgtype.UUID
-	UuidFirmware string
-	Name         string
-	VehicleType  DeviceVehicleType
-	CreatedAt    pgtype.Timestamptz
-	LastSeenAt   pgtype.Timestamptz
-	DeletedAt    pgtype.Timestamptz
+	ID            pgtype.UUID
+	UuidFirmware  string
+	Name          string
+	VehicleType   DeviceVehicleType
+	CreatedAt     pgtype.Timestamptz
+	LastContactAt pgtype.Timestamptz
+	DeletedAt     pgtype.Timestamptz
 }
 
 // Hot auth path for the IoT device authentication flow.
@@ -180,7 +180,7 @@ func (q *Queries) GetDeviceByUUIDFirmware(ctx context.Context, uuidFirmware stri
 		&i.Name,
 		&i.VehicleType,
 		&i.CreatedAt,
-		&i.LastSeenAt,
+		&i.LastContactAt,
 		&i.DeletedAt,
 	)
 	return i, err
@@ -210,7 +210,7 @@ SELECT
   d.name,
   d.vehicle_type,
   d.created_at,
-  d.last_seen_at,
+  d.last_contact_at,
   uda.role AS access_role
 FROM devices d
 INNER JOIN user_device_access uda
@@ -221,13 +221,13 @@ ORDER BY d.created_at DESC
 `
 
 type ListDevicesForUserRow struct {
-	ID           pgtype.UUID
-	UuidFirmware string
-	Name         string
-	VehicleType  DeviceVehicleType
-	CreatedAt    pgtype.Timestamptz
-	LastSeenAt   pgtype.Timestamptz
-	AccessRole   string
+	ID            pgtype.UUID
+	UuidFirmware  string
+	Name          string
+	VehicleType   DeviceVehicleType
+	CreatedAt     pgtype.Timestamptz
+	LastContactAt pgtype.Timestamptz
+	AccessRole    string
 }
 
 // Returns the devices the given user has access to, with the access role
@@ -248,7 +248,7 @@ func (q *Queries) ListDevicesForUser(ctx context.Context, userID pgtype.UUID) ([
 			&i.Name,
 			&i.VehicleType,
 			&i.CreatedAt,
-			&i.LastSeenAt,
+			&i.LastContactAt,
 			&i.AccessRole,
 		); err != nil {
 			return nil, err
@@ -262,7 +262,7 @@ func (q *Queries) ListDevicesForUser(ctx context.Context, userID pgtype.UUID) ([
 }
 
 const listDevicesForUserPaginated = `-- name: ListDevicesForUserPaginated :many
-SELECT d.id, d.uuid_firmware, d.name, d.vehicle_type, d.created_at, d.last_seen_at
+SELECT d.id, d.uuid_firmware, d.name, d.vehicle_type, d.created_at, d.last_contact_at
 FROM devices d
 INNER JOIN user_device_access uda
   ON d.id = uda.device_id AND uda.deleted_at IS NULL
@@ -279,12 +279,12 @@ type ListDevicesForUserPaginatedParams struct {
 }
 
 type ListDevicesForUserPaginatedRow struct {
-	ID           pgtype.UUID
-	UuidFirmware string
-	Name         string
-	VehicleType  DeviceVehicleType
-	CreatedAt    pgtype.Timestamptz
-	LastSeenAt   pgtype.Timestamptz
+	ID            pgtype.UUID
+	UuidFirmware  string
+	Name          string
+	VehicleType   DeviceVehicleType
+	CreatedAt     pgtype.Timestamptz
+	LastContactAt pgtype.Timestamptz
 }
 
 // Returns paginated devices for a user with access.
@@ -304,7 +304,7 @@ func (q *Queries) ListDevicesForUserPaginated(ctx context.Context, arg ListDevic
 			&i.Name,
 			&i.VehicleType,
 			&i.CreatedAt,
-			&i.LastSeenAt,
+			&i.LastContactAt,
 		); err != nil {
 			return nil, err
 		}
@@ -323,7 +323,7 @@ SELECT
   d.name,
   d.vehicle_type,
   d.created_at,
-  d.last_seen_at,
+  d.last_contact_at,
   uda.role AS access_role
 FROM devices d
 INNER JOIN user_device_access uda
@@ -341,13 +341,13 @@ type ListDevicesForUserWithAccessPaginatedParams struct {
 }
 
 type ListDevicesForUserWithAccessPaginatedRow struct {
-	ID           pgtype.UUID
-	UuidFirmware string
-	Name         string
-	VehicleType  DeviceVehicleType
-	CreatedAt    pgtype.Timestamptz
-	LastSeenAt   pgtype.Timestamptz
-	AccessRole   string
+	ID            pgtype.UUID
+	UuidFirmware  string
+	Name          string
+	VehicleType   DeviceVehicleType
+	CreatedAt     pgtype.Timestamptz
+	LastContactAt pgtype.Timestamptz
+	AccessRole    string
 }
 
 // Returns paginated devices the given user has access to, with the access role.
@@ -367,7 +367,7 @@ func (q *Queries) ListDevicesForUserWithAccessPaginated(ctx context.Context, arg
 			&i.Name,
 			&i.VehicleType,
 			&i.CreatedAt,
-			&i.LastSeenAt,
+			&i.LastContactAt,
 			&i.AccessRole,
 		); err != nil {
 			return nil, err
@@ -395,7 +395,7 @@ func (q *Queries) SoftDeleteDevice(ctx context.Context, id pgtype.UUID) error {
 
 const updateDeviceLastSeen = `-- name: UpdateDeviceLastSeen :exec
 UPDATE devices
-SET last_seen_at = NOW()
+SET last_contact_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -410,7 +410,7 @@ const updateDeviceName = `-- name: UpdateDeviceName :one
 UPDATE devices
 SET name = $2
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_seen_at, deleted_at
+RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_contact_at, deleted_at
 `
 
 type UpdateDeviceNameParams struct {
@@ -419,13 +419,13 @@ type UpdateDeviceNameParams struct {
 }
 
 type UpdateDeviceNameRow struct {
-	ID           pgtype.UUID
-	UuidFirmware string
-	Name         string
-	VehicleType  DeviceVehicleType
-	CreatedAt    pgtype.Timestamptz
-	LastSeenAt   pgtype.Timestamptz
-	DeletedAt    pgtype.Timestamptz
+	ID            pgtype.UUID
+	UuidFirmware  string
+	Name          string
+	VehicleType   DeviceVehicleType
+	CreatedAt     pgtype.Timestamptz
+	LastContactAt pgtype.Timestamptz
+	DeletedAt     pgtype.Timestamptz
 }
 
 // Updates the display name. Returns the updated row, or sql.ErrNoRows
@@ -439,7 +439,7 @@ func (q *Queries) UpdateDeviceName(ctx context.Context, arg UpdateDeviceNamePara
 		&i.Name,
 		&i.VehicleType,
 		&i.CreatedAt,
-		&i.LastSeenAt,
+		&i.LastContactAt,
 		&i.DeletedAt,
 	)
 	return i, err
@@ -449,7 +449,7 @@ const updateDeviceVehicleType = `-- name: UpdateDeviceVehicleType :one
 UPDATE devices
 SET vehicle_type = $1::device_vehicle_type
 WHERE id = $2 AND deleted_at IS NULL
-RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_seen_at, deleted_at
+RETURNING id, uuid_firmware, name, vehicle_type, created_at, last_contact_at, deleted_at
 `
 
 type UpdateDeviceVehicleTypeParams struct {
@@ -458,13 +458,13 @@ type UpdateDeviceVehicleTypeParams struct {
 }
 
 type UpdateDeviceVehicleTypeRow struct {
-	ID           pgtype.UUID
-	UuidFirmware string
-	Name         string
-	VehicleType  DeviceVehicleType
-	CreatedAt    pgtype.Timestamptz
-	LastSeenAt   pgtype.Timestamptz
-	DeletedAt    pgtype.Timestamptz
+	ID            pgtype.UUID
+	UuidFirmware  string
+	Name          string
+	VehicleType   DeviceVehicleType
+	CreatedAt     pgtype.Timestamptz
+	LastContactAt pgtype.Timestamptz
+	DeletedAt     pgtype.Timestamptz
 }
 
 // Updates the vehicle type. Returns the updated row, or sql.ErrNoRows
@@ -478,7 +478,7 @@ func (q *Queries) UpdateDeviceVehicleType(ctx context.Context, arg UpdateDeviceV
 		&i.Name,
 		&i.VehicleType,
 		&i.CreatedAt,
-		&i.LastSeenAt,
+		&i.LastContactAt,
 		&i.DeletedAt,
 	)
 	return i, err

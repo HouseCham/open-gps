@@ -2,7 +2,7 @@ import '@/styles/no-access.css';
 import { useEffect, type JSX } from 'react';
 import { ShieldOff } from 'lucide-react';
 //-- Hooks
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useAuth } from '@/lib/hooks';
 //-- Utils
 import { redirectTo } from '@/lib';
 //-- Constants

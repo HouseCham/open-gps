@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { en } from '@/i18n';
-import { generateNavbarItems, redirectTo } from './router-utils';
+import {
+    generateNavbarItems,
+    redirectTo,
+    buildLocalizedUrl,
+} from './router-utils';
 
 describe('generateNavbarItems', () => {
     it('returns dashboard + devices + API keys + profile when showAdmin is false', () => {
@@ -124,5 +128,17 @@ describe('redirectTo', () => {
         setNavigatorLanguage('es-MX');
         redirectTo('/perfil');
         expect(replaceSpy).toHaveBeenCalledWith('/es/perfil');
+    });
+});
+
+describe('buildLocalizedUrl', () => {
+    it('preserves the route, query, and hash when changing locale', () => {
+        expect(
+            buildLocalizedUrl('/es/settings', '?tab=display', '#timezone', 'en')
+        ).toBe('/en/settings?tab=display#timezone');
+    });
+
+    it('rejects paths without a supported locale prefix', () => {
+        expect(buildLocalizedUrl('/settings', '', '', 'en')).toBeNull();
     });
 });
