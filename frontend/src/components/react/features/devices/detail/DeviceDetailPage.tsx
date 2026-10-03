@@ -151,7 +151,7 @@ export function DeviceDetailPage({
         if (!deviceId) return;
         void getDeviceById(deviceId);
     }, [deviceId]);
-    
+
     /**
      * Get the device status
      * @returns {DeviceStatus | null} The device status or null if the device is not available.
