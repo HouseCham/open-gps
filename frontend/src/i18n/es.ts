@@ -444,7 +444,7 @@ export const es: Translation = {
         home: {
             title: 'Inicio',
             eyebrow: 'Tu espacio de rastreo',
-            heading: 'Sabe dónde están tus dispositivos.',
+            heading: 'Nunca pierdas de vista tus dispositivos.',
             sub: 'Open GPS mantiene la ubicación en vivo, el historial y el acceso en un solo lugar, en infraestructura que tú controlas.',
             actions: {
                 viewDevices: 'Ver dispositivos',

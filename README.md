@@ -84,3 +84,7 @@ Then visit `https://localhost`. The browser will warn about the self-signed cert
 - `docs/tools/MIGRATE.md` — migration workflow
 
 API and frontend services are not exposed directly — all traffic goes through nginx.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Ramsés Ramírez Vallejo.
