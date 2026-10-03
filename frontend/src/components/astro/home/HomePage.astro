@@ -1,0 +1,216 @@
+---
+import '@/styles/home.css';
+import '@/styles/ui/button.css';
+//-- i18n
+import type { Translation } from '@/i18n';
+//-- Types
+import type { Language } from '@/types';
+//-- Constants
+import { REPOSITORY_URL } from '@/constants';
+//-- Icons
+import { Crosshair, Globe, History, Lock, Share2, TrendingUp } from '@lucide/astro';
+/**
+ * @interface Props
+ * @property {Language} locale - Current locale code.
+ * @property {Translation['page']['home']} translations - Home page copy.
+ */
+interface Props {
+    locale: Language;
+    translations: Translation['page']['home'];
+}
+
+const { locale, translations: t } = Astro.props;
+const href = (path: string): string => `/${locale}${path}`;
+
+/**
+ * @constant HOME_FEATURES
+ * @description An array of feature objects for the home page, each containing an icon, copy text, and a link.
+ * The `icon` is a component representing the feature visually, `copy` is the descriptive text, and `to` is the link to the feature's page.
+ */
+const HOME_FEATURES = [
+    { icon: Crosshair, copy: t.features.presence, to: href('/devices') },
+    { icon: History, copy: t.features.history, to: href('/reports') },
+    { icon: Share2, copy: t.features.sharing, to: href('/devices') },
+];
+/**
+ * @constant HOME_CAPABILITIES
+ * @description An array of capability objects for the home page, each containing an icon, copy text, and a link.
+ * The `icon` is a component representing the capability visually, `copy` is the descriptive text, and `to` is the link to the capability's page.
+ * The `external` property indicates whether the link is external (true) or internal (false).
+ */
+const HOME_CAPABILITIES = [
+    { icon: TrendingUp, copy: t.capabilities.reports, to: href('/reports') },
+    { icon: Lock, copy: t.capabilities.access, to: href('/access') },
+    { icon: Globe, copy: t.capabilities.local, to: REPOSITORY_URL, external: true },
+];
+---
+
+<section class="home-header">
+    <div>
+        <div class="home-eyebrow">{t.eyebrow}</div>
+        <h1>{t.heading}</h1>
+        <p class="home-header-sub">{t.sub}</p>
+    </div>
+    <div class="home-header-actions">
+        <a class="btn btn-secondary btn-md" href={href('/devices')}>
+            {t.actions.viewDevices}
+        </a>
+    </div>
+</section>
+
+<div class="home-grid">
+    <section class="home-panel home-map-panel">
+        <div class="home-panel-head">
+            <div>
+                <h2 class="home-panel-title">{t.live.title}</h2>
+                <p class="home-panel-sub">{t.live.sub}</p>
+            </div>
+            <div class="home-panel-head-meta">
+                <span class="home-status">{t.live.status}</span>
+                <span class="home-sample">{t.live.sample}</span>
+            </div>
+        </div>
+        <div class="home-map-art">
+            <svg
+                class="home-map-svg"
+                viewBox="0 0 720 300"
+                role="img"
+                aria-label={t.live.mapAlt}
+            >
+                <path
+                    class="home-map-road"
+                    d="M-30 218 C90 170 124 244 230 192 S390 92 488 140 S604 215 750 116"
+                ></path>
+                <path
+                    class="home-map-road"
+                    d="M72 -20 C130 55 105 126 174 178 S294 250 354 325"
+                ></path>
+                <path
+                    class="home-map-road"
+                    d="M438 -20 C406 66 454 99 422 168 S468 244 540 330"
+                ></path>
+                <path
+                    class="home-map-road"
+                    d="M-20 86 C94 72 164 112 248 94 S420 42 740 70"
+                ></path>
+                <path
+                    class="home-map-route"
+                    d="M112 194 C188 198 216 151 284 160 S388 218 466 174 S545 122 614 88"
+                ></path>
+                <text class="home-map-label" x="76" y="72">{t.live.mapLabels.northLoop}</text>
+                <text class="home-map-label" x="516" y="244">{t.live.mapLabels.eastDepot}</text>
+                <text class="home-map-label" x="294" y="56">{t.live.mapLabels.cityCentre}</text>
+                <circle class="home-map-node-ring" cx="112" cy="194" r="12"
+                ></circle>
+                <circle class="home-map-node" cx="112" cy="194" r="5"></circle>
+                <circle class="home-map-node-ring" cx="284" cy="160" r="12"
+                ></circle>
+                <circle class="home-map-node" cx="284" cy="160" r="5"></circle>
+                <circle class="home-map-node-ring" cx="614" cy="88" r="12"
+                ></circle>
+                <circle class="home-map-node" cx="614" cy="88" r="5"></circle>
+            </svg>
+            <div class="home-map-card">
+                <div class="home-map-card-title">{t.live.cardTitle}</div>
+                <div class="home-map-card-meta">{t.live.cardMeta}</div>
+            </div>
+        </div>
+        <div class="home-map-legend">
+            <span class="home-legend-item">
+                <span class="home-legend-line"></span>
+                {t.live.legendRoute}
+            </span>
+            <span class="home-legend-item">
+                <span class="home-legend-node"></span>
+                {t.live.legendNode}
+            </span>
+            <span class="home-legend-item">{t.live.legendSse}</span>
+        </div>
+    </section>
+
+    <div class="home-feature-stack">
+        {
+            HOME_FEATURES.map(({ icon: Icon, copy, to }) => (
+                <article class="home-feature-card">
+                    <div class="home-feature-mark">
+                        <Icon stroke-width={1.6} />
+                    </div>
+                    <div>
+                        <h3>{copy.title}</h3>
+                        <p>{copy.desc}</p>
+                        <a class="home-feature-link" href={to}>
+                            {copy.link} →
+                        </a>
+                    </div>
+                </article>
+            ))
+        }
+    </div>
+</div>
+
+<section class="home-section">
+    <div class="home-section-head">
+        <div>
+            <div class="home-section-code">{t.capabilities.code}</div>
+            <h2>{t.capabilities.heading}</h2>
+        </div>
+        <p class="home-section-desc">{t.capabilities.desc}</p>
+    </div>
+    <div class="home-capability-grid">
+        {
+            HOME_CAPABILITIES.map(({ icon: Icon, copy, to, external }) => (
+                <article class="home-capability">
+                    <div class="home-feature-mark">
+                        <Icon stroke-width={1.6} />
+                    </div>
+                    <h3>{copy.title}</h3>
+                    <p>{copy.desc}</p>
+                    <div class="home-capability-foot">
+                        <span>{copy.foot}</span>
+                        <a
+                            href={to}
+                            {...(external
+                                ? { target: '_blank', rel: 'noopener noreferrer' }
+                                : {})}
+                        >
+                            {copy.link} →
+                        </a>
+                    </div>
+                </article>
+            ))
+        }
+    </div>
+</section>
+
+<section class="home-split home-section">
+    <!-- Ownership Section -->
+    <div class="home-ownership">
+        <div>
+            <div class="home-eyebrow">{t.ownership.eyebrow}</div>
+            <h2>{t.ownership.heading}</h2>
+            <p>{t.ownership.desc}</p>
+        </div>
+        <a class="btn btn-secondary btn-md" href={href('/settings')}>
+            {t.ownership.cta} <span aria-hidden="true">→</span>
+        </a>
+    </div>
+    <!-- Protocol Section -->
+    <div class="home-protocol">
+        <h3>{t.protocol.title}</h3>
+        <div class="home-protocol-list">
+            {
+                t.protocol.rows.map((row) => (
+                    <div class="home-protocol-row">
+                        <span>{row.label}</span>
+                        <span>{row.value}</span>
+                    </div>
+                ))
+            }
+        </div>
+    </div>
+</section>
+
+<div class="home-footer-note">
+    <span>{t.footer.left}</span>
+    <span>{t.footer.right}</span>
+</div>
