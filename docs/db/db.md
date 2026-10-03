@@ -5,47 +5,54 @@ PostgreSQL database for the GPS Tracker API. Managed via [golang-migrate](https:
 ## Entity Relationship
 
 ```
-┌──────────────┐     ┌──────────────────────┐     ┌─────────────────┐
-│    users     │     │  user_device_access  │     │    devices      │
-│──────────────│     │──────────────────────│     │─────────────────│
-│ id (PK)      │◄───┼┤ user_id (PK, FK)    │◄────┤ id (PK)         │
-│ email        │     │ device_id (PK, FK)   ├─────│ uuid_firmware   │
-│ name         │     │ role                 │     │ name            │
-│ lastname     │     │ created_at           │     │ vehicle_type    │
-│ role (enum)  │     │ deleted_at           │     │ created_at      │
-│ created_at   │     └──────────────────────┘     │ last_contact_at    │
-│ updated_at   │                                  │ deleted_at      │
-│ deleted_at   │                                  └────────┬────────┘
-└──────────────┘                                           │
-                                    │                       │          │
-                           ┌─────────▼──────────┐   ┌───────▼──────────┐
-                           │     locations       │   │ device_api_keys  │
-                           │────────────────────│   │──────────────────│
-                           │ device_id (PK, FK)  │   │ id (PK)          │
-                           │ recorded_at (PK)    │   │ device_id (FK)   │
-                           │ latitude            │   │ key_hash         │
-                           │ longitude           │   │ created_at       │
-                           │ altitude            │   │ expires_at       │
-                           │ speed               │   │ last_used_at     │
-                           │ accuracy            │   │ deleted_at       │
-                           │ battery_voltage     │   └──────────────────┘
-                           │ signal_strength     │
-                           └────────────────────┘
+┌──────────────────────┐     ┌──────────────────────┐     ┌─────────────────┐
+│        users         │     │  user_device_access  │     │     devices     │
+│──────────────────────│     │──────────────────────│     │─────────────────│
+│ id (PK)              │◄────┤ user_id (PK, FK)     │     │ id (PK)         │
+│ email                │     │ device_id (PK, FK)   ├─────│ uuid_firmware   │
+│ name                 │     │ role                 │     │ name            │
+│ lastname             │     │ created_at           │     │ vehicle_type    │
+│ role (enum)          │     │ deleted_at           │     │ created_at      │
+│ email_verified       │     │                      │     │ last_contact_at │
+│ image                │     │                      │     │ deleted_at      │
+│ must_change_password │     │                      │     │                 │
+│ created_at           │     │                      │     │                 │
+│ updated_at           │     │                      │     │                 │
+│ deleted_at           │     │                      │     │                 │
+└───────────┬──────────┘     └──────────────────────┘     └────────┬────────┘
+            │                                                      │
+            │                            ┌─────────────────────────┴─────────────────┐
+┌───────────▼───────────┐  ┌─────────────▼─────────────┐                ┌────────────▼────────────┐
+│ password_reset_tokens │  │         locations         │                │     device_api_keys     │
+│───────────────────────│  │───────────────────────────│                │─────────────────────────│
+│ user_id (FK, CASCADE) │  │ device_id (PK, FK)        │                │ id (PK)                 │
+│ token_hash (UNIQUE)   │  │ recorded_at (PK, part.)   │                │ device_id (FK)          │
+│ ip_address            │  │ latitude / longitude      │                │ key_hash                │
+│ expires_at            │  │ altitude / speed          │                │ created_at              │
+│ used_at               │  │ accuracy                  │                │ expires_at              │
+│ created_at            │  │ battery_voltage           │                │ last_used_at            │
+│                       │  │ signal_strength           │                │ deleted_at              │
+└───────────────────────┘  └───────────────────────────┘                └─────────────────────────┘
 ```
+
+Tables not shown in the diagram: `device_share_links` (guest share links, see Tables below) and `location_ingest_keys` (batch idempotency, FK → devices RESTRICT).
 
 ## Tables
 
 ### users
 
-Local projection of Authula-authenticated users. Created lazily on first JWT-authenticated request.
+Local projection of Authula-authenticated users. Created lazily on the first authenticated request — the `AuthSession` middleware materialises the row from the session cookie.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | `uuid` | `PK DEFAULT gen_random_uuid()` | User identifier |
 | email | `varchar(255)` | `NOT NULL UNIQUE` | User email address |
-| name | `varchar(100)` | `NOT NULL DEFAULT ''` | User first name |
+| email_verified | `boolean` | `NOT NULL DEFAULT FALSE` | Authula email-verification flag |
+| image | `text` | `NULL` | Avatar URL from Authula |
+| name | `varchar(255)` | `NOT NULL DEFAULT ''` | User first name |
 | lastname | `varchar(100)` | `NOT NULL DEFAULT ''` | User last name |
 | role | `user_role` | `NOT NULL DEFAULT 'user'` | Global role: `user` or `super_admin` |
+| must_change_password | `boolean` | `NOT NULL DEFAULT TRUE` | Blocks API until a temp password is changed |
 | created_at | `timestamptz` | `NOT NULL DEFAULT NOW()` | Row creation timestamp |
 | updated_at | `timestamptz` | `NOT NULL DEFAULT NOW()` | Row last update timestamp |
 | deleted_at | `timestamptz` | `NULL` | Soft-delete timestamp |
@@ -53,6 +60,7 @@ Local projection of Authula-authenticated users. Created lazily on first JWT-aut
 Constraints:
 - Only one row can have `role = 'super_admin'` (partial unique index)
 - `super_admin` role cannot be changed or deleted (PL/pgSQL triggers)
+- All users can soft-delete their own account except `super_admin`
 - Email uniqueness enforced with `UNIQUE` constraint
 
 ### devices
@@ -126,7 +134,7 @@ Design decisions:
 - Partial unique index on `key_hash WHERE deleted_at IS NULL` allows key rotation: a new key with the same token can be issued after the old one is revoked
 - The plain token is returned by `POST /api/v1/devices/:id/api-keys` exactly once and never stored
 - Tokens are 32-byte base64url-encoded random values (256 bits of entropy)
-- One active token per device at a time: creating a new key soft-deletes the prior one
+- One active token per device at a time: `POST .../api-keys` returns 409 if an active key exists — revoke first, then issue
 
 ### device_share_links
 
@@ -148,9 +156,34 @@ Guest access also verifies that the device is not soft-deleted. Expired and
 revoked rows remain for audit and are excluded from active-link listing and
 guest authorization.
 
+### password_reset_tokens
+
+One-time-use password reset tokens (migration 018). The raw token is sent only by email; the DB stores its SHA-256 hash, so a DB leak does not yield working reset links. The `UNIQUE` index on `token_hash` is the lookup path used by consume.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | `uuid` | `PK DEFAULT gen_random_uuid()` | Token identifier |
+| user_id | `uuid` | `NOT NULL, FK → users(id) ON DELETE CASCADE` | Token owner |
+| token_hash | `text` | `NOT NULL UNIQUE` | SHA-256 of the raw reset token |
+| ip_address | `text` | `NOT NULL` | Requesting IP (rate-limit probe) |
+| expires_at | `timestamptz` | `NOT NULL` | Expiry (1 hour after issue) |
+| used_at | `timestamptz` | `NULL` | Set when the token is consumed |
+| created_at | `timestamptz` | `NOT NULL DEFAULT NOW()` | Issue time |
+
+### location_ingest_keys
+
+Global idempotency keys for device batch ingestion (migration 021). Not partitioned, so uniqueness is enforced across all location partitions.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| device_id | `uuid` | `PK, FK → devices(id) ON DELETE RESTRICT` | Device identifier |
+| sequence_id | `bigint` | `PK, CHECK (sequence_id > 0)` | Client-assigned batch sequence |
+| recorded_at | `timestamptz` | `NOT NULL` | Batch timestamp (first point) |
+| created_at | `timestamptz` | `NOT NULL DEFAULT NOW()` | Insert time |
+
 ## Foreign Key Rules
 
-All foreign keys use `ON DELETE RESTRICT` — no CASCADE deletes anywhere. This prevents accidental data loss: you cannot delete a user or device that has active references in child tables without explicitly revoking/removing those references first.
+Almost all foreign keys use `ON DELETE RESTRICT` — you cannot delete a user or device that has active references in child tables without revoking/removing those references first. The one exception is `password_reset_tokens.user_id`, which cascades so a hard-deleted user takes their short-lived reset tokens with them.
 
 | Child Table | Parent Table | FK Column | Rule |
 |-------------|-------------|-----------|------|
@@ -160,6 +193,8 @@ All foreign keys use `ON DELETE RESTRICT` — no CASCADE deletes anywhere. This 
 | device_api_keys | devices | device_id | RESTRICT |
 | device_share_links | devices | device_id | RESTRICT |
 | device_share_links | users | created_by | RESTRICT |
+| password_reset_tokens | users | user_id | **CASCADE** |
+| location_ingest_keys | devices | device_id | RESTRICT |
 
 ## Soft Deletes
 

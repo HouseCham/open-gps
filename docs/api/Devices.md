@@ -66,20 +66,19 @@ Cookie: authula.session_token=<cookie>
     "items": [
       {
         "id": "550e8400-e29b-41d4-a716-446655440000",
-        "uuid_firmware": "esp32-001",
+        "uuid_firmware": "0f8fad5b-d9cb-469f-a165-70867728950e",
         "name": "Living Room GPS",
         "vehicle_type": "car",
         "created_at": "2024-01-15T10:30:00Z",
-        "last_seen_at": "2024-06-10T08:45:00Z",
+        "last_contact_at": "2024-06-10T08:45:00Z",
         "access_role": "owner"
       },
       {
         "id": "550e8400-e29b-41d4-a716-446655440001",
-        "uuid_firmware": "esp32-002",
+        "uuid_firmware": "1f8fad5b-d9cb-469f-a165-70867728950f",
         "name": "Bike Tracker",
         "vehicle_type": "bicycle",
         "created_at": "2024-02-20T14:00:00Z",
-        "last_seen_at": null,
         "access_role": "editor"
       }
     ],
@@ -99,7 +98,7 @@ Cookie: authula.session_token=<cookie>
 - `name` — Human-readable device name
 - `vehicle_type` — Vehicle category: `bicycle`, `motorcycle`, `car`, `truck`, `van`, or `other`
 - `created_at` — ISO 8601 timestamp when device was registered
-- `last_seen_at` — ISO 8601 timestamp of last IoT ping (null if never seen)
+- `last_contact_at` — ISO 8601 timestamp of last IoT ping (field omitted when the device has never pinged)
 - `access_role` — User's role on this device: `owner`, `editor`, or `viewer`
 
 **Fields (`pagination`):**
@@ -107,6 +106,39 @@ Cookie: authula.session_token=<cookie>
 - `page_size` — Items per page
 - `total` — Total number of devices
 - `total_pages` — Total number of pages
+
+---
+
+### GET /api/v1/devices/count
+
+Returns the total number of devices the authenticated user has access to, without fetching rows. Useful for badges/profile pages.
+
+**Authorization:** Any authenticated user.
+
+**Request**
+
+```
+GET /api/v1/devices/count
+Cookie: authula.session_token=<cookie>
+```
+
+**Response `200 OK`**
+
+```json
+{
+  "status_code": 200,
+  "message": "device count retrieved",
+  "data": {
+    "total": 2
+  }
+}
+```
+
+**Fields (`data`):**
+- `total` — Number of devices the caller has access to
+
+**Error Responses**
+- `401` — Unauthorized
 
 ---
 
@@ -133,11 +165,11 @@ Cookie: authula.session_token=<cookie>
   "message": "device retrieved",
   "data": {
     "id": "550e8400-e29b-41d4-a716-446655440000",
-    "uuid_firmware": "esp32-001",
+    "uuid_firmware": "0f8fad5b-d9cb-469f-a165-70867728950e",
     "name": "Living Room GPS",
     "vehicle_type": "car",
     "created_at": "2024-01-15T10:30:00Z",
-    "last_seen_at": "2024-06-10T08:45:00Z",
+    "last_contact_at": "2024-06-10T08:45:00Z",
     "access_role": "owner",
     "users": [
       {
@@ -167,11 +199,11 @@ Cookie: authula.session_token=<cookie>
   "message": "device retrieved",
   "data": {
     "id": "550e8400-e29b-41d4-a716-446655440000",
-    "uuid_firmware": "esp32-001",
+    "uuid_firmware": "0f8fad5b-d9cb-469f-a165-70867728950e",
     "name": "Living Room GPS",
     "vehicle_type": "car",
     "created_at": "2024-01-15T10:30:00Z",
-    "last_seen_at": "2024-06-10T08:45:00Z",
+    "last_contact_at": "2024-06-10T08:45:00Z",
     "access_role": "viewer",
     "users": []
   }
@@ -184,7 +216,7 @@ Cookie: authula.session_token=<cookie>
 - `name` — Human-readable device name
 - `vehicle_type` — Vehicle category: `bicycle`, `motorcycle`, `car`, `truck`, `van`, or `other`
 - `created_at` — ISO 8601 timestamp when device was registered
-- `last_seen_at` — ISO 8601 timestamp of last IoT ping (null if never seen)
+- `last_contact_at` — ISO 8601 timestamp of last IoT ping (field omitted when the device has never pinged)
 - `access_role` — Caller's role on this device: `owner`, `editor`, or `viewer`
 - `users` — Array of every user that has (non-deleted) access to the device; populated only when `access_role` is `owner`, always `[]` otherwise
 
@@ -216,7 +248,7 @@ Cookie: authula.session_token=<cookie>
 Content-Type: application/json
 
 {
-  "uuid_firmware": "esp32-003",
+  "uuid_firmware": "2f8fad5b-d9cb-469f-a165-708677289510",
   "name": "Office Tracker",
   "vehicle_type": "car"
 }
@@ -237,11 +269,10 @@ Content-Type: application/json
   "message": "device created",
   "data": {
     "id": "550e8400-e29b-41d4-a716-446655440002",
-    "uuid_firmware": "esp32-003",
+    "uuid_firmware": "2f8fad5b-d9cb-469f-a165-708677289510",
     "name": "Office Tracker",
     "vehicle_type": "car",
-    "created_at": "2024-06-14T12:00:00Z",
-    "last_seen_at": null
+    "created_at": "2024-06-14T12:00:00Z"
   }
 }
 ```
@@ -286,11 +317,11 @@ Content-Type: application/json
   "message": "device updated",
   "data": {
     "id": "550e8400-e29b-41d4-a716-446655440000",
-    "uuid_firmware": "esp32-001",
+    "uuid_firmware": "0f8fad5b-d9cb-469f-a165-70867728950e",
     "name": "New Device Name",
     "vehicle_type": "van",
     "created_at": "2024-01-15T10:30:00Z",
-    "last_seen_at": "2024-06-10T08:45:00Z"
+    "last_contact_at": "2024-06-10T08:45:00Z"
   }
 }
 ```
@@ -472,13 +503,13 @@ No response body is returned.
 
 IoT devices authenticate to the API not with a session cookie but with a per-device opaque lookup token carried in the `X-Device-API-Key` header. The owner of a device issues the token through these endpoints and flashes it onto the device firmware.
 
-A device has **at most one active key at any time**. Creating a new key soft-deletes the prior active key so the firmware update path stays a single-value lookup and a stolen firmware blob can be revoked by rotation alone.
+A device has **at most one active key at any time** (enforced in the service pre-check and by a partial UNIQUE index). To rotate, revoke the current key first with `DELETE`, then issue a new one with `POST` — issuing while a key is active returns `409 conflict`.
 
 The plain token is returned **only at creation time**. `GET` and `DELETE` never surface it; the backend has no copy outside the response payload.
 
 ### POST /api/v1/devices/:id/api-keys
 
-Issues a fresh key for the device. Revokes any prior active key in the same transaction so the single-active invariant always holds.
+Issues a fresh key for the device. Fails with `409 conflict` if the device already has an active key — revoke it first (two-step rotation).
 
 **Authorization:** Requires `owner` access role on the device.
 
@@ -509,12 +540,14 @@ No request body.
 - `id` — UUID of the new key row
 - `created_at` — ISO 8601 timestamp
 - `plain_key` — The lookup token to flash onto the device. **Returned exactly once.** Store it in the firmware's secure storage (NVS / Preferences) and never log it.
+- `last_used_at`, `expires_at` — Present only once set (omitted while null)
 
 **Error Responses**
 - `400` — Invalid device id
 - `401` — Unauthorized
 - `403` — Caller is not the device owner
 - `404` — Device does not exist or caller has no access
+- `409` — Device already has an active API key (revoke it first)
 
 ---
 

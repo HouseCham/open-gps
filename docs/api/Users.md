@@ -40,7 +40,7 @@ All responses follow a consistent envelope format:
 | Role | Description |
 |------|-------------|
 | `user` | Standard user — can only access/modify their own profile |
-| `super_admin` | Administrator — can list all users, create users, and delete any user |
+| `super_admin` | Administrator — can list all users, create users, and delete any user (not their own account) |
 
 Role hierarchy: `user (1) < super_admin (2)`
 
@@ -131,7 +131,6 @@ Cookie: authula.session_token=<cookie>
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "email": "john@example.com",
     "email_verified": true,
-    "image": null,
     "name": "John",
     "lastname": "Doe",
     "role": "user",
@@ -140,7 +139,7 @@ Cookie: authula.session_token=<cookie>
     "devices": [
       {
         "id": "660e8400-e29b-41d4-a716-446655440000",
-        "uuid_firmware": "esp32-001",
+        "uuid_firmware": "0f8fad5b-d9cb-469f-a165-70867728950e",
         "name": "Living Room GPS"
       }
     ],
@@ -175,6 +174,44 @@ Cookie: authula.session_token=<cookie>
 - `401` — Unauthorized
 - `403` — Forbidden (not the user themselves and not a super_admin)
 - `404` — User not found
+
+---
+
+### GET /api/v1/users/me
+
+Returns the local projection (`dto.UserResponse`: role, lastname, image, `must_change_password`, `created_at`, …) for the currently authenticated user. Distinct from `GET /api/auth/me`, which returns the minimal Authula projection (`id`, `email`, `name`) consumed by `authService.getSession` on the client.
+
+**Authorization:** Any authenticated user.
+
+**Request**
+
+```
+GET /api/v1/users/me
+Cookie: authula.session_token=<cookie>
+```
+
+**Response `200 OK`**
+
+```json
+{
+  "status_code": 200,
+  "message": "user retrieved",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "owner@example.com",
+    "email_verified": true,
+    "name": "Olivia",
+    "lastname": "Owner",
+    "role": "user",
+    "must_change_password": false,
+    "created_at": "2026-06-10T08:00:00Z"
+  }
+}
+```
+
+**Error Responses**
+- `401` — Unauthorized
+- `403` — `must_change_password` is true
 
 ---
 
@@ -215,7 +252,6 @@ Content-Type: application/json
     "id": "550e8400-e29b-41d4-a716-446655440002",
     "email": "newuser@example.com",
     "email_verified": false,
-    "image": null,
     "name": "New",
     "lastname": "User",
     "role": "user",
@@ -278,7 +314,6 @@ Content-Type: application/json
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "email": "john@example.com",
     "email_verified": true,
-    "image": null,
     "name": "John",
     "lastname": "UpdatedLastName",
     "role": "user",
@@ -301,8 +336,8 @@ Content-Type: application/json
 Soft-deletes a user by setting `deleted_at = NOW()`. The user row is NOT physically removed. This operation is idempotent — re-deleting an already-deleted user succeeds silently.
 
 **Authorization:**
-- `super_admin` — can delete any user
-- Same user ID as the requesting user — can delete their own account
+- `super_admin` — can delete any user **except their own account**
+- Same user ID as the requesting user — can delete their own account (unless they are the `super_admin`)
 - Otherwise → 403 Forbidden
 
 **Request**
@@ -317,7 +352,7 @@ Cookie: authula.session_token=<cookie>
 **Error Responses**
 - `400` — Invalid user ID
 - `401` — Unauthorized
-- `403` — Forbidden (not the user themselves and not a super_admin)
+- `403` — Forbidden (not the user themselves and not a super_admin; also returned when a `super_admin` tries to delete their own account)
 - `404` — User not found
 
 ---
@@ -326,6 +361,6 @@ Cookie: authula.session_token=<cookie>
 
 - All timestamps are in ISO 8601 format (UTC).
 - Soft-deleted users are filtered out of all queries — they are effectively invisible to the API.
-- The `super_admin` role is unique (enforced by a DB index) and cannot be deleted or transferred through the API.
+- The `super_admin` role is unique (enforced by a DB index). Any user can soft-delete their own account **except the `super_admin`**, whose role cannot be deleted or transferred through the API.
 - Device access relationships (`user_device_access`) are managed separately and are not affected by user deletion (RESTRICT foreign key).
 - New users created by an admin receive a `temporary_password` and `must_change_password = true`. They cannot use any `/api/v1/*` endpoint (except `/api/v1/auth/change-password`) until they change it.

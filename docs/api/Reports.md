@@ -314,7 +314,7 @@ Request` with `report export exceeds the maximum point limit`.
 | 400 | `format must be csv or gpx` | Export format is missing or unsupported |
 | 400 | `report export exceeds the maximum point limit` | Export contains more than 100,000 points |
 | 401 | `unauthorized` | Session cookie is missing or expired |
-| 403 | `must change password` | User must change the password before using application routes |
+| 403 | `must_change_password` | User must change the password before using application routes |
 
 Database or unexpected service failures use the API's standard error handler
 and are not represented as successful report responses.
