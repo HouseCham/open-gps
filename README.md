@@ -4,16 +4,7 @@ A self-hosted, open-source web application for real-time GPS tracking of IoT dev
 
 ## Architecture
 
-```
-                         ┌──────────────────┐
-iot/     →  backend/  →  │ nginx (reverse   │  →  browser
-(ESP32 +     (Go)        │ proxy + TLS)     │      https://localhost
-SIM7080G)                │                  │
-                         └──────────────────┘
-                                 ↑
-                           frontend/
-                           (Astro + React, static)
-```
+![Architecture Diagram](./frontend/public/img/open-gps-doc-img.webp)
 
 In local development, every component — the Astro SPA, the Go API, and Authula's auth routes — sits behind a single nginx reverse proxy on `https://localhost`. This keeps the http-only `authula.session_token` cookie on the same origin as the SPA, so the browser sends it on API calls without any cross-origin dance. See `nginx/README.md` for routing details.
 
