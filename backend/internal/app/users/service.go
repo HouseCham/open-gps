@@ -195,6 +195,10 @@ func (s *Service) SoftDeleteUser(ctx context.Context, requestingUserID, targetUs
 		return err
 	}
 
+	if requestingUser.Role == domain.UserRoleSuperAdmin && requestingUserID == targetUserID {
+		return domain.ErrForbidden
+	}
+
 	if requestingUser.Role != domain.UserRoleSuperAdmin && requestingUserID != targetUserID {
 		return domain.ErrForbidden
 	}

@@ -441,6 +441,21 @@ func TestUsersDelete(t *testing.T) {
 		}
 	})
 
+	t.Run("403 - super_admin cannot delete themselves", func(t *testing.T) {
+		ta := NewTestApp()
+
+		adminID := ta.SetupUser("token-admin", "authula-1", "admin@test.com", "Admin", domain.UserRoleSuperAdmin)
+
+		resp, err := ta.Request("DELETE", "/api/v1/users/"+adminID.String(), "token-admin", nil)
+		if err != nil {
+			t.Fatalf("request error: %v", err)
+		}
+
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("expected status 403, got %d", resp.StatusCode)
+		}
+	})
+
 	t.Run("204 - user deletes themselves", func(t *testing.T) {
 		ta := NewTestApp()
 
