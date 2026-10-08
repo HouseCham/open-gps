@@ -828,6 +828,22 @@ func TestSoftDeleteUser(t *testing.T) {
 		}
 	})
 
+	t.Run("super admin cannot delete themselves", func(t *testing.T) {
+		svc := NewService(&mockRepo{
+			getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.User, error) {
+				return superAdmin, nil
+			},
+			softDeleteUserFn: func(_ context.Context, _ uuid.UUID) error {
+				t.Error("repository SoftDeleteUser must not be called for super_admin self-delete")
+				return nil
+			},
+		}, &mockUserCreator{})
+		err := svc.SoftDeleteUser(ctx, superAdminID, superAdminID)
+		if !errors.Is(err, domain.ErrForbidden) {
+			t.Errorf("expected ErrForbidden, got %v", err)
+		}
+	})
+
 	t.Run("user can delete themselves", func(t *testing.T) {
 		var deleted bool
 		svc := NewService(&mockRepo{

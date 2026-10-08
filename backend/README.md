@@ -119,7 +119,7 @@ additional endpoints and authentication details.
 | GET | `/api/v1/users/:id` | Own profile or `super_admin`; includes paginated devices. |
 | POST | `/api/v1/users` | `super_admin`; creates a user with a temporary password. |
 | PUT | `/api/v1/users/:id` | Own profile only. |
-| DELETE | `/api/v1/users/:id` | Own account or `super_admin`; soft-deletes the user. |
+| DELETE | `/api/v1/users/:id` | Non-admins can soft-delete only their own account; `super_admin` can soft-delete any other user, but not themselves. |
 | POST | `/api/v1/auth/change-password` | Authenticated; excluded from the must-change-password gate. |
 | POST | `/api/v1/auth/generate-pwd-recovery-token` | Public after initialization; starts password recovery. |
 | POST | `/api/v1/auth/consume-pwd-recovery-token` | Public after initialization; consumes a recovery token. |

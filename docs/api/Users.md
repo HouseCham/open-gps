@@ -336,8 +336,8 @@ Content-Type: application/json
 Soft-deletes a user by setting `deleted_at = NOW()`. The user row is NOT physically removed. This operation is idempotent — re-deleting an already-deleted user succeeds silently.
 
 **Authorization:**
-- `super_admin` — can delete any user **except their own account**
-- Same user ID as the requesting user — can delete their own account (unless they are the `super_admin`)
+- `super_admin` — can delete any other user, but **cannot delete their own account**
+- Other users — can delete only their own account
 - Otherwise → 403 Forbidden
 
 **Request**
@@ -352,7 +352,7 @@ Cookie: authula.session_token=<cookie>
 **Error Responses**
 - `400` — Invalid user ID
 - `401` — Unauthorized
-- `403` — Forbidden (not the user themselves and not a super_admin; also returned when a `super_admin` tries to delete their own account)
+- `403` — Forbidden (a regular user targets another account, or a `super_admin` targets their own account)
 - `404` — User not found
 
 ---
@@ -361,6 +361,6 @@ Cookie: authula.session_token=<cookie>
 
 - All timestamps are in ISO 8601 format (UTC).
 - Soft-deleted users are filtered out of all queries — they are effectively invisible to the API.
-- The `super_admin` role is unique (enforced by a DB index). Any user can soft-delete their own account **except the `super_admin`**, whose role cannot be deleted or transferred through the API.
+- The `super_admin` role is unique (enforced by a DB index). Any user can soft-delete their own account except the `super_admin`, who cannot soft-delete their own account. The `super_admin` role cannot be changed or transferred through the API.
 - Device access relationships (`user_device_access`) are managed separately and are not affected by user deletion (RESTRICT foreign key).
 - New users created by an admin receive a `temporary_password` and `must_change_password = true`. They cannot use any `/api/v1/*` endpoint (except `/api/v1/auth/change-password`) until they change it.
