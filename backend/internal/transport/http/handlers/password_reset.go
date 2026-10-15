@@ -28,19 +28,20 @@ func NewPasswordResetHandler(svc *passwordreset.Service) *PasswordResetHandler {
 
 // GenerateRecoveryToken handles POST /api/v1/auth/generate-pwd-recovery-token.
 //
-// Always responds 202 — successful dispatch, rate-limit hit, and
-// unknown-email all look identical to the caller. This is the
-// anti-enumeration contract: a malicious client cannot tell from the
-// response whether the email exists in the system.
+// Always responds 202 with the same body — successful dispatch,
+// rate-limit hit, unknown email and upstream email failure all look
+// identical to the caller. This is the anti-enumeration contract: a
+// malicious client cannot tell from the response whether the email
+// exists in the system. The reset link destination is built
+// server-side from the configured public origin; the request cannot
+// influence it.
 //
 // Returns:
-//   - 202 Accepted (always, on the happy path): `data.message_id`
-//     echoes Resend's id when dispatch actually happened; the field
-//     is omitted otherwise (rate-limited or unknown email).
-//   - 400 when the body fails validation (e.g. malformed email,
-//     locale not in {en, es}, missing reset_password_url).
-//   - 502 when the upstream Resend call fails.
-//   - 500 for any other terminal error.
+//   - 202 Accepted on every path: the body carries no dispatch
+//     metadata (Resend's message id stays in server logs only).
+//   - 400 when the body fails validation (e.g. malformed email or
+//     locale not in {en, es}).
+//   - 502 for any other terminal error (DB, token store, etc.).
 func (h *PasswordResetHandler) GenerateRecoveryToken(c fiber.Ctx) error {
 	const operation = "PasswordResetHandler:GenerateRecoveryToken"
 	log.Debug(operation, "request received")
@@ -54,13 +55,19 @@ func (h *PasswordResetHandler) GenerateRecoveryToken(c fiber.Ctx) error {
 	res, err := h.service.Request(c.Context(), passwordreset.RequestInput{
 		Email:    req.Email,
 		Language: req.Locale,
-		ResetURL: req.ResetPasswordURL,
 		ClientIP: c.IP(),
 	})
 	if err != nil {
 		if errors.Is(err, email.ErrInvalidLanguage) {
 			log.Error(operation, "err", err, "locale", req.Locale)
 			return middleware.BadRequestResponse(c, "invalid language")
+		}
+		if errors.Is(err, passwordreset.ErrEmailDispatch) {
+			// Upstream email failed for a known address. Answer the
+			// same 202 as every other path — a distinct status would
+			// be an account-enumeration oracle.
+			log.Error(operation, "err", err, "to", req.Email)
+			return acceptedRecoveryResponse(c)
 		}
 		log.Error(operation, "err", err, "to", req.Email)
 		return c.Status(fiber.StatusBadGateway).JSON(response.HTTPResponse[bool]{
@@ -77,16 +84,16 @@ func (h *PasswordResetHandler) GenerateRecoveryToken(c fiber.Ctx) error {
 		log.Debug(operation, "request silently dropped", "reason", "rate-limited or unknown email")
 	}
 
-	// 202 with or without a message_id — both cases intentionally look
-	// the same to the client.
-	payload := dto.GeneratePasswordRecoveryTokenResponse{MessageID: res.MessageID}
-	if !res.Dispatched {
-		payload.MessageID = ""
-	}
-	return c.Status(fiber.StatusAccepted).JSON(response.HTTPResponse[dto.GeneratePasswordRecoveryTokenResponse]{
+	return acceptedRecoveryResponse(c)
+}
+
+// acceptedRecoveryResponse is the single wire answer for every
+// generate-token path. Extracted so the dispatched, dropped and
+// email-failure branches cannot drift into different bodies.
+func acceptedRecoveryResponse(c fiber.Ctx) error {
+	return c.Status(fiber.StatusAccepted).JSON(response.HTTPResponse[bool]{
 		StatusCode: fiber.StatusAccepted,
 		Message:    "password recovery token requested",
-		Data:       payload,
 	})
 }
 

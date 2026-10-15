@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -78,4 +79,39 @@ func LoadCORSOrigins() []string {
 		}
 	}
 	return origins
+}
+
+// LoadPublicOrigin returns the public application origin from
+// PUBLIC_APP_ORIGIN. It is used to build password-reset links
+// entirely server-side: the value must be a bare origin (scheme +
+// host, no path, query or fragment) so a request cannot influence
+// the link destination. Trailing slashes are stripped so callers
+// can concatenate paths directly.
+func LoadPublicOrigin() (string, error) {
+	v := os.Getenv("PUBLIC_APP_ORIGIN")
+	if v == "" {
+		return "", fmt.Errorf("public_app_origin is required")
+	}
+	u, err := url.Parse(v)
+	if err != nil {
+		return "", fmt.Errorf("public_app_origin is invalid: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", fmt.Errorf("public_app_origin must use http or https")
+	}
+	if u.Host == "" {
+		return "", fmt.Errorf("public_app_origin must include a host")
+	}
+	// userinfo (https://trusted.example@attacker.example) would make
+	// browsers navigate to the @-side host and leak the reset token.
+	if u.User != nil {
+		return "", fmt.Errorf("public_app_origin must not include userinfo")
+	}
+	if u.Path != "" && u.Path != "/" {
+		return "", fmt.Errorf("public_app_origin must not include a path")
+	}
+	if u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("public_app_origin must not include a query or fragment")
+	}
+	return strings.TrimSuffix(v, "/"), nil
 }

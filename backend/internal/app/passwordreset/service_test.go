@@ -131,17 +131,29 @@ type stubMailer struct {
 	mid       string
 	calls     int
 	resetURLs []string
+	err       error
 }
 
 func (s *stubMailer) SendPasswordReset(_ context.Context, in email.ResetInput) (string, error) {
 	s.calls++
 	s.resetURLs = append(s.resetURLs, in.ResetURL)
+	if s.err != nil {
+		return "", s.err
+	}
 	return s.mid, nil
+}
+
+// testOrigin is the configured public origin every test service is
+// built with; reset links must be prefixed with it.
+const testOrigin = "https://app.example.com"
+
+func testResetURLPrefix(locale string) string {
+	return testOrigin + "/" + locale + "/reset-password?token="
 }
 
 func newSvc(t *testing.T, repo *fakeRepo, users *stubUsers, reset *stubResetter, mail *stubMailer) *passwordreset.Service {
 	t.Helper()
-	return passwordreset.New(repo, repo, users, reset, mail, nil)
+	return passwordreset.New(repo, repo, users, reset, mail, testOrigin, nil)
 }
 
 func TestRequest_HappyPath_DispatchesAndReturnsMessageID(t *testing.T) {
@@ -155,7 +167,6 @@ func TestRequest_HappyPath_DispatchesAndReturnsMessageID(t *testing.T) {
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
 		Email:    "u@x.com",
 		Language: "en",
-		ResetURL: "https://app/reset?token=",
 	})
 	if err != nil {
 		t.Fatalf("Request: unexpected err: %v", err)
@@ -169,9 +180,66 @@ func TestRequest_HappyPath_DispatchesAndReturnsMessageID(t *testing.T) {
 	if mail.calls != 1 {
 		t.Errorf("mailer.calls = %d, want 1", mail.calls)
 	}
-	// The mailer must have received the raw token appended to the URL.
-	if got := mail.resetURLs[0]; len(got) <= len("https://app/reset?token=") {
-		t.Errorf("ResetURL = %q, expected raw token suffix", got)
+	// The mailer must have received a URL built from the configured
+	// origin + locale + fixed path, with the raw token appended.
+	prefix := testResetURLPrefix("en")
+	got := mail.resetURLs[0]
+	if len(got) <= len(prefix) || got[:len(prefix)] != prefix {
+		t.Errorf("ResetURL = %q, want prefix %q with token suffix", got, prefix)
+	}
+}
+
+func TestRequest_ResetURLIsBuiltServerSide_PerLocale(t *testing.T) {
+	cases := []struct {
+		locale string
+		prefix string
+	}{
+		{"en", testResetURLPrefix("en")},
+		{"es", testResetURLPrefix("es")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.locale, func(t *testing.T) {
+			repo := newFakeRepo()
+			users := &stubUsers{byEmail: map[string]*domain.User{
+				"u@x.com": {ID: uuid.New(), Email: "u@x.com", Name: "Ana"},
+			}}
+			mail := &stubMailer{mid: "m"}
+
+			svc := newSvc(t, repo, users, &stubResetter{}, mail)
+			if _, err := svc.Request(context.Background(), passwordreset.RequestInput{
+				Email:    "u@x.com",
+				Language: tc.locale,
+			}); err != nil {
+				t.Fatalf("Request: unexpected err: %v", err)
+			}
+			got := mail.resetURLs[0]
+			if len(got) <= len(tc.prefix) || got[:len(tc.prefix)] != tc.prefix {
+				t.Errorf("ResetURL = %q, want prefix %q", got, tc.prefix)
+			}
+		})
+	}
+}
+
+func TestRequest_MailerFailure_ReturnsErrEmailDispatch(t *testing.T) {
+	repo := newFakeRepo()
+	users := &stubUsers{byEmail: map[string]*domain.User{
+		"u@x.com": {ID: uuid.New(), Email: "u@x.com", Name: "Ana"},
+	}}
+	mail := &stubMailer{err: errors.New("resend down")}
+
+	svc := newSvc(t, repo, users, &stubResetter{}, mail)
+	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
+		Email:    "u@x.com",
+		Language: "en",
+	})
+	if !errors.Is(err, passwordreset.ErrEmailDispatch) {
+		t.Fatalf("err = %v, want ErrEmailDispatch", err)
+	}
+	if res.Dispatched {
+		t.Error("Dispatched=true despite mailer failure")
+	}
+	if res.MessageID != "" {
+		t.Errorf("MessageID = %q, want empty", res.MessageID)
 	}
 }
 
@@ -184,7 +252,6 @@ func TestRequest_UnknownEmail_ReturnsSilently(t *testing.T) {
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
 		Email:    "nobody@x.com",
 		Language: "en",
-		ResetURL: "https://app/reset?token=",
 	})
 	if err != nil {
 		t.Fatalf("Request: unexpected err: %v", err)
@@ -207,7 +274,8 @@ func TestRequest_RateLimitedByEmail_ReturnsSilently(t *testing.T) {
 
 	svc := newSvc(t, repo, users, &stubResetter{}, mail)
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
-		Email: "u@x.com", Language: "en", ResetURL: "https://app/reset?token=",
+		Email:    "u@x.com",
+		Language: "en",
 	})
 	if err != nil {
 		t.Fatalf("Request: unexpected err: %v", err)
@@ -232,7 +300,6 @@ func TestRequest_RateLimitedByIP_ReturnsSilently(t *testing.T) {
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
 		Email:    "u@x.com",
 		Language: "en",
-		ResetURL: "https://app/reset?token=",
 		ClientIP: "1.2.3.4",
 	})
 	if err != nil {
@@ -253,15 +320,16 @@ func TestConsume_HappyPath_RotatesAndClearsFlag(t *testing.T) {
 	}}
 	reset := &stubResetter{}
 	mail := &stubMailer{mid: "x"}
-	svc := passwordreset.New(repo, repo, users, reset, mail, nil)
+	svc := passwordreset.New(repo, repo, users, reset, mail, testOrigin, nil)
 
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
-		Email: "u@x.com", Language: "en", ResetURL: "https://app/reset?token=",
+		Email: "u@x.com", Language: "en",
 	})
 	if err != nil || !res.Dispatched {
 		t.Fatalf("setup: Request failed (err=%v, dispatched=%v)", err, res.Dispatched)
 	}
-	rawToken := mail.resetURLs[0][len("https://app/reset?token="):]
+	prefix := testResetURLPrefix("en")
+	rawToken := mail.resetURLs[0][len(prefix):]
 	if rawToken == "" {
 		t.Fatal("setup: empty raw token")
 	}
@@ -294,14 +362,14 @@ func TestConsume_SecondUseOfSameToken_ReturnsErrInvalidResetToken(t *testing.T) 
 		"u@x.com": {ID: uuid.New(), Email: "u@x.com", Name: "Ana"},
 	}}
 	mail := &stubMailer{mid: "x"}
-	svc := passwordreset.New(repo, repo, users, &stubResetter{}, mail, nil)
+	svc := passwordreset.New(repo, repo, users, &stubResetter{}, mail, testOrigin, nil)
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
-		Email: "u@x.com", Language: "en", ResetURL: "https://app/reset?token=",
+		Email: "u@x.com", Language: "en",
 	})
 	if err != nil || !res.Dispatched {
 		t.Fatalf("setup: Request failed (err=%v, dispatched=%v)", err, res.Dispatched)
 	}
-	rawToken := mail.resetURLs[0][len("https://app/reset?token="):]
+	rawToken := mail.resetURLs[0][len(testResetURLPrefix("en")):]
 
 	if err := svc.Consume(context.Background(), passwordreset.ConsumeInput{Token: rawToken, NewPassword: "newsecret"}); err != nil {
 		t.Fatalf("first Consume: unexpected err: %v", err)

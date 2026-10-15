@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -140,6 +141,18 @@ func main() {
 	})
 
 	//-- password recovery
+	// PUBLIC_APP_ORIGIN is the bare public origin reset links are
+	// built from (server-side; clients cannot influence it). Must be
+	// https whenever APP_ENV=production.
+	publicOrigin, err := config.LoadPublicOrigin()
+	if err != nil {
+		log.Error("load public origin", "err", err)
+		os.Exit(1)
+	}
+	if auth.IsProduction() && !strings.HasPrefix(publicOrigin, "https://") {
+		log.Error("PUBLIC_APP_ORIGIN must use https in production", "origin", publicOrigin)
+		os.Exit(1)
+	}
 	passwordResetTokens := postgres.NewPasswordResetTokensAdapter(pool)
 	passwordResetService := passwordreset.New(
 		passwordResetTokens,
@@ -147,6 +160,7 @@ func main() {
 		usersService,
 		authInstance.NewPasswordUpdater(),
 		emailService,
+		publicOrigin,
 		nil, // default clock = time.Now
 	)
 
