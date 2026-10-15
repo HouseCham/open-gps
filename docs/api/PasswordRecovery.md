@@ -26,11 +26,11 @@ All responses follow the standard envelope:
 
 | Status | Message | Meaning |
 |--------|---------|---------|
-| 400 | `invalid request body` | Body failed validation (missing fields, bad email, bad URL, weak password, etc.). |
+| 400 | `invalid request body` | Body failed validation (missing fields, bad email, weak password, etc.). |
 | 400 | `invalid language` | `locale` is not one of the configured languages (`en`, `es`). |
 | 400 | `invalid or expired token` | The consume token is unknown, expired, or already used. The three failure modes are deliberately indistinguishable on the wire — callers cannot probe token validity. |
 | 503 | `system not initialized` | System has zero users; the user must hit `/api/v1/system/bootstrap` first. |
-| 502 | `upstream email provider failed` | The Resend API rejected the call (network error, bad API key, suspended template, etc.). |
+| 502 | `upstream email provider failed` | Terminal non-email error (database, token store). Upstream Resend failures do NOT surface here — see the anti-enumeration note below. |
 | 500 | `internal server error` | Unhandled error. |
 
 ---
@@ -39,9 +39,9 @@ All responses follow the standard envelope:
 
 ### POST /api/v1/auth/generate-pwd-recovery-token
 
-Issues a single-use password-reset token and dispatches a locale-specific email via [Resend](https://resend.com). The frontend builds the full reset URL (origin + path, **without** the token) and passes it here; the server embeds the freshly-generated token in the URL it sends.
+Issues a single-use password-reset token and dispatches a locale-specific email via [Resend](https://resend.com). The reset link is built **entirely server-side** from the configured `PUBLIC_APP_ORIGIN`, the request locale and a fixed path (`/{locale}/reset-password?token=`); the raw token is appended last. The request cannot influence the link destination.
 
-**Anti-enumeration:** the response is identical for unknown emails, rate-limited requests, and successful dispatches. The server does not disclose whether the address exists. All three paths answer `202 Accepted`.
+**Anti-enumeration:** the response is identical for unknown emails, rate-limited requests, successful dispatches, and upstream email-provider failures. The server does not disclose whether the address exists. All paths answer `202 Accepted` with the same body; Resend's message id is kept in server logs only.
 
 **Rate limiting (per IP + per email, sliding 15-minute window):**
 - 3 requests per email
@@ -59,16 +59,14 @@ Content-Type: application/json
 ```json
 {
   "email": "user@example.com",
-  "locale": "en",
-  "reset_password_url": "https://app.example.com/reset?token="
+  "locale": "en"
 }
 ```
 
 | Field | Type | Required | Constraints | Description |
 |-------|------|----------|-------------|-------------|
 | `email` | string | yes | RFC-5322 email | Recipient address. Rendered in the template as `{{email}}` and used as the `To:` header. |
-| `locale` | string | yes | `"en"` or `"es"` | Selects which Resend template to render (`PASSWORD_RESET_EMAIL_TEMPLATE_EN_ID` / `PASSWORD_RESET_EMAIL_TEMPLATE_ES_ID`). |
-| `reset_password_url` | string | yes | RFC-3986 URL | The full URL the user will click. The server appends the raw token to this string verbatim, so it must end with the delimiter the frontend expects (typically `?token=`). |
+| `locale` | string | yes | `"en"` or `"es"` | Selects which Resend template to render (`PASSWORD_RESET_EMAIL_TEMPLATE_EN_ID` / `PASSWORD_RESET_EMAIL_TEMPLATE_ES_ID`) and which locale segment the reset link uses. |
 
 **Response `202 Accepted`**
 
@@ -76,15 +74,11 @@ Content-Type: application/json
 {
   "status_code": 202,
   "message": "password recovery token requested",
-  "data": {
-    "message_id": "71f3f9c8-7c8d-4c2a-9c1f-2b1c9d4f8e3a"
-  }
+  "data": false
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `message_id` | string | Resend's email id when dispatch actually happened. Empty string when the request was silently dropped (unknown email or rate-limit hit) — the response shape is the same regardless. |
+The body is byte-identical on every path; `data` is always `false` and carries no dispatch metadata.
 
 **Failure — validation error**
 
@@ -103,12 +97,6 @@ Content-Type: application/json
 
 ```json
 { "status_code": 400, "message": "invalid language" }
-```
-
-**Failure — Resend upstream error**
-
-```json
-{ "status_code": 502, "message": "upstream email provider failed" }
 ```
 
 ---
@@ -169,7 +157,7 @@ The three failure modes are deliberately indistinguishable on the wire. Callers 
 | Phase | What happens |
 |-------|--------------|
 | Issue | `generate-pwd-recovery-token` writes a row to `password_reset_tokens` containing the sha256 of a fresh 32-byte random token, the recipient's `user_id`, the request IP, and `expires_at = NOW() + 1h`. Any prior outstanding (unused, unexpired) tokens for the same user are marked used first — only the freshest link works. |
-| Dispatch | The raw token is appended to the caller's `reset_password_url` and sent in the email. The DB never sees the raw token; only the hash. |
+| Dispatch | The raw token is appended to the server-built reset URL (`PUBLIC_APP_ORIGIN` + `/{locale}/reset-password?token=`) and sent in the email. The DB never sees the raw token; only the hash. |
 | Consume | `consume-pwd-recovery-token` hashes the incoming token, looks it up, verifies it is unused and unexpired, stamps `used_at`, then rotates the Authula password and clears `must_change_password` on the local user. |
 | Race | The `MarkUsed` SQL includes `AND used_at IS NULL`, so a concurrent second consume affects zero rows. The service treats that as `invalid or expired token`. |
 | Expiry | A token whose `expires_at < NOW()` is invisible to the lookup query — consumed returns `invalid or expired token`. |
@@ -184,6 +172,7 @@ The handler is wired only if the env vars below are present at startup. Missing 
 
 | Variable | Purpose |
 |----------|---------|
+| `PUBLIC_APP_ORIGIN` | Bare public origin (scheme + host, no path) the reset link is built from, e.g. `https://app.example.com`. Required at startup; must be `https` when `APP_ENV=production`. |
 | `RESEND_API_KEY` | Resend API key used to authenticate every send. |
 | `EMAIL_FROM` | RFC-5322 From header, e.g. `Open GPS <noreply@open-gps.com>`. |
 | `PASSWORD_RESET_EMAIL_TEMPLATE_EN_ID` | Resend template id for the English password-reset email. |
@@ -197,7 +186,7 @@ The server passes the following variables to the Resend template engine. Variabl
 |----------|--------|---------|
 | `first_name` | local `users.name` | `"Jane"` |
 | `email` | recipient address | `"user@example.com"` |
-| `reset_password_url` | `request.reset_password_url` + raw token | `"https://app.example.com/reset?token=9b3f…"` |
+| `reset_password_url` | `PUBLIC_APP_ORIGIN` + `/{locale}/reset-password?token=` + raw token | `"https://app.example.com/en/reset-password?token=9b3f…"` |
 
 ## Database
 
