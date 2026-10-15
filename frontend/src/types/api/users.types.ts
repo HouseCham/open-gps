@@ -46,36 +46,34 @@ export interface ChangePasswordResponse {
 
 /**
  * Payload sent to POST /api/v1/auth/generate-pwd-recovery-token. The
- * server embeds the freshly-generated reset token in the URL it sends
- * by email, so the frontend only ships the prefix (typically
- * `${origin}/reset?token=`). The endpoint always answers 202 —
- * unknown emails and rate-limited requests are indistinguishable
- * from a successful dispatch.
+ * reset link is built entirely server-side from the configured
+ * public origin, the locale and a fixed path — the client cannot
+ * influence the destination. The endpoint always answers 202 —
+ * unknown emails, rate-limited requests and email-provider failures
+ * are indistinguishable from a successful dispatch.
  * @interface RequestPasswordRecoveryDto
  * @property {string} email - The user's email address.
  * @property {string} locale - Template locale (`"en"` or `"es"`).
- * @property {string} reset_password_url - URL prefix the reset link should land on.
  */
 export interface RequestPasswordRecoveryDto {
     email: string;
     locale: 'en' | 'es';
-    reset_password_url: string;
 }
 
 /**
  * Envelope returned by POST /api/v1/auth/generate-pwd-recovery-token.
- * `data.message_id` echoes Resend's id when dispatch actually
- * happened; it is the empty string when the request was silently
- * dropped (unknown email or rate-limit hit).
+ * `data` is always `false`; the response carries no dispatch metadata
+ * (Resend's message id stays in server logs only) so every path is
+ * identical on the wire.
  * @interface RequestPasswordRecoveryResponse
  * @property {number} status_code - The HTTP status code echoed back.
  * @property {string} message - Human-readable confirmation.
- * @property {{ message_id: string }} data - Resend's email id, or empty.
+ * @property {boolean} data - Always `false`.
  */
 export interface RequestPasswordRecoveryResponse {
     status_code: number;
     message: string;
-    data: { message_id: string };
+    data: boolean;
 }
 
 /**
