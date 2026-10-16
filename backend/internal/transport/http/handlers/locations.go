@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -16,6 +18,7 @@ import (
 	"github.com/HouseCham/gps-tracker/backend/internal/domain"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/dto"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/middleware"
+	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/ports"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/response"
 	"github.com/HouseCham/gps-tracker/backend/utils"
 )
@@ -25,20 +28,79 @@ const locationQueryTimeLayout = "2006-01-02T15:04:05"
 const (
 	defaultRouteMaxPoints = 1000
 	maxRouteMaxPoints     = 1000
+
+	// BA-11: caps for authenticated SSE streams. Process-wide and
+	// in-memory — correct only under the audit's single-instance
+	// constraint. ponytail: raise both once real capacity is measured.
+	maxAuthStreams        = 500
+	maxAuthStreamsPerUser = 5
 )
 
-type LocationsHandler struct {
-	service    *locations.Service
-	subscriber locations.LiveSubscriber
+// authStreamLimiter bounds authenticated SSE connections globally and
+// per user. acquire reserves a slot, release returns it; the Stream
+// handler wraps release in a sync.Once so each stream releases exactly
+// the slot it acquired.
+type authStreamLimiter struct {
+	mu      sync.Mutex
+	total   int
+	perUser map[uuid.UUID]int
 }
 
-// NewLocationsHandler creates a new LocationsHandler.
-func NewLocationsHandler(svc *locations.Service, subscribers ...locations.LiveSubscriber) *LocationsHandler {
-	var subscriber locations.LiveSubscriber
-	if len(subscribers) > 0 {
-		subscriber = subscribers[0]
+func newAuthStreamLimiter() *authStreamLimiter {
+	return &authStreamLimiter{perUser: make(map[uuid.UUID]int)}
+}
+
+func (l *authStreamLimiter) acquire(userID uuid.UUID) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.total >= maxAuthStreams || l.perUser[userID] >= maxAuthStreamsPerUser {
+		return false
 	}
-	return &LocationsHandler{service: svc, subscriber: subscriber}
+	l.total++
+	l.perUser[userID]++
+	return true
+}
+
+func (l *authStreamLimiter) release(userID uuid.UUID) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.total > 0 {
+		l.total--
+	}
+	if c := l.perUser[userID]; c <= 1 {
+		delete(l.perUser, userID)
+	} else {
+		l.perUser[userID] = c - 1
+	}
+}
+
+// streamAccessChecker is the slice of *access.AccessService the stream
+// needs: re-checking the viewer grant on every wake-up (BA-11).
+type streamAccessChecker interface {
+	RequireRole(ctx context.Context, userID, deviceID uuid.UUID, min domain.AccessRole) error
+}
+
+type LocationsHandler struct {
+	service       *locations.Service
+	subscriber    locations.LiveSubscriber
+	access        streamAccessChecker
+	sessionAuth   ports.SessionAuthenticator
+	sessionCookie string
+	streams       *authStreamLimiter
+}
+
+// NewLocationsHandler creates a new LocationsHandler. The access,
+// sessionAuth and sessionCookie dependencies are only used by Stream
+// (BA-11 revalidation); tests of other endpoints may pass nil for them.
+func NewLocationsHandler(svc *locations.Service, subscriber locations.LiveSubscriber, access streamAccessChecker, sessionAuth ports.SessionAuthenticator, sessionCookie string) *LocationsHandler {
+	return &LocationsHandler{
+		service:       svc,
+		subscriber:    subscriber,
+		access:        access,
+		sessionAuth:   sessionAuth,
+		sessionCookie: sessionCookie,
+		streams:       newAuthStreamLimiter(),
+	}
 }
 
 // Ingest handles POST /api/v1/devices/:uuid_firmware/locations.
@@ -184,13 +246,19 @@ func (h *LocationsHandler) Live(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(response.HTTPResponse[dto.LiveLocationResponse]{StatusCode: fiber.StatusOK, Message: "live location retrieved", Data: dto.LiveLocationFromDomain(value)})
 }
 
-// Stream handles GET /api/v1/devices/:id/locations/live/stream.
+// Stream handles GET /api/v1/devices/:id/locations/stream.
 // It returns a stream of live events for the device, including location updates and presence changes.
 // Access (viewer or higher) is enforced by middleware.RequireDeviceRole;
 // the device-existence check is therefore covered by that gate's
 // 404 path (security-through-obscurity on user_device_access).
+//
+// BA-11: the connection holds one global+per-user stream slot (429 when
+// over a cap) and the session and device grant are re-checked on every
+// loop wake-up, so a revoked session or grant stops the stream within
+// one wake-up — at most the 25s keepalive interval.
 func (h *LocationsHandler) Stream(c fiber.Ctx) error {
-	if _, ok := middleware.GetRequestUser(c); !ok {
+	user, ok := middleware.GetRequestUser(c)
+	if !ok {
 		return middleware.UnauthorizedResponse(c)
 	}
 	if h.subscriber == nil {
@@ -200,19 +268,43 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 	if err != nil {
 		return middleware.BadRequestResponse(c, "invalid device id")
 	}
+	// Over the cap is a controlled 429, not a hang or a leak: no
+	// subscription has been created at this point.
+	if !h.streams.acquire(user.ID) {
+		return c.Status(fiber.StatusTooManyRequests).JSON(response.HTTPResponse[bool]{
+			StatusCode: fiber.StatusTooManyRequests,
+			Message:    "too many live streams",
+		})
+	}
+	slotTransferred := false
+	defer func() {
+		if !slotTransferred {
+			h.streams.release(user.ID)
+		}
+	}()
+
 	events, unsubscribe := h.subscriber.Subscribe(deviceID)
-	// Ownership of the subscription transfers to the stream writer
-	// below: the handler returns as soon as the writer is registered,
-	// so a defer here would close the events channel before the
-	// writer ever drains it (BA-03). Until the transfer point (any
-	// error on the way to SendStreamWriter) the defer stays armed.
+	// Ownership of the subscription and the stream slot transfers to
+	// the stream writer below: the handler returns as soon as the
+	// writer is registered, so a defer here would close the events
+	// channel before the writer ever drains it (BA-03). Until the
+	// transfer point (any error on the way to SendStreamWriter) the
+	// defers stay armed.
 	subscriptionTransferred := false
 	defer func() {
 		if !subscriptionTransferred {
 			unsubscribe()
 		}
 	}()
+	var cleanupOnce sync.Once
+	cleanup := func() {
+		cleanupOnce.Do(func() {
+			unsubscribe()
+			h.streams.release(user.ID)
+		})
+	}
 
+	sessionToken := c.Cookies(h.sessionCookie)
 	initial, err := h.service.GetLive(c.Context(), deviceID, time.Now().UTC())
 	if err != nil {
 		return fmt.Errorf("LocationsHandler.Stream: get live snapshot: %w", err)
@@ -222,9 +314,10 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 	c.Set("Connection", "keep-alive")
 	c.Set("X-Accel-Buffering", "no")
 
+	slotTransferred = true
 	subscriptionTransferred = true
-	return c.SendStreamWriter(func(writer *bufio.Writer) {
-		defer unsubscribe()
+	err = c.SendStreamWriter(func(writer *bufio.Writer) {
+		defer cleanup()
 		const operation = "LocationsHandler:Stream"
 		if err := writeSSE(writer, locations.LiveEvent{ID: h.subscriber.NextID(), Kind: "snapshot", Snapshot: initial}); err != nil {
 			log.Error(operation, "err", err, "deviceID", deviceID, "stage", "snapshot")
@@ -239,7 +332,7 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 			case <-c.Context().Done():
 				return
 			case event, ok := <-events:
-				if !ok {
+				if !ok || !h.stillAuthorized(c, sessionToken, user.ID, deviceID) {
 					return
 				}
 				if err := writeSSE(writer, event); err != nil {
@@ -248,6 +341,12 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 				}
 				resetTimer(timer, event.Snapshot.Presence.ExpiresAt)
 			case <-ticker.C:
+				// The keepalive doubles as the revalidation beat: a
+				// revoked session or grant ends the stream here even
+				// when no location events are flowing.
+				if !h.stillAuthorized(c, sessionToken, user.ID, deviceID) {
+					return
+				}
 				if _, err := writer.WriteString(": keepalive\n\n"); err != nil {
 					log.Error(operation, "err", err, "deviceID", deviceID, "stage", "keepalive")
 					return
@@ -257,6 +356,9 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 					return
 				}
 			case <-timer.C:
+				if !h.stillAuthorized(c, sessionToken, user.ID, deviceID) {
+					return
+				}
 				snapshot, err := h.service.GetLive(c.Context(), deviceID, time.Now().UTC())
 				if err != nil {
 					log.Error(operation, "err", err, "deviceID", deviceID, "stage", "presence refresh")
@@ -270,6 +372,25 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 			}
 		}
 	})
+	if err != nil {
+		cleanup()
+	}
+	return err
+}
+
+// stillAuthorized re-checks at every loop wake-up that the session
+// still authenticates and the device grant still allows viewer. Any
+// failure ends the stream; the client's reconnect then gets a proper
+// 401/403 from the route middleware if it may not come back.
+func (h *LocationsHandler) stillAuthorized(c fiber.Ctx, sessionToken string, userID, deviceID uuid.UUID) bool {
+	if h.sessionAuth == nil || h.access == nil || sessionToken == "" {
+		return false
+	}
+	actor, err := h.sessionAuth.Authenticate(c.Context(), sessionToken)
+	if err != nil || actor == nil || actor.ID == "" {
+		return false
+	}
+	return h.access.RequireRole(c.Context(), userID, deviceID, domain.AccessRoleViewer) == nil
 }
 
 // writeSSE writes a single Server-Sent Event to the writer, wrapping any

@@ -341,3 +341,31 @@ type MockUserCreator struct {
 func (m *MockUserCreator) CreateUserWithPassword(ctx context.Context, name, email, password string) error {
 	return m.CreateErr
 }
+
+// MockLocationsRepository satisfies the locations Writer/Reader/LiveReader
+// ports for router-level stream tests (BA-11). GetLive reports the
+// requested device with no presence deadline, so the stream's presence
+// timer stays parked at its hourly default.
+type MockLocationsRepository struct{}
+
+func NewMockLocationsRepository() *MockLocationsRepository {
+	return &MockLocationsRepository{}
+}
+
+func (m *MockLocationsRepository) Insert(context.Context, domain.Location) error { return nil }
+
+func (m *MockLocationsRepository) GetLatest(_ context.Context, deviceID uuid.UUID) (domain.Location, error) {
+	return domain.Location{DeviceID: deviceID, RecordedAt: time.Now().UTC()}, nil
+}
+
+func (m *MockLocationsRepository) GetHistory(context.Context, uuid.UUID, time.Time, time.Time, int, int) ([]domain.Location, int, error) {
+	return nil, 0, nil
+}
+
+func (m *MockLocationsRepository) GetRoute(context.Context, uuid.UUID, time.Time, time.Time, int) ([]domain.Location, int, bool, error) {
+	return nil, 0, false, nil
+}
+
+func (m *MockLocationsRepository) GetLive(_ context.Context, deviceID uuid.UUID, _ time.Time, _ time.Duration, _ float64) (domain.LiveLocation, error) {
+	return domain.LiveLocation{DeviceID: deviceID}, nil
+}

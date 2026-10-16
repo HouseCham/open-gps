@@ -11,8 +11,10 @@ import (
 
 	"github.com/HouseCham/gps-tracker/backend/internal/app/access"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/devices"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/locations"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/users"
 	"github.com/HouseCham/gps-tracker/backend/internal/domain"
+	"github.com/HouseCham/gps-tracker/backend/internal/infra/live"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/dto"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/handlers"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/middleware"
@@ -29,12 +31,15 @@ type TestApp struct {
 	DevicesRepo       *MockDevicesRepository
 	UsersRepo         *MockUsersRepository
 	AccessRepo        *MockAccessRepository
+	LocationsRepo     *MockLocationsRepository
 	DevicesService    *devices.Service
 	UsersService      *users.Service
 	AccessService     *access.AccessService
 	DevicesHandler    *handlers.DevicesHandler
 	UsersHandler      *handlers.UsersHandler
 	AccessHandler     *handlers.AccessHandler
+	LocationsHandler  *handlers.LocationsHandler
+	LiveHub           *live.Hub
 	SessionCookieName string
 }
 
@@ -67,6 +72,8 @@ func NewTestApp(opts ...TestAppOption) *TestApp {
 		DevicesRepo:       NewMockDevicesRepository(),
 		UsersRepo:         NewMockUsersRepository(),
 		AccessRepo:        NewMockAccessRepository(),
+		LocationsRepo:     NewMockLocationsRepository(),
+		LiveHub:           live.NewHub(),
 		SessionCookieName: "authula.session_token",
 	}
 
@@ -145,6 +152,14 @@ func (ta *TestApp) registerRoutes() {
 		middleware.RequireDeviceRole(domain.AccessRoleOwner, ta.AccessService),
 		ta.getAccessHandler().Revoke,
 	)
+	// Mirrors the production router's SSE stream route: session +
+	// password gate + viewer RBAC in front of the handler (BA-11).
+	devicesGroup.Get("/:id/locations/stream",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleViewer, ta.AccessService),
+		ta.getLocationsHandler().Stream,
+	)
 
 	usersGroup := apiV1.Group("/users")
 	usersGroup.Get("/",
@@ -199,6 +214,19 @@ func (ta *TestApp) getAccessHandler() *handlers.AccessHandler {
 		ta.AccessHandler = handlers.NewAccessHandler(ta.AccessService)
 	}
 	return ta.AccessHandler
+}
+
+func (ta *TestApp) getLocationsHandler() *handlers.LocationsHandler {
+	if ta.LocationsHandler == nil {
+		ta.LocationsHandler = handlers.NewLocationsHandler(
+			locations.New(ta.LocationsRepo, ta.LocationsRepo, ta.LiveHub),
+			ta.LiveHub,
+			ta.AccessService,
+			ta.SessionAuth,
+			ta.SessionCookieName,
+		)
+	}
+	return ta.LocationsHandler
 }
 
 func httpErrorHandler(c fiber.Ctx, err error) error {

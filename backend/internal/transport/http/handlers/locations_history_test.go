@@ -60,7 +60,7 @@ func newHistoryApp(t *testing.T, svc *locations.Service) *fiber.App {
 			c.Locals(middleware.LocalsKeyUser, dummyUser)
 			return c.Next()
 		},
-		handlers.NewLocationsHandler(svc).Route,
+		handlers.NewLocationsHandler(svc, nil, nil, nil, "").Route,
 	)
 	app.Get(
 		"/api/v1/devices/:id/locations",
@@ -68,7 +68,7 @@ func newHistoryApp(t *testing.T, svc *locations.Service) *fiber.App {
 			c.Locals(middleware.LocalsKeyUser, dummyUser)
 			return c.Next()
 		},
-		handlers.NewLocationsHandler(svc).History,
+		handlers.NewLocationsHandler(svc, nil, nil, nil, "").History,
 	)
 	return app
 }

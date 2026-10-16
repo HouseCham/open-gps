@@ -184,7 +184,7 @@ func main() {
 	accessHandler := handlers.NewAccessHandler(accessService)
 	shareLinksHandler := handlers.NewShareLinksHandler(shareLinksService)
 	apiKeysHandler := handlers.NewAPIKeysHandler(apiKeysService)
-	locationsHandler := handlers.NewLocationsHandler(locationsService, liveHub)
+	locationsHandler := handlers.NewLocationsHandler(locationsService, liveHub, accessService, authInstance.NewSessionAuthenticator(), authInstance.CookieName())
 	guestShareHandler := handlers.NewGuestShareHandler(shareLinksService, locationsService, liveHub, auth.IsProduction())
 	reportsHandler := handlers.NewReportsHandler(reportsService)
 	emailHandler := handlers.NewEmailHandler(emailService)

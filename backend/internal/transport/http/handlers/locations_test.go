@@ -51,7 +51,7 @@ func newApp(t *testing.T, svc *locations.Service) *fiber.App {
 			return c.Next()
 		},
 		middleware.ValidateRequestBody[dto.IngestLocationRequest](),
-		handlers.NewLocationsHandler(svc).Ingest,
+		handlers.NewLocationsHandler(svc, nil, nil, nil, "").Ingest,
 	)
 	return app
 }
@@ -233,7 +233,7 @@ func newLatestApp(t *testing.T, svc *locations.Service) *fiber.App {
 			c.Locals(middleware.LocalsKeyUser, dummyUser)
 			return c.Next()
 		},
-		handlers.NewLocationsHandler(svc).Latest,
+		handlers.NewLocationsHandler(svc, nil, nil, nil, "").Latest,
 	)
 	return app
 }
@@ -345,6 +345,7 @@ func TestLocationsHandler_Latest_RejectsMissingUser(t *testing.T) {
 		"/api/v1/devices/:id/locations/latest",
 		handlers.NewLocationsHandler(
 			locations.New(&recordingWriter{}, &recordingReader{}),
+			nil, nil, nil, "",
 		).Latest,
 	)
 	resp := doGetRequest(t, app, "/api/v1/devices/"+uuid.New().String()+"/locations/latest")
