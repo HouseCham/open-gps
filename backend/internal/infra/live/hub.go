@@ -60,6 +60,14 @@ func (h *Hub) Subscribe(deviceID uuid.UUID) (<-chan locations.LiveEvent, func())
 	}
 }
 
+// SubCount reports how many subscriptions are active for a device.
+// Used by tests to assert stream cleanup; map lookup under the lock.
+func (h *Hub) SubCount(deviceID uuid.UUID) int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return len(h.subs[deviceID])
+}
+
 // removeLocked removes the subscription from the hub and closes its channel. It assumes the caller holds the lock.
 func (h *Hub) removeLocked(deviceID uuid.UUID, id uint64, sub *subscription) {
 	if current, ok := h.subs[deviceID][id]; ok && current == sub {

@@ -201,7 +201,17 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 		return middleware.BadRequestResponse(c, "invalid device id")
 	}
 	events, unsubscribe := h.subscriber.Subscribe(deviceID)
-	defer unsubscribe()
+	// Ownership of the subscription transfers to the stream writer
+	// below: the handler returns as soon as the writer is registered,
+	// so a defer here would close the events channel before the
+	// writer ever drains it (BA-03). Until the transfer point (any
+	// error on the way to SendStreamWriter) the defer stays armed.
+	subscriptionTransferred := false
+	defer func() {
+		if !subscriptionTransferred {
+			unsubscribe()
+		}
+	}()
 
 	initial, err := h.service.GetLive(c.Context(), deviceID, time.Now().UTC())
 	if err != nil {
@@ -212,7 +222,9 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 	c.Set("Connection", "keep-alive")
 	c.Set("X-Accel-Buffering", "no")
 
+	subscriptionTransferred = true
 	return c.SendStreamWriter(func(writer *bufio.Writer) {
+		defer unsubscribe()
 		const operation = "LocationsHandler:Stream"
 		if err := writeSSE(writer, locations.LiveEvent{ID: h.subscriber.NextID(), Kind: "snapshot", Snapshot: initial}); err != nil {
 			log.Error(operation, "err", err, "deviceID", deviceID, "stage", "snapshot")
