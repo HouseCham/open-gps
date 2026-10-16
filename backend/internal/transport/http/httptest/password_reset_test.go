@@ -25,8 +25,8 @@ type fakeResetRepo struct {
 	alwaysLimited bool
 }
 
-func (f *fakeResetRepo) Insert(_ context.Context, userID uuid.UUID, tokenHash, _ string, expiresAt time.Time) (passwordreset.Token, error) {
-	return passwordreset.Token{ID: uuid.New(), UserID: userID, TokenHash: tokenHash, ExpiresAt: expiresAt, CreatedAt: time.Now()}, nil
+func (f *fakeResetRepo) InsertIfUnderLimit(_ context.Context, userID uuid.UUID, tokenHash, _ string, expiresAt time.Time, _ time.Duration, _ int) (bool, error) {
+	return true, nil
 }
 
 func (f *fakeResetRepo) GetByHash(_ context.Context, _ string) (passwordreset.Token, error) {
@@ -35,18 +35,9 @@ func (f *fakeResetRepo) GetByHash(_ context.Context, _ string) (passwordreset.To
 
 func (f *fakeResetRepo) MarkUsed(_ context.Context, _ uuid.UUID) error { return domain.ErrNotFound }
 
-func (f *fakeResetRepo) CountRecentForUser(_ context.Context, _ uuid.UUID, _ time.Duration) (int, error) {
-	return 0, nil
+func (f *fakeResetRepo) RegisterIPAttempt(_ context.Context, _ string, _ time.Duration, _ int) (bool, error) {
+	return !f.alwaysLimited, nil
 }
-
-func (f *fakeResetRepo) CountRecentForIP(_ context.Context, _ string, _ time.Duration) (int, error) {
-	if f.alwaysLimited {
-		return 10, nil
-	}
-	return 0, nil
-}
-
-func (f *fakeResetRepo) InvalidateOutstanding(_ context.Context, _ uuid.UUID) error { return nil }
 
 type fakeMailer struct {
 	calls int

@@ -122,8 +122,8 @@ type RequestResult struct {
 	Dispatched bool
 }
 
-// Request validates the rate limit, finds the user, issues a token,
-// and dispatches the reset email. Three anti-enumeration rules live
+// Request records the attempt, finds the user, issues a token, and
+// dispatches the reset email. Three anti-enumeration rules live
 // here:
 //
 //  1. A non-existent email is treated identically to a successful
@@ -137,23 +137,19 @@ type RequestResult struct {
 //
 // In cases 1 and 2 the function returns nil error and Dispatched=false.
 func (s *Service) Request(ctx context.Context, in RequestInput) (RequestResult, error) {
-	// Per-IP cap first: cheaper (no DB row to compare against) and
-	// protects against an attacker hammering random emails from one
-	// host. Done unconditionally regardless of email validity.
+	// Per-IP cap first, and it counts the attempt itself — known or
+	// unknown email — so probing random addresses burns the same
+	// budget as real requests (BA-07).
 	if in.ClientIP != "" {
-		count, err := s.rateLimit.CountRecentForIP(ctx, in.ClientIP, rateLimitWindow)
+		allowed, err := s.rateLimit.RegisterIPAttempt(ctx, in.ClientIP, rateLimitWindow, maxRequestsPerIP)
 		if err != nil {
 			return RequestResult{}, fmt.Errorf("passwordreset.Request: rate-limit ip: %w", err)
 		}
-		if count >= maxRequestsPerIP {
+		if !allowed {
 			return RequestResult{Dispatched: false}, nil
 		}
 	}
 
-	// Per-email cap is the natural lookup: only counted once we have
-	// a user to count against. If the email doesn't resolve, the
-	// call falls through to the "unknown user" branch and we don't
-	// even bother incrementing anything.
 	user, err := s.users.GetByEmail(ctx, in.Email)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
@@ -162,25 +158,20 @@ func (s *Service) Request(ctx context.Context, in RequestInput) (RequestResult, 
 		return RequestResult{}, fmt.Errorf("passwordreset.Request: lookup user: %w", err)
 	}
 
-	count, err := s.rateLimit.CountRecentForUser(ctx, user.ID, rateLimitWindow)
-	if err != nil {
-		return RequestResult{}, fmt.Errorf("passwordreset.Request: rate-limit user: %w", err)
-	}
-	if count >= maxRequestsPerEmail {
-		return RequestResult{Dispatched: false}, nil
-	}
-
 	rawToken, tokenHash, err := GenerateRawToken()
 	if err != nil {
 		return RequestResult{}, fmt.Errorf("passwordreset.Request: generate token: %w", err)
 	}
 
-	if err := s.tokens.InvalidateOutstanding(ctx, user.ID); err != nil {
-		return RequestResult{}, fmt.Errorf("passwordreset.Request: invalidate outstanding: %w", err)
+	// Per-email cap is enforced here: count + invalidate + insert run
+	// in one transaction behind a per-user lock, so concurrent
+	// requests cannot overshoot the cap (BA-07).
+	issued, err := s.tokens.InsertIfUnderLimit(ctx, user.ID, tokenHash, in.ClientIP, s.now().Add(tokenTTL), rateLimitWindow, maxRequestsPerEmail)
+	if err != nil {
+		return RequestResult{}, fmt.Errorf("passwordreset.Request: issue token: %w", err)
 	}
-
-	if _, err := s.tokens.Insert(ctx, user.ID, tokenHash, in.ClientIP, s.now().Add(tokenTTL)); err != nil {
-		return RequestResult{}, fmt.Errorf("passwordreset.Request: insert token: %w", err)
+	if !issued {
+		return RequestResult{Dispatched: false}, nil
 	}
 
 	// The destination is built entirely server-side: configured

@@ -148,6 +148,12 @@ type LocationIngestKey struct {
 	CreatedAt  pgtype.Timestamptz
 }
 
+type PasswordResetAttempt struct {
+	ID        int64
+	IpAddress string
+	CreatedAt pgtype.Timestamptz
+}
+
 type PasswordResetToken struct {
 	ID        pgtype.UUID
 	UserID    pgtype.UUID

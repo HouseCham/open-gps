@@ -21,18 +21,18 @@ type Token struct {
 }
 
 // TokenStore is the token-lifecycle half of password-reset persistence:
-// create, look up by hash, mark consumed, and invalidate prior
-// outstanding tokens when a fresh one is issued. Split out from
-// RateLimitCounter so the consume path (which never touches the rate
-// counters) can depend on just this slice.
+// create (under the per-user cap), look up by hash, mark consumed.
+// Split out from RateLimitCounter so the consume path (which never
+// touches the rate-limit counters) can depend on just this slice.
 type TokenStore interface {
-	// Insert persists a new token row. The hash is what the DB stores;
-	// the raw token is only known to the caller (it ends up in the
-	// email). ipAddress is the request IP the caller observed, used
-	// for the per-IP rate-limit cap; empty string disables the IP
-	// column (the application-layer count is still honored).
-	// expiresAt is the absolute cutoff.
-	Insert(ctx context.Context, userID uuid.UUID, tokenHash, ipAddress string, expiresAt time.Time) (Token, error)
+	// InsertIfUnderLimit issues a fresh token if the user is under max
+	// issuances within the lookback window, invalidating prior
+	// outstanding tokens first so only the freshest link works.
+	// Returns issued=false when the per-user cap is already reached —
+	// nothing is persisted in that case. The count, invalidate and
+	// insert run in one transaction behind a per-user lock, so
+	// concurrent requests cannot overshoot the cap together.
+	InsertIfUnderLimit(ctx context.Context, userID uuid.UUID, tokenHash, ipAddress string, expiresAt time.Time, window time.Duration, max int) (issued bool, err error)
 
 	// GetByHash returns the token if it exists, is unused, and has not
 	// expired. Returns ErrNotFound otherwise — the service treats all
@@ -45,26 +45,19 @@ type TokenStore interface {
 	// Returns ErrNotFound if the row was already used (race between
 	// two concurrent consumes) — service maps that to ErrInvalidResetToken.
 	MarkUsed(ctx context.Context, id uuid.UUID) error
-
-	// InvalidateOutstanding marks every still-outstanding (unused,
-	// unexpired) token for the user as used. Called before inserting a
-	// new one, so only the freshest link works.
-	InvalidateOutstanding(ctx context.Context, userID uuid.UUID) error
 }
 
 // RateLimitCounter is the throttling half of password-reset persistence.
-// Kept separate from TokenStore because the two reads need different
-// indexes (ip hash for CountRecentForIP, user FK for CountRecentForUser),
-// and a future adapter (e.g. Redis) might implement only this half.
+// Kept separate from TokenStore because a future adapter (e.g. Redis)
+// might implement only this half.
 type RateLimitCounter interface {
-	// CountRecentForUser returns how many tokens were issued for the
-	// given user within the lookback window. Used by the rate limiter.
-	CountRecentForUser(ctx context.Context, userID uuid.UUID, lookback time.Duration) (int, error)
-
-	// CountRecentForIP is the per-IP sibling of CountRecentForUser.
-	// Implemented by the postgres adapter via a dedicated column on
-	// the tokens table — kept separate because it needs different
-	// indexing (hash on ip, range scan on created_at) and we don't
-	// want to bind the two rate limits together at the schema level.
-	CountRecentForIP(ctx context.Context, ip string, lookback time.Duration) (int, error)
+	// RegisterIPAttempt records one recovery-request attempt from ip,
+	// for any email address (known or not), and reports whether the
+	// caller is still under max attempts within the lookback window.
+	// Counting attempts — not issued tokens — is what makes the cap
+	// cover unknown-email probing too. Adapters must serialize
+	// concurrent attempts for the same IP (e.g. advisory lock in a
+	// transaction before the count) so the cap cannot be overshot.
+	// Rows older than the window are pruned opportunistically.
+	RegisterIPAttempt(ctx context.Context, ip string, window time.Duration, max int) (allowed bool, err error)
 }

@@ -15,10 +15,9 @@ import (
 )
 
 // PasswordResetTokensAdapter implements passwordreset.TokenStore and
-// passwordreset.RateLimitCounter
-// against the password_reset_tokens table. One row per token; the
-// sha256 hash is what the DB stores, the raw token only exists in
-// the email.
+// passwordreset.RateLimitCounter against the password_reset_tokens and
+// password_reset_attempts tables. One row per token; the sha256 hash is
+// what the DB stores, the raw token only exists in the email.
 type PasswordResetTokensAdapter struct {
 	pool *pgxpool.Pool
 }
@@ -45,17 +44,51 @@ func (a *PasswordResetTokensAdapter) rowToToken(r PasswordResetToken) passwordre
 	}
 }
 
-func (a *PasswordResetTokensAdapter) Insert(ctx context.Context, userID uuid.UUID, tokenHash, ipAddress string, expiresAt time.Time) (passwordreset.Token, error) {
-	row, err := New(a.pool).InsertPasswordResetToken(ctx, InsertPasswordResetTokenParams{
+// InsertIfUnderLimit issues a fresh token while the per-user cap has
+// room, invalidating prior outstanding tokens so only the freshest
+// link works. The advisory lock serializes concurrent issuances for
+// the same user, so racing requests cannot all observe the same
+// pre-count and overshoot the cap together. Returns issued=false when
+// the cap is already reached — no row is written in that case.
+func (a *PasswordResetTokensAdapter) InsertIfUnderLimit(ctx context.Context, userID uuid.UUID, tokenHash, ipAddress string, expiresAt time.Time, window time.Duration, max int) (bool, error) {
+	tx, err := a.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("PasswordResetTokensAdapter.InsertIfUnderLimit: %w", WrapPgError(err))
+	}
+	defer func() { _ = tx.Rollback(ctx) }() // no-op after commit
+
+	q := New(tx)
+	if err := q.LockPasswordResetUser(ctx, userID.String()); err != nil {
+		return false, fmt.Errorf("PasswordResetTokensAdapter.InsertIfUnderLimit: lock: %w", WrapPgError(err))
+	}
+	count, err := q.CountRecentPasswordResetTokensForUser(ctx, CountRecentPasswordResetTokensForUserParams{
+		UserID:  PgtypeUUID(userID),
+		Column2: PgtypeInterval(window),
+	})
+	if err != nil {
+		return false, fmt.Errorf("PasswordResetTokensAdapter.InsertIfUnderLimit: count: %w", WrapPgError(err))
+	}
+	if int(count) >= max {
+		if err := tx.Commit(ctx); err != nil {
+			return false, fmt.Errorf("PasswordResetTokensAdapter.InsertIfUnderLimit: commit: %w", WrapPgError(err))
+		}
+		return false, nil
+	}
+	if err := q.InvalidateOutstandingPasswordResetTokens(ctx, PgtypeUUID(userID)); err != nil {
+		return false, fmt.Errorf("PasswordResetTokensAdapter.InsertIfUnderLimit: invalidate: %w", WrapPgError(err))
+	}
+	if _, err := q.InsertPasswordResetToken(ctx, InsertPasswordResetTokenParams{
 		UserID:    PgtypeUUID(userID),
 		TokenHash: tokenHash,
 		IpAddress: ipAddress,
 		ExpiresAt: PgtypeTimestamptz(expiresAt),
-	})
-	if err != nil {
-		return passwordreset.Token{}, fmt.Errorf("PasswordResetTokensAdapter.Insert: %w", WrapPgError(err))
+	}); err != nil {
+		return false, fmt.Errorf("PasswordResetTokensAdapter.InsertIfUnderLimit: insert: %w", WrapPgError(err))
 	}
-	return a.rowToToken(row), nil
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("PasswordResetTokensAdapter.InsertIfUnderLimit: commit: %w", WrapPgError(err))
+	}
+	return true, nil
 }
 
 func (a *PasswordResetTokensAdapter) GetByHash(ctx context.Context, tokenHash string) (passwordreset.Token, error) {
@@ -85,31 +118,42 @@ func (a *PasswordResetTokensAdapter) MarkUsed(ctx context.Context, id uuid.UUID)
 	return nil
 }
 
-func (a *PasswordResetTokensAdapter) CountRecentForUser(ctx context.Context, userID uuid.UUID, lookback time.Duration) (int, error) {
-	row, err := New(a.pool).CountRecentPasswordResetTokensForUser(ctx, CountRecentPasswordResetTokensForUserParams{
-		UserID:   PgtypeUUID(userID),
-		Column2:  PgtypeInterval(lookback),
-	})
+// RegisterIPAttempt records one recovery-request attempt for the IP
+// (known or unknown email) and reports whether the caller is still
+// under the per-IP cap. Runs in a transaction: advisory lock first,
+// then count + conditional insert. The lock is a separate statement
+// so the count takes a fresh READ COMMITTED snapshot after any lock
+// wait — concurrent requests from the same IP serialize and cannot
+// all observe the same pre-insert count. Prunes attempts older than
+// 24h on the way out.
+func (a *PasswordResetTokensAdapter) RegisterIPAttempt(ctx context.Context, ip string, window time.Duration, max int) (bool, error) {
+	tx, err := a.pool.Begin(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("PasswordResetTokensAdapter.CountRecentForUser: %w", WrapPgError(err))
+		return false, fmt.Errorf("PasswordResetTokensAdapter.RegisterIPAttempt: %w", WrapPgError(err))
 	}
-	return int(row), nil
-}
+	defer func() { _ = tx.Rollback(ctx) }() // no-op after commit
 
-func (a *PasswordResetTokensAdapter) CountRecentForIP(ctx context.Context, ip string, lookback time.Duration) (int, error) {
-	row, err := New(a.pool).CountRecentPasswordResetTokensForIP(ctx, CountRecentPasswordResetTokensForIPParams{
+	q := New(tx)
+	if err := q.LockPasswordResetAttemptIP(ctx, ip); err != nil {
+		return false, fmt.Errorf("PasswordResetTokensAdapter.RegisterIPAttempt: lock: %w", WrapPgError(err))
+	}
+	count, err := q.CountRecentPasswordResetAttemptsForIP(ctx, CountRecentPasswordResetAttemptsForIPParams{
 		IpAddress: ip,
-		Column2:   PgtypeInterval(lookback),
+		Column2:   PgtypeInterval(window),
 	})
 	if err != nil {
-		return 0, fmt.Errorf("PasswordResetTokensAdapter.CountRecentForIP: %w", WrapPgError(err))
+		return false, fmt.Errorf("PasswordResetTokensAdapter.RegisterIPAttempt: count: %w", WrapPgError(err))
 	}
-	return int(row), nil
-}
-
-func (a *PasswordResetTokensAdapter) InvalidateOutstanding(ctx context.Context, userID uuid.UUID) error {
-	if err := New(a.pool).InvalidateOutstandingPasswordResetTokens(ctx, PgtypeUUID(userID)); err != nil {
-		return fmt.Errorf("PasswordResetTokensAdapter.InvalidateOutstanding: %w", WrapPgError(err))
+	if int(count) < max {
+		if _, err := q.InsertPasswordResetAttempt(ctx, ip); err != nil {
+			return false, fmt.Errorf("PasswordResetTokensAdapter.RegisterIPAttempt: insert: %w", WrapPgError(err))
+		}
 	}
-	return nil
+	if err := q.PrunePasswordResetAttempts(ctx); err != nil {
+		return false, fmt.Errorf("PasswordResetTokensAdapter.RegisterIPAttempt: prune: %w", WrapPgError(err))
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("PasswordResetTokensAdapter.RegisterIPAttempt: commit: %w", WrapPgError(err))
+	}
+	return int(count) < max, nil
 }

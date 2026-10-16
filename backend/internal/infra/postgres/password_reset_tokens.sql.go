@@ -11,27 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countRecentPasswordResetTokensForIP = `-- name: CountRecentPasswordResetTokensForIP :one
-SELECT COUNT(*)::bigint AS count
-FROM password_reset_tokens
-WHERE ip_address = $1
-  AND created_at > NOW() - $2::interval
-`
-
-type CountRecentPasswordResetTokensForIPParams struct {
-	IpAddress string
-	Column2   pgtype.Interval
-}
-
-// Per-IP sibling of CountRecentPasswordResetTokensForUser. Counts every
-// token issued from the same IP within the lookback window.
-func (q *Queries) CountRecentPasswordResetTokensForIP(ctx context.Context, arg CountRecentPasswordResetTokensForIPParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countRecentPasswordResetTokensForIP, arg.IpAddress, arg.Column2)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countRecentPasswordResetTokensForUser = `-- name: CountRecentPasswordResetTokensForUser :one
 SELECT COUNT(*)::bigint AS count
 FROM password_reset_tokens
@@ -133,6 +112,18 @@ WHERE user_id = $1
 // Single-window invariant: at most one active link per user.
 func (q *Queries) InvalidateOutstandingPasswordResetTokens(ctx context.Context, userID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, invalidateOutstandingPasswordResetTokens, userID)
+	return err
+}
+
+const lockPasswordResetUser = `-- name: LockPasswordResetUser :exec
+SELECT pg_advisory_xact_lock(hashtext($1::text)::bigint)
+`
+
+// Transaction-scoped advisory lock keyed on hashtext of the user id.
+// Held by InsertIfUnderLimit so concurrent issuances for the same user
+// serialize and the per-user cap cannot be overshot by racing requests.
+func (q *Queries) LockPasswordResetUser(ctx context.Context, dollar_1 string) error {
+	_, err := q.db.Exec(ctx, lockPasswordResetUser, dollar_1)
 	return err
 }
 
