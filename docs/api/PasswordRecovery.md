@@ -45,9 +45,9 @@ Issues a single-use password-reset token and dispatches a locale-specific email 
 
 **Rate limiting (per IP + per email, sliding 15-minute window):**
 - 3 requests per email
-- 10 requests per IP
+- 10 requests per IP — every request counts, including ones for unknown addresses, so probing random emails burns the same budget as real ones. The per-IP counter is a dedicated `password_reset_attempts` table, not the token rows.
 
-When the cap is hit, the server logs at debug level and the client still gets `202`. The endpoint never returns `429`.
+When the cap is hit, the server logs at debug level and the client still gets `202`. The endpoint never returns `429`. Both counters are race-safe: the per-IP attempt is recorded under an advisory lock per IP (lock, then count + insert in one transaction, so the count sees concurrent commits), and the per-email issuance runs count + insert in one transaction behind a per-user advisory lock.
 
 **Request**
 
@@ -156,7 +156,7 @@ The three failure modes are deliberately indistinguishable on the wire. Callers 
 
 | Phase | What happens |
 |-------|--------------|
-| Issue | `generate-pwd-recovery-token` writes a row to `password_reset_tokens` containing the sha256 of a fresh 32-byte random token, the recipient's `user_id`, the request IP, and `expires_at = NOW() + 1h`. Any prior outstanding (unused, unexpired) tokens for the same user are marked used first — only the freshest link works. |
+| Issue | `generate-pwd-recovery-token` writes a row to `password_reset_tokens` containing the sha256 of a fresh 32-byte random token, the recipient's `user_id`, the request IP, and `expires_at = NOW() + 1h`. The write is gated by the per-email cap (3 / 15 min, enforced under a per-user advisory lock); any prior outstanding (unused, unexpired) tokens for the same user are marked used in the same transaction — only the freshest link works. |
 | Dispatch | The raw token is appended to the server-built reset URL (`PUBLIC_APP_ORIGIN` + `/{locale}/reset-password?token=`) and sent in the email. The DB never sees the raw token; only the hash. |
 | Consume | `consume-pwd-recovery-token` hashes the incoming token, looks it up, verifies it is unused and unexpired, stamps `used_at`, then rotates the Authula password and clears `must_change_password` on the local user. |
 | Race | The `MarkUsed` SQL includes `AND used_at IS NULL`, so a concurrent second consume affects zero rows. The service treats that as `invalid or expired token`. |
@@ -190,4 +190,4 @@ The server passes the following variables to the Resend template engine. Variabl
 
 ## Database
 
-The flow uses a single new table — see `migrate/migrations/000018_create_password_reset_tokens.up.sql`. The `token_hash` column stores the sha256 of the raw token (so a DB leak does not yield working reset links). The `ip_address` column supports the per-IP rate-limit probe. Cleanup of expired rows is not automated; a nightly `DELETE FROM password_reset_tokens WHERE created_at < NOW() - INTERVAL '7 days'` is the trivial version to add once the table grows past ~100k rows.
+The flow uses two tables — see `migrate/migrations/000018_create_password_reset_tokens.up.sql` and `000023_create_password_reset_attempts.up.sql`. The `token_hash` column on `password_reset_tokens` stores the sha256 of the raw token (so a DB leak does not yield working reset links). The per-IP rate limit counts rows in `password_reset_attempts` (one per request, known or unknown email); that statement opportunistically prunes attempts older than 24h, so the table stays bounded without a scheduler. Cleanup of expired token rows is not automated; a nightly `DELETE FROM password_reset_tokens WHERE created_at < NOW() - INTERVAL '7 days'` is the trivial version to add once the table grows past ~100k rows.
