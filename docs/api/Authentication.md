@@ -15,6 +15,9 @@ Authentication is **cookie-based**. After sign-in or sign-up, Authula's session 
 | TTL | 24 h, sliding renewal every 5 min while in use |
 | Concurrent sessions per user | 5 (configurable in `config.toml`) |
 | First user | auto-promoted to `super_admin` |
+| Sign-up | invitation-only (first user, otherwise admin-created) |
+
+Sign-up is invitation-only. The only self-service registration allowed is the very first user (who becomes `super_admin`); after that, every account must be created by a `super_admin` through [`POST /api/v1/users`](./Users.md). A rejected sign-up returns `403` with `{"message": "signup is invitation-only"}`.
 
 Sign-up auto-signs-in: the same response that registers the user sets the session cookie.
 
@@ -26,7 +29,7 @@ All `/api/auth/*` routes are served by Authula's net/http handler mounted as a F
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/auth/email-password/sign-up` | Register. Auto-sign-in. |
+| POST | `/api/auth/email-password/sign-up` | Register (invitation-only). Auto-sign-in. |
 | POST | `/api/auth/email-password/sign-in` | Sign in. |
 | POST | `/api/auth/sign-out` | Invalidate the current session. |
 | POST | `/api/auth/email-password/request-password-reset` | Start a password reset (sends email). |
@@ -79,7 +82,7 @@ For the request/response shapes on each Authula route, see the [Authula docs](ht
 
 1. Read `authula.session_token` from the request cookies.
 2. Hash the cookie value, look up the matching session in Authula's `sessions` table, and build the actor (`*authula.Actor`).
-3. Materialise the local `domain.User` projection. The very first time a given email is seen, a row is inserted into the app's `users` table (linked by email). If no active `super_admin` exists at that moment, the row gets `role = super_admin`; otherwise `role = user`. This is what makes the "first user is super_admin" invariant work for both email-password sign-ups and OAuth2 sign-ins. The check and the write run in one transaction behind a Postgres advisory lock, so simultaneous first sign-ups elect exactly one administrator (the partial unique index on `role = 'super_admin'` is a second guard). When a retry follows a partially completed earlier attempt, the existing row is repaired in place (name, role, password requirement) instead of failing on the duplicate email.
+3. Materialise the local `domain.User` projection. The very first time a given email is seen, a row is inserted into the app's `users` table (linked by email). If no active `super_admin` exists at that moment, the row gets `role = super_admin`; otherwise `role = user`. This is what makes the "first user is super_admin" invariant work for both email-password sign-ups and OAuth2 sign-ins. The check and the write run in one transaction behind a Postgres advisory lock, so simultaneous first sign-ups elect exactly one administrator (the partial unique index on `role = 'super_admin'` is a second guard). When a retry follows a partially completed earlier attempt, the existing row is repaired in place (name, role, password requirement) instead of failing on the duplicate email. This materialisation step is shared by the sign-up mirror hook and the login path — it does not itself reject non-first sign-ups; the invitation-only gate lives in the sign-up hook (see the Sign-up section above).
 
 After `AuthSession` populates the locals, downstream middlewares can run:
 

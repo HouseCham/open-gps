@@ -71,7 +71,8 @@ additional endpoints and authentication details.
 
 | Method | Path | Access |
 |---|---|---|
-| GET | `/health` | Public health check; returns `{ "status": "ok" }`. |
+| GET | `/health` | Public health check; returns `{ "status": "ok" }`. Liveness: the process is up — use it for container restart decisions. |
+| GET | `/health/ready` | Public readiness check: pings PostgreSQL (2s budget). Returns 200 `{ "status": "ok" }` when the API can serve traffic, 503 `{ "status": "unavailable" }` otherwise. Use it for load-balancer/rollout gating. |
 | POST | `/api/auth/email-password/sign-in` | Authula. |
 | POST | `/api/auth/email-password/sign-up` | Authula; the first local user becomes `super_admin`. |
 | POST | `/api/auth/sign-out` | Clears the session cookie and invalidates the session. |
@@ -214,3 +215,13 @@ Key decisions:
 docker build -t gps-tracker-api .
 docker run -p 8080:8080 -e DATABASE_URL=postgres://user:pass@host:5432/gps_tracker?sslmode=disable gps-tracker-api
 ```
+
+### Health probes
+
+The runtime image is distroless (no shell/curl), so exec probes use the
+bundled `/usr/local/bin/healthcheck` binary (GETs `/health/ready`):
+
+| Orchestrator | Liveness | Readiness |
+|---|---|---|
+| docker compose | — | `test: ["CMD", "/usr/local/bin/healthcheck"]` (see `docker-compose.local.yml`) |
+| Kubernetes | `httpGet` on `/health` | `httpGet` on `/health/ready` |
