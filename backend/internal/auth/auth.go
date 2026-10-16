@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -290,11 +291,39 @@ func (c authulaUserCreator) CreateUserWithPassword(ctx context.Context, name, em
 	}
 	user, err := c.userService.Create(ctx, name, email, true, nil, nil)
 	if err != nil {
-		return fmt.Errorf("auth: create user: %w", err)
+		// BA-09: Authula's user+account writes are not transactional
+		// with each other. A prior attempt that created the user but
+		// died before the account existed would make every retry fail
+		// here, leaving a credential-less account forever. Authula
+		// exposes no sentinel type for this, so match its message; any
+		// other error still fails fast. On match we fall through to the
+		// reconciliation path below instead of failing.
+		if !strings.Contains(err.Error(), "email already in use") {
+			return fmt.Errorf("auth: create user: %w", err)
+		}
+		user, err = c.userService.GetByEmail(ctx, email)
+		if err != nil {
+			return fmt.Errorf("auth: get existing user: %w", err)
+		}
 	}
-	_, err = c.accountService.Create(ctx, user.ID, email, models.AuthProviderEmail.String(), &hash)
+	existing, err := c.accountService.GetByUserIDAndProvider(ctx, user.ID, models.AuthProviderEmail.String())
 	if err != nil {
-		return fmt.Errorf("auth: create account: %w", err)
+		return fmt.Errorf("auth: get account: %w", err)
+	}
+	if existing == nil {
+		if _, err := c.accountService.Create(ctx, user.ID, email, models.AuthProviderEmail.String(), &hash); err != nil {
+			return fmt.Errorf("auth: create account: %w", err)
+		}
+		return nil
+	}
+	// The account already exists (a retry after a later failure, or an
+	// admin re-creating an existing email — the endpoint is
+	// super_admin-only). Refresh the password so the temporary
+	// password handed back to the caller actually works.
+	if existing.Password == nil || *existing.Password != hash {
+		if err := c.accountService.UpdateFields(ctx, user.ID, map[string]any{"password": hash}); err != nil {
+			return fmt.Errorf("auth: update account password: %w", err)
+		}
 	}
 	return nil
 }

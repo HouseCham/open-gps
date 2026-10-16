@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/HouseCham/gps-tracker/backend/internal/app/devices"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/users"
 	"github.com/HouseCham/gps-tracker/backend/internal/domain"
 )
 
@@ -124,23 +125,25 @@ type MockUsersRepository struct {
 	Users        map[uuid.UUID]*domain.User
 	UsersByEmail map[string]*domain.User
 	Count        int
-	CreateErr    error
-	GetErr       error
-	UpdateErr    error
-	DeleteErr    error
-	ListErr      error
-	CountErr     error
+	// CreateErr is returned from CreateUser when non-nil.
+	CreateErr error
+	GetErr    error
+	UpdateErr error
+	DeleteErr error
+	ListErr   error
+	CountErr  error
 	// HasSuperAdminResult is read only when HasSuperAdminResultSet
-	// is true. When false, HasSuperAdmin returns true by default so
-	// that pre-loaded users retain the role SetupUser assigned them
-	// (the long-standing test assumption that the first-user rule
-	// has already been satisfied by some prior state).
+	// is true. When false, the emulated bootstrap decision sees an
+	// existing super_admin by default so that pre-loaded users retain
+	// the role SetupUser assigned them (the long-standing test
+	// assumption that the first-user rule has already been satisfied
+	// by some prior state).
 	HasSuperAdminResult    bool
 	HasSuperAdminResultSet bool
 	HasSuperAdminErr       error
-	// PromoteToSuperAdminErr is returned from PromoteToSuperAdmin
+	// PromoteIfFirstUserErr is returned from PromoteIfFirstUser
 	// when non-nil.
-	PromoteToSuperAdminErr error
+	PromoteIfFirstUserErr error
 }
 
 func NewMockUsersRepository() *MockUsersRepository {
@@ -185,10 +188,31 @@ func (m *MockUsersRepository) GetByEmail(ctx context.Context, email string) (*do
 	return user, nil
 }
 
-func (m *MockUsersRepository) CreateUser(ctx context.Context, email, name, lastname string, role domain.UserRole, mustChangePassword, emailVerified bool) (*domain.User, error) {
+// CreateUser emulates the adapter: the hasSuperAdmin read happens
+// inside the repository, then the decision runs, then the write (or
+// the in-place repair when the email already exists).
+func (m *MockUsersRepository) CreateUser(ctx context.Context, email, name, lastname string, emailVerified bool, decide users.DecisionFunc) (*domain.User, error) {
 	if m.CreateErr != nil {
 		return nil, m.CreateErr
 	}
+	hasSuperAdmin, err := m.hasSuperAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	role, mustChangePassword := decide(hasSuperAdmin)
+
+	if existing, ok := m.UsersByEmail[email]; ok {
+		existing.Name = name
+		existing.Lastname = lastname
+		if role == domain.UserRoleSuperAdmin {
+			existing.Role = domain.UserRoleSuperAdmin
+			existing.MustChangePassword = false
+		} else {
+			existing.MustChangePassword = mustChangePassword
+		}
+		return existing, nil
+	}
+
 	user := &domain.User{
 		ID:                 uuid.New(),
 		Email:              email,
@@ -245,7 +269,9 @@ func (m *MockUsersRepository) CountUsers(ctx context.Context) (int, error) {
 	return m.Count, nil
 }
 
-func (m *MockUsersRepository) HasSuperAdmin(ctx context.Context) (bool, error) {
+// hasSuperAdmin backs the CreateUser/PromoteIfFirstUser emulation
+// (the adapter performs this read inside its transaction).
+func (m *MockUsersRepository) hasSuperAdmin(ctx context.Context) (bool, error) {
 	if m.HasSuperAdminErr != nil {
 		return false, m.HasSuperAdminErr
 	}
@@ -266,13 +292,20 @@ func (m *MockUsersRepository) HasSuperAdmin(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (m *MockUsersRepository) PromoteToSuperAdmin(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
-	if m.PromoteToSuperAdminErr != nil {
-		return nil, m.PromoteToSuperAdminErr
+func (m *MockUsersRepository) PromoteIfFirstUser(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
+	if m.PromoteIfFirstUserErr != nil {
+		return nil, m.PromoteIfFirstUserErr
 	}
 	user, ok := m.Users[userID]
 	if !ok {
 		return nil, domain.ErrNotFound
+	}
+	hasSuperAdmin, err := m.hasSuperAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hasSuperAdmin {
+		return user, nil
 	}
 	user.Role = domain.UserRoleSuperAdmin
 	user.MustChangePassword = false

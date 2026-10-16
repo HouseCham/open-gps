@@ -79,7 +79,7 @@ For the request/response shapes on each Authula route, see the [Authula docs](ht
 
 1. Read `authula.session_token` from the request cookies.
 2. Hash the cookie value, look up the matching session in Authula's `sessions` table, and build the actor (`*authula.Actor`).
-3. Materialise the local `domain.User` projection. The very first time a given email is seen, a row is inserted into the app's `users` table (linked by email). If the local table was empty at that moment, the row gets `role = super_admin`; otherwise `role = user`. This is what makes the "first user is super_admin" invariant work for both email-password sign-ups and OAuth2 sign-ins.
+3. Materialise the local `domain.User` projection. The very first time a given email is seen, a row is inserted into the app's `users` table (linked by email). If no active `super_admin` exists at that moment, the row gets `role = super_admin`; otherwise `role = user`. This is what makes the "first user is super_admin" invariant work for both email-password sign-ups and OAuth2 sign-ins. The check and the write run in one transaction behind a Postgres advisory lock, so simultaneous first sign-ups elect exactly one administrator (the partial unique index on `role = 'super_admin'` is a second guard). When a retry follows a partially completed earlier attempt, the existing row is repaired in place (name, role, password requirement) instead of failing on the duplicate email.
 
 After `AuthSession` populates the locals, downstream middlewares can run:
 
