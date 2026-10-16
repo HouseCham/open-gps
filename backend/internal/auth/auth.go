@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/log"
 
 	authula "github.com/Authula/authula"
 	authulaconfig "github.com/Authula/authula/config"
@@ -436,6 +437,25 @@ var timeNow = func() time.Time { return time.Now().UTC() }
 // via a single env var without code changes.
 func IsProduction() bool {
 	return parseAppEnv() == "production"
+}
+
+// ValidateAppEnv checks APP_ENV at startup. An unset value defaults to
+// development — the process starts, but loudly, because a silent
+// development fallback in production disables Secure cookies (BA-02).
+// An unknown value is a hard error: a typo like "prodcution" must not
+// silently fall back to development either.
+func ValidateAppEnv() error {
+	v := os.Getenv("APP_ENV")
+	if v == "" {
+		log.Warn("APP_ENV is not set, defaulting to development (session cookies will not be Secure)")
+		return nil
+	}
+	switch lower(v) {
+	case "development", "production", "test":
+		return nil
+	default:
+		return fmt.Errorf("APP_ENV must be development, production or test, got %q", v)
+	}
 }
 
 // parseAppEnv returns the lower-cased APP_ENV value, defaulting to

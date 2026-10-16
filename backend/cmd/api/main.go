@@ -31,6 +31,13 @@ import (
 
 func main() {
 	config.LoadEnv()
+	// Fail fast on an unknown APP_ENV (a typo must not silently fall
+	// back to development and drop Secure from the session cookie);
+	// unset only warns.
+	if err := auth.ValidateAppEnv(); err != nil {
+		log.Error("validate APP_ENV", "err", err)
+		os.Exit(1)
+	}
 	log.Info("Starting server...")
 	addr := ""
 	if v := os.Getenv("API_PORT"); v != "" {
