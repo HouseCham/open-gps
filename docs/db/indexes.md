@@ -121,6 +121,17 @@ The `locations` table does not use partial indexes because it has no soft-delete
 - **Lookup by device**: B-tree on PK `(device_id, recorded_at)` enables efficient range scans for a device's location history
 - **Partition pruning**: The `recorded_at` portion of the PK enables PostgreSQL to skip irrelevant monthly partitions when querying with time-range filters
 
+### location_ingest_keys_created_at_idx
+
+```
+INDEX ON location_ingest_keys (created_at);
+```
+
+- **Table**: location_ingest_keys
+- **Type**: B-tree
+- **Purpose**: Nightly prune of idempotency keys older than the 30-day retention window (migration 024) — without it the DELETE would scan the whole table daily.
+- **Migration**: 000024
+
 ## Summary
 
 | Index | Table | Type | Partial | Hot Path |
@@ -135,4 +146,5 @@ The `locations` table does not use partial indexes because it has no soft-delete
 | idx_password_reset_tokens_user_id | password_reset_tokens | B-tree | No | Per-user reset rate limit |
 | idx_password_reset_tokens_ip_created | password_reset_tokens | Composite | No | Per-IP reset rate limit |
 | location_ingest_keys_pkey | location_ingest_keys | Primary | No | Batch idempotency |
+| location_ingest_keys_created_at_idx | location_ingest_keys | B-tree | No | Nightly idempotency-key prune |
 | locations_pkey | locations | Primary | No | Location queries |

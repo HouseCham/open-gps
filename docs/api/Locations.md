@@ -337,10 +337,12 @@ X-Device-API-Key: 50I_rlGuoF9EONVelnUahPqKr1vDy6H1hZ0BrXFVldQ
 | 500 | (error envelope) | DB write failed — the whole batch is rolled back in one transaction |
 
 > **Idempotency (two layers):**
-> 1. `location_ingest_keys (device_id, sequence_id, recorded_at) ON CONFLICT DO NOTHING` — a re-sent item is ACKed as accepted and the `locations` insert is skipped.
+> 1. `location_ingest_keys (device_id, sequence_id, recorded_at)` — a re-sent item with the same `recorded_at` is ACKed as accepted and the `locations` insert is skipped. Keys older than **30 days** are pruned nightly: retries are minutes-to-hours, never months, so a replay that old has no window left. A `sequence_id` reused with a *different* `recorded_at` (firmware counter reset, e.g. RAM counter back to 1 after reboot) **rebinds the key and stores the point** — never a silent drop.
 > 2. `locations (device_id, recorded_at) ON CONFLICT DO NOTHING` — the row itself never duplicates.
 >
 > Consequence for clients: after a lost response or crash-restart, re-sending the same front of the queue is always safe; treat every `accepted_sequence_ids` entry as durable.
+>
+> **Firmware guidance:** keep the counter monotonic within any 30-day window (e.g. seed it from a timestamp on cold boot) so replays stay distinguishable from resets server-side.
 
 > **Side effect:** each successful batch updates `devices.last_contact_at`, which drives the live-presence state of `GET /api/v1/devices/:id/locations/live`. A device that only uploads when coverage returns is still marked offline in between.
 

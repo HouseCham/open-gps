@@ -172,7 +172,7 @@ One-time-use password reset tokens (migration 018). The raw token is sent only b
 
 ### location_ingest_keys
 
-Global idempotency keys for device batch ingestion (migration 021). Not partitioned, so uniqueness is enforced across all location partitions.
+Global idempotency keys for device batch ingestion (migration 021). Not partitioned, so uniqueness is enforced across all location partitions. Keys are pruned nightly once older than the **30-day idempotency window** (migration 024, `prune-location-ingest-keys` cron job), keeping the table proportional to recent traffic; a `sequence_id` reused with a different `recorded_at` (firmware counter reset) rebinds the key and stores the new point.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -230,3 +230,5 @@ The `locations` table is partitioned by `RANGE (recorded_at)` with monthly parti
 | 020 | `000020_rename_last_seen_to_last_contact` | Migrate legacy presence column to `last_contact_at` |
 | 021 | `000021_create_location_ingest_keys` | Idempotency keys for batch ingestion |
 | 022 | `000022_create_device_share_links` | Expiring, revocable guest location links |
+| 023 | `000023_create_password_reset_attempts` | Per-IP attempt log for reset rate limiting |
+| 024 | `000024_expire_location_ingest_keys` | 30-day retention prune for ingest idempotency keys |
