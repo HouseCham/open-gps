@@ -33,7 +33,7 @@ func (h *ReportsHandler) Overview(c fiber.Ctx) error {
 	}
 	value, err := h.service.Overview(c.Context(), user.ID, filter)
 	if err != nil {
-		return err
+		return reportBudgetError(c, err)
 	}
 	return c.JSON(response.HTTPResponse[dto.OverviewReportResponse]{StatusCode: 200, Message: "report overview retrieved", Data: dto.OverviewFromDomain(value)})
 }
@@ -44,7 +44,7 @@ func (h *ReportsHandler) Routes(c fiber.Ctx) error {
 	}
 	value, err := h.service.Routes(c.Context(), user.ID, filter)
 	if err != nil {
-		return err
+		return reportBudgetError(c, err)
 	}
 	return c.JSON(response.HTTPResponse[dto.RoutesReportResponse]{StatusCode: 200, Message: "report routes retrieved", Data: dto.RoutesFromDomain(value)})
 }
@@ -55,7 +55,7 @@ func (h *ReportsHandler) Health(c fiber.Ctx) error {
 	}
 	value, err := h.service.Health(c.Context(), user.ID, filter)
 	if err != nil {
-		return err
+		return reportBudgetError(c, err)
 	}
 	return c.JSON(response.HTTPResponse[dto.HealthReportResponse]{StatusCode: 200, Message: "report health retrieved", Data: dto.HealthFromDomain(value)})
 }
@@ -66,7 +66,7 @@ func (h *ReportsHandler) Quality(c fiber.Ctx) error {
 	}
 	value, err := h.service.Quality(c.Context(), user.ID, filter)
 	if err != nil {
-		return err
+		return reportBudgetError(c, err)
 	}
 	return c.JSON(response.HTTPResponse[dto.QualityReportResponse]{StatusCode: 200, Message: "report data quality retrieved", Data: dto.QualityFromDomain(value)})
 }
@@ -103,6 +103,15 @@ func (h *ReportsHandler) Export(c fiber.Ctx) error {
 	default:
 		return middleware.BadRequestResponse(c, "format must be csv or gpx")
 	}
+}
+
+// reportBudgetError maps the BA-04 dataset budget overruns to a 400 envelope;
+// anything else propagates to the error handler.
+func reportBudgetError(c fiber.Ctx, err error) error {
+	if errors.Is(err, reports.ErrTooManyReportPoints) || errors.Is(err, reports.ErrTooManyReportDevices) {
+		return middleware.BadRequestResponse(c, err.Error())
+	}
+	return err
 }
 
 func reportRequest(c fiber.Ctx) (*domain.User, reports.Filter, error) {

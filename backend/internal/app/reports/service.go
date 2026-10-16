@@ -18,26 +18,52 @@ const (
 	PoorAccuracyMeters = 50.0
 	MaxReportRange     = 31 * 24 * time.Hour
 	MaxExportPoints    = 100_000
+	MaxReportPoints    = MaxExportPoints
+	MaxReportDevices   = 50
 	MaxRoutePoints     = 1_000
 )
 
 var ErrTooManyExportPoints = errors.New("report export exceeds the maximum point limit")
+
+// BA-04: non-export reports fail loudly when the dataset exceeds the budget
+// instead of silently truncating metrics.
+var ErrTooManyReportPoints = errors.New("report exceeds the maximum point limit, narrow the time range or device filter")
+var ErrTooManyReportDevices = errors.New("report exceeds the maximum device limit")
 
 // Service calculates bounded report projections from a complete authorized dataset.
 type Service struct{ repo Repository }
 
 func New(repo Repository) *Service { return &Service{repo: repo} }
 
-func (s *Service) dataset(ctx context.Context, userID uuid.UUID, filter Filter, limit int) (Dataset, error) {
+func (s *Service) dataset(ctx context.Context, userID uuid.UUID, filter Filter, limit, deviceLimit int) (Dataset, error) {
 	if filter.To.Sub(filter.From) > MaxReportRange {
 		return Dataset{}, errors.New("report range cannot exceed 31 days")
 	}
-	return s.repo.GetDataset(ctx, userID, filter, limit)
+	return s.repo.GetDataset(ctx, userID, filter, limit, deviceLimit)
+}
+
+// boundedDataset applies the BA-04 budgets to non-export reports: both the
+// point and the device queries are read under explicit SQL LIMITs of
+// budget+1 so the database never streams an unbounded result, and
+// exceeding either budget returns a clear error rather than a silently
+// truncated report.
+func (s *Service) boundedDataset(ctx context.Context, userID uuid.UUID, filter Filter) (Dataset, error) {
+	data, err := s.dataset(ctx, userID, filter, MaxReportPoints+1, MaxReportDevices+1)
+	if err != nil {
+		return Dataset{}, err
+	}
+	if len(data.Devices) > MaxReportDevices {
+		return Dataset{}, fmt.Errorf("%w: %d devices, limit is %d", ErrTooManyReportDevices, len(data.Devices), MaxReportDevices)
+	}
+	if len(data.Points) > MaxReportPoints {
+		return Dataset{}, fmt.Errorf("%w: limit is %d", ErrTooManyReportPoints, MaxReportPoints)
+	}
+	return data, nil
 }
 
 // Overview returns aggregate metrics and per-device summaries.
 func (s *Service) Overview(ctx context.Context, userID uuid.UUID, filter Filter) (OverviewReport, error) {
-	data, err := s.dataset(ctx, userID, filter, 0)
+	data, err := s.boundedDataset(ctx, userID, filter)
 	if err != nil {
 		return OverviewReport{}, fmt.Errorf("get report dataset: %w", err)
 	}
@@ -63,7 +89,7 @@ func (s *Service) Overview(ctx context.Context, userID uuid.UUID, filter Filter)
 
 // Routes creates sessions from complete ordered points and samples only their display geometry.
 func (s *Service) Routes(ctx context.Context, userID uuid.UUID, filter Filter) (RoutesReport, error) {
-	data, err := s.dataset(ctx, userID, filter, 0)
+	data, err := s.boundedDataset(ctx, userID, filter)
 	if err != nil {
 		return RoutesReport{}, fmt.Errorf("get route dataset: %w", err)
 	}
@@ -99,7 +125,7 @@ func (s *Service) Routes(ctx context.Context, userID uuid.UUID, filter Filter) (
 
 // Health calculates nullable telemetry metrics without manufacturing zero values.
 func (s *Service) Health(ctx context.Context, userID uuid.UUID, filter Filter) (HealthReport, error) {
-	data, err := s.dataset(ctx, userID, filter, 0)
+	data, err := s.boundedDataset(ctx, userID, filter)
 	if err != nil {
 		return HealthReport{}, fmt.Errorf("get report dataset: %w", err)
 	}
@@ -124,7 +150,7 @@ func (s *Service) Health(ctx context.Context, userID uuid.UUID, filter Filter) (
 
 // Quality calculates reporting regularity and optional-field completeness.
 func (s *Service) Quality(ctx context.Context, userID uuid.UUID, filter Filter) (QualityReport, error) {
-	data, err := s.dataset(ctx, userID, filter, 0)
+	data, err := s.boundedDataset(ctx, userID, filter)
 	if err != nil {
 		return QualityReport{}, fmt.Errorf("get report dataset: %w", err)
 	}
@@ -157,7 +183,7 @@ func (s *Service) Quality(ctx context.Context, userID uuid.UUID, filter Filter) 
 }
 
 func (s *Service) Export(ctx context.Context, userID uuid.UUID, filter Filter) ([]Point, error) {
-	data, err := s.dataset(ctx, userID, filter, MaxExportPoints+1)
+	data, err := s.dataset(ctx, userID, filter, MaxExportPoints+1, 0)
 	if err != nil {
 		return nil, fmt.Errorf("get report dataset: %w", err)
 	}

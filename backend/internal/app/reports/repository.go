@@ -41,7 +41,10 @@ type Dataset struct {
 	Points  []Point
 }
 
-// Repository is the trusted persistence boundary for reports.
+// Repository is the trusted persistence boundary for reports. Both limits
+// are read caps, not page sizes: a non-positive limit means "unbounded".
+// Callers that enforce a budget pass limit+1 so the over-budget check
+// itself stays bounded.
 type Repository interface {
-	GetDataset(ctx context.Context, userID uuid.UUID, filter Filter, limit int) (Dataset, error)
+	GetDataset(ctx context.Context, userID uuid.UUID, filter Filter, limit, deviceLimit int) (Dataset, error)
 }
