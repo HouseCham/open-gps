@@ -117,6 +117,12 @@ func (s *Service) CreateUser(ctx context.Context, email, name, lastname string, 
 // decision through the repository, where it runs under the bootstrap
 // advisory lock (BA-12): PromoteIfFirstUser for the existing row,
 // CreateUser's DecisionFunc for a brand-new one.
+//
+// This is the *materialization* path, shared by signup (SignupMirrorHook)
+// and session login (AuthSession middleware). The invitation-only
+// signup gate (BA-15) lives in the hook, NOT here: a legitimate
+// existing user who signs in must still be able to materialize their
+// local projection.
 func (s *Service) GetOrCreate(ctx context.Context, email, name string) (*domain.User, error) {
 	if email == "" {
 		return nil, fmt.Errorf("%w: email is required", domain.ErrUnauthorized)
@@ -179,6 +185,16 @@ func (s *Service) SoftDeleteUser(ctx context.Context, requestingUserID, targetUs
 	}
 
 	return s.repo.SoftDeleteUser(ctx, targetUserID)
+}
+
+// RejectSignup revokes a self-service signup that the invitation-only
+// gate (BA-15) turned away: the Authula credentials already exist, so
+// the only lever we have is to soft-delete the local projection. The
+// AuthSession barrier denies a session to any non-super_admin, so the
+// orphaned credential cannot authenticate either way; this just avoids
+// leaving a live row behind. Called only from the signup mirror hook.
+func (s *Service) RejectSignup(ctx context.Context, userID uuid.UUID) error {
+	return s.repo.SoftDeleteUser(ctx, userID)
 }
 
 // generateRandomPassword generates a cryptographically random

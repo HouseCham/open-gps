@@ -95,8 +95,9 @@ func NewTestApp(opts ...TestAppOption) *TestApp {
 }
 
 func (ta *TestApp) registerRoutes() {
-	ta.HealthHandler = handlers.NewHealthHandler()
+	ta.HealthHandler = handlers.NewHealthHandler(nil)
 	ta.App.Get("/health", ta.HealthHandler.Handle)
+	ta.App.Get("/health/ready", ta.HealthHandler.Ready)
 
 	authSession := middleware.AuthSession(ta.SessionCookieName, ta.SessionAuth, ta, ta.UsersService)
 

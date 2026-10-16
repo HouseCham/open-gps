@@ -176,7 +176,7 @@ func main() {
 	queries := postgres.New(pool)
 
 	//-- handlers
-	healthHandler := handlers.NewHealthHandler()
+	healthHandler := handlers.NewHealthHandler(pool.Ping)
 	devicesHandler := handlers.NewDevicesHandler(devicesService, accessService)
 	passwordUpdater := authInstance.NewPasswordUpdater()
 	sessionManager := authInstance.NewSessionManager()

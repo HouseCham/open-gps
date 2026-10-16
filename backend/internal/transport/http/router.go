@@ -66,6 +66,7 @@ func NewRouter(deps RouterDeps) *fiber.App {
 	}
 
 	app.Get("/health", deps.HealthHandler.Handle)
+	app.Get("/health/ready", deps.HealthHandler.Ready)
 
 	// Single session-cookie auth middleware. Replaces the old
 	// (AuthJWT -> LazyUser) pair: cookie lookup + actor resolution
