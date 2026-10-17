@@ -30,6 +30,7 @@ All responses follow the standard envelope:
 | 400 | `invalid language` | `locale` is not one of the configured languages (`en`, `es`). |
 | 400 | `invalid or expired token` | The consume token is unknown, expired, or already used. The three failure modes are deliberately indistinguishable on the wire — callers cannot probe token validity. |
 | 503 | `system not initialized` | System has zero users; the user must hit `/api/v1/system/bootstrap` first. |
+| 503 | `password recovery temporarily unavailable` | The trusted proxy did not supply a valid client IP, so the API refuses to bypass the per-IP rate limit. |
 | 502 | `upstream email provider failed` | Terminal non-email error (database, token store). Upstream Resend failures do NOT surface here — see the anti-enumeration note below. |
 | 500 | `internal server error` | Unhandled error. |
 
@@ -41,7 +42,7 @@ All responses follow the standard envelope:
 
 Issues a single-use password-reset token and dispatches a locale-specific email via [Resend](https://resend.com). The reset link is built **entirely server-side** from the configured `PUBLIC_APP_ORIGIN`, the request locale and a fixed path (`/{locale}/reset-password?token=`); the raw token is appended last. The request cannot influence the link destination.
 
-**Anti-enumeration:** the response is identical for unknown emails, rate-limited requests, successful dispatches, and upstream email-provider failures. The server does not disclose whether the address exists. All paths answer `202 Accepted` with the same body; Resend's message id is kept in server logs only.
+**Anti-enumeration:** valid requests with a resolved client IP have identical responses for unknown emails, rate-limited requests, successful dispatches, and upstream email-provider failures. The server does not disclose whether the address exists. These paths answer `202 Accepted` with the same body; Resend's message id is kept in server logs only. If the trusted proxy omits or supplies an invalid client IP, the endpoint returns the same generic `503` before looking up the email.
 
 **Rate limiting (per IP + per email, sliding 15-minute window):**
 - 3 requests per email

@@ -17,7 +17,7 @@ Authentication is **cookie-based**. After sign-in or sign-up, Authula's session 
 | First user | auto-promoted to `super_admin` |
 | Sign-up | invitation-only (first user, otherwise admin-created) |
 
-Sign-up is invitation-only. The only self-service registration allowed is the very first user (who becomes `super_admin`); after that, every account must be created by a `super_admin` through [`POST /api/v1/users`](./Users.md). A rejected sign-up returns `403` with `{"message": "signup is invitation-only"}`.
+Email/password sign-up is invitation-only. The only self-service registration allowed is the very first user (who becomes `super_admin`); after that, every account must be created by a `super_admin` through [`POST /api/v1/users`](./Users.md). A non-first signup returns `403` with `{"message": "signup is invitation-only"}`. If the signup cannot be verified or mirrored, it returns `403` with `{"message": "signup could not be verified"}` after revoking the new Authula credential. If Authula revocation itself fails, the endpoint returns `503` with the same generic message and propagates the failure to server logs.
 
 Sign-up auto-signs-in: the same response that registers the user sets the session cookie.
 

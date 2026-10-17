@@ -38,6 +38,12 @@ services:
     restart: unless-stopped
     expose:
       - "8080"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     environment:
       APP_ENV: ${APP_ENV:-production}
       API_PORT: ${API_PORT}

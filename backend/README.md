@@ -72,9 +72,9 @@ additional endpoints and authentication details.
 | Method | Path | Access |
 |---|---|---|
 | GET | `/health` | Public health check; returns `{ "status": "ok" }`. Liveness: the process is up — use it for container restart decisions. |
-| GET | `/health/ready` | Public readiness check: pings PostgreSQL (2s budget). Returns 200 `{ "status": "ok" }` when the API can serve traffic, 503 `{ "status": "unavailable" }` otherwise. Use it for load-balancer/rollout gating. |
+| GET | `/health/ready` | Public readiness check: pings PostgreSQL (2s budget). Returns 200 `{ "status": "ok" }` when the API can serve traffic, 503 `{ "status": "unavailable" }` otherwise. Use it for load-balancer/rollout gating. Both paths are proxied by nginx. |
 | POST | `/api/auth/email-password/sign-in` | Authula. |
-| POST | `/api/auth/email-password/sign-up` | Authula; the first local user becomes `super_admin`. |
+| POST | `/api/auth/email-password/sign-up` | Email/password signup: the first user bootstraps `super_admin`; later signup requests are rejected and accounts are admin-created. |
 | POST | `/api/auth/sign-out` | Clears the session cookie and invalidates the session. |
 | POST | `/api/auth/email-password/request-password-reset` | Authula password-reset endpoint. |
 | POST | `/api/auth/email-password/change-password` | Authula; session required. |
@@ -200,7 +200,7 @@ SSE streams, and CSV/GPX file downloads.
 
 ## Database
 
-22 migrations covering: extensions (`pgcrypto`, `pg_partman`, `pg_cron`), users, devices, user-device access (role-based: owner, editor, viewer), location time-series (monthly range partitions via pg_partman, `battery_voltage` + `signal_strength` telemetry, no `satellites`), device API keys (`X-Device-API-Key` opaque lookup tokens), password-reset tokens, temporary device share links, protection triggers, and `devices.last_contact_at` for presence.
+24 migrations covering: extensions (`pgcrypto`, `pg_partman`, `pg_cron`), users, devices, user-device access (role-based: owner, editor, viewer), location time-series (monthly range partitions via pg_partman, `battery_voltage` + `signal_strength` telemetry, no `satellites`), device API keys (`X-Device-API-Key` opaque lookup tokens), password-reset tokens and IP-attempt tracking, temporary device share links, protection triggers, `devices.last_contact_at` for presence, and 30-day retention for batch-ingest idempotency keys.
 
 Key decisions:
 - **Soft deletes** on users, devices, access grants and API keys (`deleted_at`).
@@ -219,9 +219,34 @@ docker run -p 8080:8080 -e DATABASE_URL=postgres://user:pass@host:5432/gps_track
 ### Health probes
 
 The runtime image is distroless (no shell/curl), so exec probes use the
-bundled `/usr/local/bin/healthcheck` binary (GETs `/health/ready`):
+bundled `/usr/local/bin/healthcheck` binary (GETs `/health/ready`). Compose
+uses this probe in the base and local stacks; nginx also forwards both paths
+for ingress probes:
 
 | Orchestrator | Liveness | Readiness |
 |---|---|---|
-| docker compose | — | `test: ["CMD", "/usr/local/bin/healthcheck"]` (see `docker-compose.local.yml`) |
+| docker compose | — | `test: ["CMD", "/usr/local/bin/healthcheck"]` (see `docker-compose.yml`) |
 | Kubernetes | `httpGet` on `/health` | `httpGet` on `/health/ready` |
+
+### Reverse-proxy client IP and password-recovery limits
+
+Password recovery is limited to 10 requests per client IP and 3 per email
+within 15 minutes. The API is not published directly; traffic enters through
+nginx on the private Compose network. Fiber trusts only private-network peers
+as proxies, reads the single `X-Real-IP` header, validates it and canonicalizes
+IPv6 addresses before counting. nginx uses `$remote_addr` locally and forwards
+Traefik's sanitized `X-Real-IP` in production. If Traefik sits behind another
+load balancer, configure `forwardedHeaders.trustedIPs` for that upstream and
+ensure it overwrites forwarded client-IP headers; never enable insecure
+forwarded-header trust.
+
+If a trusted proxy omits or sends an invalid `X-Real-IP`, recovery requests
+receive a generic `503` before email lookup, so the limit cannot silently be
+bypassed or disclose whether an account exists.
+
+### PostgreSQL integration tests
+
+PostgreSQL concurrency tests use `TEST_DATABASE_URL`, which must target a
+dedicated database whose name ends in `_test`. Each test creates and drops a
+unique schema rather than dropping shared tables. Do not point it at a
+development or production database.

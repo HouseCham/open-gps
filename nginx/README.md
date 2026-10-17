@@ -27,7 +27,19 @@ table:
 | `/`             | static `/var/www/html` | Astro static build (SPA fallback)        |
 | `/api/auth/*`   | `http://api:8080`      | Authula routes + custom /me handler (Fiber) |
 | `/api/v1/*`     | `http://api:8080`      | App routes (devices, users, access)      |
-| `/health`       | `http://api:8080/health` | Health check                            |
+| `/health`       | `http://api:8080/health` | Liveness check                          |
+| `/health/ready` | `http://api:8080/health/ready` | PostgreSQL readiness check          |
+
+## Forwarded client IP
+
+The API's password-recovery budget is keyed by client IP. The local config
+sets `X-Real-IP` from nginx's `$remote_addr`. In production, Traefik supplies
+the sanitized `X-Real-IP` and nginx forwards that single address to the API;
+it must not replace it with `$remote_addr`, which is Traefik's container IP.
+If Traefik is itself behind a load balancer, configure Traefik to trust only
+that load balancer's forwarded headers and ensure the load balancer overwrites
+client-IP headers with its verified address. Never enable insecure
+forwarded-header trust for public traffic.
 
 The two SSE routes get special treatment: `proxy_buffering off`,
 `proxy_cache off`, `gzip off`, and a long `proxy_read_timeout` (75s) so
