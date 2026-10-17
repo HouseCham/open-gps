@@ -87,8 +87,12 @@ func NewTestApp(opts ...TestAppOption) *TestApp {
 	ta.AccessService = access.NewAccessService(ta.AccessRepo, ta.UsersRepo)
 
 	ta.App = fiber.New(fiber.Config{
-		AppName:      "gps-tracker-test",
-		ErrorHandler: httpErrorHandler,
+		AppName:            "gps-tracker-test",
+		ErrorHandler:       httpErrorHandler,
+		TrustProxy:         true,
+		ProxyHeader:        "X-Real-IP",
+		EnableIPValidation: true,
+		TrustProxyConfig:   fiber.TrustProxyConfig{Private: true},
 	})
 
 	ta.registerRoutes()

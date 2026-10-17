@@ -3,6 +3,8 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"net"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
@@ -51,13 +53,30 @@ func (h *PasswordResetHandler) GenerateRecoveryToken(c fiber.Ctx) error {
 		log.Error(operation, "err", fiber.ErrBadRequest, "reason", "invalid request body")
 		return middleware.BadRequestResponse(c, "invalid request body")
 	}
+	clientIP, err := passwordRecoveryClientIP(c)
+	if err != nil {
+		// Resolve the client identity before looking up the email. This
+		// failure is consequently independent of whether the account exists.
+		log.Error(operation, "err", err, "reason", "trusted client IP unavailable")
+		return c.Status(fiber.StatusServiceUnavailable).JSON(response.HTTPResponse[bool]{
+			StatusCode: fiber.StatusServiceUnavailable,
+			Message:    "password recovery temporarily unavailable",
+		})
+	}
 
 	res, err := h.service.Request(c.Context(), passwordreset.RequestInput{
 		Email:    req.Email,
 		Language: req.Locale,
-		ClientIP: c.IP(),
+		ClientIP: clientIP,
 	})
 	if err != nil {
+		if errors.Is(err, passwordreset.ErrClientIPRequired) {
+			log.Error(operation, "err", err, "reason", "trusted client IP unavailable")
+			return c.Status(fiber.StatusServiceUnavailable).JSON(response.HTTPResponse[bool]{
+				StatusCode: fiber.StatusServiceUnavailable,
+				Message:    "password recovery temporarily unavailable",
+			})
+		}
 		if errors.Is(err, email.ErrInvalidLanguage) {
 			log.Error(operation, "err", err, "locale", req.Locale)
 			return middleware.BadRequestResponse(c, "invalid language")
@@ -85,6 +104,21 @@ func (h *PasswordResetHandler) GenerateRecoveryToken(c fiber.Ctx) error {
 	}
 
 	return acceptedRecoveryResponse(c)
+}
+
+// passwordRecoveryClientIP returns the normalized address that the trusted
+// reverse proxy supplied. Direct requests from untrusted peers use Fiber's
+// TCP peer address; a trusted proxy missing X-Real-IP fails closed.
+func passwordRecoveryClientIP(c fiber.Ctx) (string, error) {
+	raw := c.IP()
+	if c.IsProxyTrusted() {
+		raw = c.Get("X-Real-IP")
+	}
+	ip := net.ParseIP(strings.TrimSpace(raw))
+	if ip == nil {
+		return "", fmt.Errorf("invalid client IP %q", raw)
+	}
+	return ip.String(), nil
 }
 
 // acceptedRecoveryResponse is the single wire answer for every

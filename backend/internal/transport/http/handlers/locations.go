@@ -305,6 +305,7 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 	}
 
 	sessionToken := c.Cookies(h.sessionCookie)
+	streamCtx := c.Context()
 	initial, err := h.service.GetLive(c.Context(), deviceID, time.Now().UTC())
 	if err != nil {
 		return fmt.Errorf("LocationsHandler.Stream: get live snapshot: %w", err)
@@ -329,10 +330,10 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 		defer timer.Stop()
 		for {
 			select {
-			case <-c.Context().Done():
+			case <-streamCtx.Done():
 				return
 			case event, ok := <-events:
-				if !ok || !h.stillAuthorized(c, sessionToken, user.ID, deviceID) {
+				if !ok || !h.stillAuthorized(streamCtx, sessionToken, user.ID, deviceID) {
 					return
 				}
 				if err := writeSSE(writer, event); err != nil {
@@ -344,7 +345,7 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 				// The keepalive doubles as the revalidation beat: a
 				// revoked session or grant ends the stream here even
 				// when no location events are flowing.
-				if !h.stillAuthorized(c, sessionToken, user.ID, deviceID) {
+				if !h.stillAuthorized(streamCtx, sessionToken, user.ID, deviceID) {
 					return
 				}
 				if _, err := writer.WriteString(": keepalive\n\n"); err != nil {
@@ -356,10 +357,10 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 					return
 				}
 			case <-timer.C:
-				if !h.stillAuthorized(c, sessionToken, user.ID, deviceID) {
+				if !h.stillAuthorized(streamCtx, sessionToken, user.ID, deviceID) {
 					return
 				}
-				snapshot, err := h.service.GetLive(c.Context(), deviceID, time.Now().UTC())
+				snapshot, err := h.service.GetLive(streamCtx, deviceID, time.Now().UTC())
 				if err != nil {
 					log.Error(operation, "err", err, "deviceID", deviceID, "stage", "presence refresh")
 					return
@@ -382,15 +383,15 @@ func (h *LocationsHandler) Stream(c fiber.Ctx) error {
 // still authenticates and the device grant still allows viewer. Any
 // failure ends the stream; the client's reconnect then gets a proper
 // 401/403 from the route middleware if it may not come back.
-func (h *LocationsHandler) stillAuthorized(c fiber.Ctx, sessionToken string, userID, deviceID uuid.UUID) bool {
+func (h *LocationsHandler) stillAuthorized(ctx context.Context, sessionToken string, userID, deviceID uuid.UUID) bool {
 	if h.sessionAuth == nil || h.access == nil || sessionToken == "" {
 		return false
 	}
-	actor, err := h.sessionAuth.Authenticate(c.Context(), sessionToken)
+	actor, err := h.sessionAuth.Authenticate(ctx, sessionToken)
 	if err != nil || actor == nil || actor.ID == "" {
 		return false
 	}
-	return h.access.RequireRole(c.Context(), userID, deviceID, domain.AccessRoleViewer) == nil
+	return h.access.RequireRole(ctx, userID, deviceID, domain.AccessRoleViewer) == nil
 }
 
 // writeSSE writes a single Server-Sent Event to the writer, wrapping any
