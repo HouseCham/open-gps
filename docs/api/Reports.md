@@ -15,6 +15,22 @@ requested range are not included.
 
 See [Authentication.md](./Authentication.md) for the session flow.
 
+## Dataset limits
+
+Every report endpoint bounds its dataset to keep memory and latency
+predictable. Requests that exceed any limit return `400` with a descriptive
+message rather than a silently truncated report.
+
+| Limit | Value | Notes |
+|-------|-------|-------|
+| Time range | 31 days | `to - from` cannot exceed 31 days |
+| Points | 100,000 | Total location points across all selected devices |
+| Devices | 10 | Active devices in the selected set |
+
+A device that is `editor` or `viewer` (shared with you) counts toward the
+device limit; delete or narrow the filter (e.g. by `device_ids`) if a request
+exceeds it.
+
 ## Common query parameters
 
 | Parameter | Required | Description |
