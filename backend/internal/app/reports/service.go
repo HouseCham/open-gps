@@ -19,7 +19,7 @@ const (
 	MaxReportRange     = 31 * 24 * time.Hour
 	MaxExportPoints    = 100_000
 	MaxReportPoints    = MaxExportPoints
-	MaxReportDevices   = 50
+	MaxReportDevices   = 10
 	MaxRoutePoints     = 1_000
 )
 

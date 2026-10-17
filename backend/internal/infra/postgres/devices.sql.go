@@ -29,6 +29,26 @@ func (q *Queries) CountDevicesForUser(ctx context.Context, userID pgtype.UUID) (
 	return count, err
 }
 
+const countOwnedDevicesForUser = `-- name: CountOwnedDevicesForUser :one
+SELECT COUNT(*)::bigint AS count
+FROM devices d
+INNER JOIN user_device_access uda
+  ON d.id = uda.device_id AND uda.deleted_at IS NULL AND uda.role = 'owner'
+WHERE uda.user_id = $1
+  AND d.deleted_at IS NULL
+`
+
+// Returns the count of devices the user OWNS (owner role) — the basis
+// for the per-user registration cap. Shared devices where the user is
+// editor/viewer do NOT count against the cap: the cap bounds what a
+// user registers, not what others share with them.
+func (q *Queries) CountOwnedDevicesForUser(ctx context.Context, userID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countOwnedDevicesForUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createDevice = `-- name: CreateDevice :one
 INSERT INTO devices (uuid_firmware, name, vehicle_type)
 VALUES (

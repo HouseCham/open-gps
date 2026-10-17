@@ -3,6 +3,7 @@ package httptest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Authula/authula/models"
@@ -256,6 +257,9 @@ func httpErrorHandler(c fiber.Ctx, err error) error {
 	} else if errors.Is(err, domain.ErrValidation) {
 		code = fiber.StatusBadRequest
 		message = "validation error"
+	} else if errors.Is(err, domain.ErrDeviceLimitReached) {
+		code = fiber.StatusForbidden
+		message = fmt.Sprintf("device limit reached (max %d devices per user)", devices.MaxDevicesPerUser)
 	}
 
 	return c.Status(code).JSON(response.HTTPResponse[bool]{

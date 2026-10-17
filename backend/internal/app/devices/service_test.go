@@ -16,7 +16,7 @@ type mockRepo struct {
 	listForUserPaginatedFn           func(ctx context.Context, userID uuid.UUID, limit, offset int) ([]domain.Device, int, error)
 	countForUserFn                   func(ctx context.Context, userID uuid.UUID) (int, error)
 	getByIDForUserFn                 func(ctx context.Context, userID, deviceID uuid.UUID) (*domain.DeviceWithAccess, error)
-	createFn                         func(ctx context.Context, input CreateInput) (*domain.Device, error)
+	createWithOwnerLimitFn           func(ctx context.Context, input CreateInput, maxOwned int) (*domain.Device, error)
 	updateFn                         func(ctx context.Context, deviceID uuid.UUID, input UpdateInput) (*domain.Device, error)
 	softDeleteFn                     func(ctx context.Context, deviceID uuid.UUID) error
 }
@@ -36,8 +36,8 @@ func (m *mockRepo) CountForUser(ctx context.Context, userID uuid.UUID) (int, err
 func (m *mockRepo) GetByIDForUser(ctx context.Context, userID, deviceID uuid.UUID) (*domain.DeviceWithAccess, error) {
 	return m.getByIDForUserFn(ctx, userID, deviceID)
 }
-func (m *mockRepo) Create(ctx context.Context, input CreateInput) (*domain.Device, error) {
-	return m.createFn(ctx, input)
+func (m *mockRepo) CreateWithOwnerLimit(ctx context.Context, input CreateInput, maxOwned int) (*domain.Device, error) {
+	return m.createWithOwnerLimitFn(ctx, input, maxOwned)
 }
 func (m *mockRepo) Update(ctx context.Context, deviceID uuid.UUID, input UpdateInput) (*domain.Device, error) {
 	return m.updateFn(ctx, deviceID, input)
@@ -135,9 +135,12 @@ func TestCreate(t *testing.T) {
 	t.Run("creates and returns device", func(t *testing.T) {
 		expected := &domain.Device{Name: "new-device"}
 		svc := New(&mockRepo{
-			createFn: func(_ context.Context, in CreateInput) (*domain.Device, error) {
+			createWithOwnerLimitFn: func(_ context.Context, in CreateInput, maxOwned int) (*domain.Device, error) {
 				if in != input {
 					t.Error("input not forwarded")
+				}
+				if maxOwned != MaxDevicesPerUser {
+					t.Errorf("maxOwned = %d, want %d", maxOwned, MaxDevicesPerUser)
 				}
 				return expected, nil
 			},
@@ -153,13 +156,49 @@ func TestCreate(t *testing.T) {
 
 	t.Run("propagates repository error", func(t *testing.T) {
 		svc := New(&mockRepo{
-			createFn: func(_ context.Context, _ CreateInput) (*domain.Device, error) {
+			createWithOwnerLimitFn: func(_ context.Context, _ CreateInput, _ int) (*domain.Device, error) {
 				return nil, domain.ErrConflict
 			},
 		})
 		_, err := svc.Create(ctx, input)
 		if !errors.Is(err, domain.ErrConflict) {
 			t.Errorf("expected ErrConflict, got %v", err)
+		}
+	})
+
+	t.Run("returns ErrDeviceLimitReached when user already owns MaxDevicesPerUser", func(t *testing.T) {
+		svc := New(&mockRepo{
+			createWithOwnerLimitFn: func(_ context.Context, _ CreateInput, maxOwned int) (*domain.Device, error) {
+				if maxOwned != MaxDevicesPerUser {
+					t.Errorf("maxOwned = %d, want %d", maxOwned, MaxDevicesPerUser)
+				}
+				return nil, domain.ErrDeviceLimitReached
+			},
+		})
+		_, err := svc.Create(ctx, input)
+		if !errors.Is(err, domain.ErrDeviceLimitReached) {
+			t.Fatalf("expected ErrDeviceLimitReached, got %v", err)
+		}
+	})
+
+	t.Run("enforces the cap inside the repository, not the service", func(t *testing.T) {
+		// The count and insert must share one transaction (advisory lock);
+		// the service just forwards the cap. This asserts the delegation.
+		calls := 0
+		svc := New(&mockRepo{
+			createWithOwnerLimitFn: func(_ context.Context, _ CreateInput, maxOwned int) (*domain.Device, error) {
+				calls++
+				if maxOwned != MaxDevicesPerUser {
+					t.Errorf("maxOwned = %d, want %d", maxOwned, MaxDevicesPerUser)
+				}
+				return &domain.Device{Name: "new-device"}, nil
+			},
+		})
+		if _, err := svc.Create(ctx, input); err != nil {
+			t.Fatalf("expected creation to succeed, got %v", err)
+		}
+		if calls != 1 {
+			t.Errorf("expected exactly one repo call, got %d", calls)
 		}
 	})
 }

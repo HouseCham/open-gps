@@ -96,7 +96,7 @@ func (q *Queries) GetLocationsForDevice(ctx context.Context, arg GetLocationsFor
 		return nil, err
 	}
 	defer rows.Close()
-	items := make([]Location, 0, arg.Limit)
+	var items []Location
 	for rows.Next() {
 		var i Location
 		if err := rows.Scan(
@@ -155,7 +155,7 @@ func (q *Queries) GetLocationsForUser(ctx context.Context, arg GetLocationsForUs
 		return nil, err
 	}
 	defer rows.Close()
-	items := make([]Location, 0, 64)
+	var items []Location
 	for rows.Next() {
 		var i Location
 		if err := rows.Scan(
@@ -247,7 +247,7 @@ func (q *Queries) GetRouteForDevice(ctx context.Context, arg GetRouteForDevicePa
 		return nil, err
 	}
 	defer rows.Close()
-	items := make([]GetRouteForDeviceRow, 0, arg.Ntile+1)
+	var items []GetRouteForDeviceRow
 	for rows.Next() {
 		var i GetRouteForDeviceRow
 		if err := rows.Scan(

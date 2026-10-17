@@ -14,17 +14,22 @@ import (
 type MockDevicesRepository struct {
 	Devices           map[uuid.UUID]*domain.Device
 	DevicesWithAccess map[uuid.UUID][]domain.DeviceWithAccess
-	CreateErr         error
-	ListErr           error
-	GetErr            error
-	UpdateErr         error
-	DeleteErr         error
+	// ownedByUser tracks how many devices each user already owns, so the
+	// mock can enforce the per-user registration cap the same way the real
+	// adapter does (count + insert under one lock).
+	ownedByUser map[uuid.UUID]int
+	CreateErr   error
+	ListErr     error
+	GetErr      error
+	UpdateErr   error
+	DeleteErr   error
 }
 
 func NewMockDevicesRepository() *MockDevicesRepository {
 	return &MockDevicesRepository{
 		Devices:           make(map[uuid.UUID]*domain.Device),
 		DevicesWithAccess: make(map[uuid.UUID][]domain.DeviceWithAccess),
+		ownedByUser:       make(map[uuid.UUID]int),
 	}
 }
 
@@ -81,9 +86,14 @@ func (m *MockDevicesRepository) GetByIDForUser(ctx context.Context, userID, devi
 	return nil, domain.ErrNotFound
 }
 
-func (m *MockDevicesRepository) Create(ctx context.Context, input devices.CreateInput) (*domain.Device, error) {
+// CreateWithOwnerLimit mirrors the real adapter: it enforces that the owner
+// does not already own maxOwned devices, then inserts and records the grant.
+func (m *MockDevicesRepository) CreateWithOwnerLimit(ctx context.Context, input devices.CreateInput, maxOwned int) (*domain.Device, error) {
 	if m.CreateErr != nil {
 		return nil, m.CreateErr
+	}
+	if m.ownedByUser[input.OwnerID] >= maxOwned {
+		return nil, domain.ErrDeviceLimitReached
 	}
 	device := &domain.Device{
 		ID:           uuid.New(),
@@ -93,6 +103,11 @@ func (m *MockDevicesRepository) Create(ctx context.Context, input devices.Create
 		CreatedAt:    time.Now(),
 	}
 	m.Devices[device.ID] = device
+	m.DevicesWithAccess[input.OwnerID] = append(m.DevicesWithAccess[input.OwnerID], domain.DeviceWithAccess{
+		Device:     *device,
+		AccessRole: domain.AccessRoleOwner,
+	})
+	m.ownedByUser[input.OwnerID]++
 	return device, nil
 }
 

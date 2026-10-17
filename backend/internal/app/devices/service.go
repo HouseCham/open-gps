@@ -8,6 +8,12 @@ import (
 	"github.com/HouseCham/gps-tracker/backend/internal/domain"
 )
 
+// MaxDevicesPerUser caps how many devices a single user may register.
+// Shared devices (where the user is editor/viewer) do NOT count against
+// the cap — only devices the user owns. Exceeding it returns
+// domain.ErrDeviceLimitReached, surfaced as 403 by the transport layer.
+const MaxDevicesPerUser = 10
+
 type Service struct {
 	repo Repository
 }
@@ -48,9 +54,13 @@ func (s *Service) GetByID(ctx context.Context, userID, deviceID uuid.UUID) (*dom
 }
 
 // Create registers a new device and grants the caller owner access to it,
-// atomically. The repository implementation owns the transaction.
+// enforcing the per-user registration cap (MaxDevicesPerUser). The
+// repository serializes the count and the insert inside one transaction
+// under a per-user advisory lock (BA-12 pattern), so concurrent creates
+// for the same user cannot both slip past the cap. Exceeding the cap
+// returns domain.ErrDeviceLimitReached.
 func (s *Service) Create(ctx context.Context, input CreateInput) (*domain.Device, error) {
-	return s.repo.Create(ctx, input)
+	return s.repo.CreateWithOwnerLimit(ctx, input, MaxDevicesPerUser)
 }
 
 // Update applies the provided fields to a device. Name is required by the
