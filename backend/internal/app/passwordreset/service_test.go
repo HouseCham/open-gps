@@ -143,6 +143,7 @@ func (s *stubMailer) SendPasswordReset(_ context.Context, in email.ResetInput) (
 // testOrigin is the configured public origin every test service is
 // built with; reset links must be prefixed with it.
 const testOrigin = "https://app.example.com"
+const testClientIP = "192.0.2.10"
 
 func testResetURLPrefix(locale string) string {
 	return testOrigin + "/" + locale + "/reset-password?token="
@@ -164,6 +165,7 @@ func TestRequest_HappyPath_DispatchesAndReturnsMessageID(t *testing.T) {
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
 		Email:    "u@x.com",
 		Language: "en",
+		ClientIP: testClientIP,
 	})
 	if err != nil {
 		t.Fatalf("Request: unexpected err: %v", err)
@@ -206,6 +208,7 @@ func TestRequest_ResetURLIsBuiltServerSide_PerLocale(t *testing.T) {
 			if _, err := svc.Request(context.Background(), passwordreset.RequestInput{
 				Email:    "u@x.com",
 				Language: tc.locale,
+				ClientIP: testClientIP,
 			}); err != nil {
 				t.Fatalf("Request: unexpected err: %v", err)
 			}
@@ -228,6 +231,7 @@ func TestRequest_MailerFailure_ReturnsErrEmailDispatch(t *testing.T) {
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
 		Email:    "u@x.com",
 		Language: "en",
+		ClientIP: testClientIP,
 	})
 	if !errors.Is(err, passwordreset.ErrEmailDispatch) {
 		t.Fatalf("err = %v, want ErrEmailDispatch", err)
@@ -249,6 +253,7 @@ func TestRequest_UnknownEmail_ReturnsSilently(t *testing.T) {
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
 		Email:    "nobody@x.com",
 		Language: "en",
+		ClientIP: testClientIP,
 	})
 	if err != nil {
 		t.Fatalf("Request: unexpected err: %v", err)
@@ -367,6 +372,42 @@ func TestRequest_UnknownEmail_ConsumesIPBudget(t *testing.T) {
 	}
 }
 
+func TestRequestRequiresAndCanonicalizesClientIP(t *testing.T) {
+	t.Run("missing IP fails before user lookup or rate-limit write", func(t *testing.T) {
+		repo := newFakeRepo()
+		users := &stubUsers{byEmail: map[string]*domain.User{}}
+		svc := newSvc(t, repo, users, &stubResetter{}, &stubMailer{})
+
+		_, err := svc.Request(context.Background(), passwordreset.RequestInput{
+			Email:    "nobody@x.com",
+			Language: "en",
+		})
+		if !errors.Is(err, passwordreset.ErrClientIPRequired) {
+			t.Fatalf("err = %v, want ErrClientIPRequired", err)
+		}
+		if len(repo.attemptsByIP) != 0 {
+			t.Fatalf("attempts recorded without an IP: %v", repo.attemptsByIP)
+		}
+	})
+
+	t.Run("IPv6 spellings share one budget key", func(t *testing.T) {
+		repo := newFakeRepo()
+		users := &stubUsers{byEmail: map[string]*domain.User{}}
+		svc := newSvc(t, repo, users, &stubResetter{}, &stubMailer{})
+
+		_, err := svc.Request(context.Background(), passwordreset.RequestInput{
+			Email: "nobody@x.com", Language: "en",
+			ClientIP: "2001:0db8:0000:0000:0000:0000:0000:0001",
+		})
+		if err != nil {
+			t.Fatalf("Request: %v", err)
+		}
+		if got := repo.attemptsByIP["2001:db8::1"]; got != 1 {
+			t.Errorf("canonical IPv6 attempt count=%d, want 1; keys=%v", got, repo.attemptsByIP)
+		}
+	})
+}
+
 func TestConsume_HappyPath_RotatesAndClearsFlag(t *testing.T) {
 	repo := newFakeRepo()
 	users := &stubUsers{byEmail: map[string]*domain.User{
@@ -377,7 +418,7 @@ func TestConsume_HappyPath_RotatesAndClearsFlag(t *testing.T) {
 	svc := passwordreset.New(repo, repo, users, reset, mail, testOrigin, nil)
 
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
-		Email: "u@x.com", Language: "en",
+		Email: "u@x.com", Language: "en", ClientIP: testClientIP,
 	})
 	if err != nil || !res.Dispatched {
 		t.Fatalf("setup: Request failed (err=%v, dispatched=%v)", err, res.Dispatched)
@@ -418,7 +459,7 @@ func TestConsume_SecondUseOfSameToken_ReturnsErrInvalidResetToken(t *testing.T) 
 	mail := &stubMailer{mid: "x"}
 	svc := passwordreset.New(repo, repo, users, &stubResetter{}, mail, testOrigin, nil)
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
-		Email: "u@x.com", Language: "en",
+		Email: "u@x.com", Language: "en", ClientIP: testClientIP,
 	})
 	if err != nil || !res.Dispatched {
 		t.Fatalf("setup: Request failed (err=%v, dispatched=%v)", err, res.Dispatched)

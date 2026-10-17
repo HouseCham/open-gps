@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,6 +51,10 @@ var ErrInvalidResetToken = domain.ErrInvalidResetToken
 // for known addresses).
 var ErrEmailDispatch = errors.New("password recovery email dispatch failed")
 
+// ErrClientIPRequired prevents a caller from silently bypassing the
+// per-IP recovery budget with an empty or malformed client address.
+var ErrClientIPRequired = errors.New("password recovery requires a valid client IP")
+
 // userResolver is the slice of users.Service the password-reset flow
 // needs: lookup by email (to resolve the recipient's userID) and the
 // password-flag setter (to clear must_change_password on a successful
@@ -79,13 +85,13 @@ type emailSender interface {
 // Authula password. All public methods are safe for concurrent use;
 // the underlying TokenStore is responsible for the SQL race semantics.
 type Service struct {
-	tokens        TokenStore
-	rateLimit     RateLimitCounter
-	users         userResolver
-	reset         passwordResetter
-	mailer        emailSender
-	publicOrigin  string // bare origin used to build reset links
-	now           func() time.Time // injected for tests
+	tokens       TokenStore
+	rateLimit    RateLimitCounter
+	users        userResolver
+	reset        passwordResetter
+	mailer       emailSender
+	publicOrigin string           // bare origin used to build reset links
+	now          func() time.Time // injected for tests
 }
 
 // New wires a Service. publicOrigin is the bare public origin
@@ -107,7 +113,7 @@ func New(tokens TokenStore, rateLimit RateLimitCounter, users userResolver, rese
 type RequestInput struct {
 	Email    string
 	Language string
-	ClientIP string // used for the per-IP rate limit; optional, "" disables
+	ClientIP string // validated client IP used for the per-IP rate limit
 }
 
 // RequestResult is what the handler gets back. The MessageID is for
@@ -137,17 +143,21 @@ type RequestResult struct {
 //
 // In cases 1 and 2 the function returns nil error and Dispatched=false.
 func (s *Service) Request(ctx context.Context, in RequestInput) (RequestResult, error) {
+	parsedIP := net.ParseIP(strings.TrimSpace(in.ClientIP))
+	if parsedIP == nil {
+		return RequestResult{}, ErrClientIPRequired
+	}
+	clientIP := parsedIP.String()
+
 	// Per-IP cap first, and it counts the attempt itself — known or
 	// unknown email — so probing random addresses burns the same
 	// budget as real requests (BA-07).
-	if in.ClientIP != "" {
-		allowed, err := s.rateLimit.RegisterIPAttempt(ctx, in.ClientIP, rateLimitWindow, maxRequestsPerIP)
-		if err != nil {
-			return RequestResult{}, fmt.Errorf("passwordreset.Request: rate-limit ip: %w", err)
-		}
-		if !allowed {
-			return RequestResult{Dispatched: false}, nil
-		}
+	allowed, err := s.rateLimit.RegisterIPAttempt(ctx, clientIP, rateLimitWindow, maxRequestsPerIP)
+	if err != nil {
+		return RequestResult{}, fmt.Errorf("passwordreset.Request: rate-limit ip: %w", err)
+	}
+	if !allowed {
+		return RequestResult{Dispatched: false}, nil
 	}
 
 	user, err := s.users.GetByEmail(ctx, in.Email)
@@ -166,7 +176,7 @@ func (s *Service) Request(ctx context.Context, in RequestInput) (RequestResult, 
 	// Per-email cap is enforced here: count + invalidate + insert run
 	// in one transaction behind a per-user lock, so concurrent
 	// requests cannot overshoot the cap (BA-07).
-	issued, err := s.tokens.InsertIfUnderLimit(ctx, user.ID, tokenHash, in.ClientIP, s.now().Add(tokenTTL), rateLimitWindow, maxRequestsPerEmail)
+	issued, err := s.tokens.InsertIfUnderLimit(ctx, user.ID, tokenHash, clientIP, s.now().Add(tokenTTL), rateLimitWindow, maxRequestsPerEmail)
 	if err != nil {
 		return RequestResult{}, fmt.Errorf("passwordreset.Request: issue token: %w", err)
 	}

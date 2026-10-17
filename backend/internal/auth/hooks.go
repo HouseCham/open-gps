@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	nethttp "net/http"
 
 	"github.com/Authula/authula/models"
@@ -29,15 +30,18 @@ import (
 // with the first registration — two racing first signups cannot both
 // slip past a separate "is the system empty?" check.
 //
-// Both gate outcomes fail closed, because the Authula credential is
-// created before this after-stage hook runs:
+// The Authula credential is created before this after-stage hook runs, so
+// the hook revokes rejected credentials before returning a denial. If that
+// revocation fails, it returns a handled 503 and propagates the error rather
+// than claiming signup was successfully rejected:
 //   - not-the-bootstrap-user → delete the Authula user (kills the
 //     credential and its sessions) and soft-delete the local projection,
 //     then 403 Handled. A later login finds no Authula user and is
 //     refused, so the leftover credential cannot obtain a session.
 //   - GetOrCreate error → revoke the Authula user and return 403
-//     Handled instead of falling through, so Authula never reports a
-//     successful self-signup the gate could not verify.
+//     Handled instead of falling through. If revocation itself fails,
+//     return a handled 503 and propagate the failure rather than claiming
+//     the credential was revoked.
 func SignupMirrorHook(a *Auth, usersSvc *users.Service) models.Hook {
 	return models.Hook{
 		Stage: models.HookAfter,
@@ -49,8 +53,18 @@ func SignupMirrorHook(a *Auth, usersSvc *users.Service) models.Hook {
 		Handler: func(rc *models.RequestContext) error {
 			authulaUser, err := a.NewUserLookup().GetByID(rc.Request.Context(), rc.Actor.ID)
 			if err != nil {
-				// authula signup succeeded, local mirror is non-critical
+				// Authula has already created the account. If its user
+				// lookup fails, the invitation decision is unknown: reject
+				// the response and revoke the new credential rather than
+				// silently allowing an unverified signup.
 				log.Error("signup hook: fetch authula user", "err", err)
+				if derr := a.NewUserLookup().Delete(rc.Request.Context(), rc.Actor.ID); derr != nil {
+					return failSignupRevocation(rc, "revoke unverified signup (authula)", derr)
+				}
+				rc.SetJSONResponse(nethttp.StatusForbidden, map[string]any{
+					"message": "signup could not be verified",
+				})
+				rc.Handled = true
 				return nil
 			}
 			user, err := usersSvc.GetOrCreate(rc.Request.Context(), authulaUser.Email, authulaUser.Name)
@@ -58,12 +72,12 @@ func SignupMirrorHook(a *Auth, usersSvc *users.Service) models.Hook {
 				// Fail closed (BA-15): we could not verify whether this
 				// is the bootstrap signup, so we must not let Authula
 				// report a successful self-signup. Authula created the
-				// credential already; revoke it so no dangling account
-				// is left behind, then replace the response. Best-effort
-				// revoke: if it fails we still fail closed here.
+				// credential already; revoke it so no dangling account is
+				// left behind, then replace the response. If revocation fails,
+				// return a handled 503 rather than claiming it was revoked.
 				log.Error("signup hook: mirror to local users", "err", err)
 				if derr := a.NewUserLookup().Delete(rc.Request.Context(), rc.Actor.ID); derr != nil {
-					log.Error("signup hook: revoke unverified signup", "err", derr)
+					return failSignupRevocation(rc, "revoke unverified signup", derr)
 				}
 				rc.SetJSONResponse(nethttp.StatusForbidden, map[string]any{
 					"message": "signup could not be verified",
@@ -79,15 +93,18 @@ func SignupMirrorHook(a *Auth, usersSvc *users.Service) models.Hook {
 				// the account could still obtain a session as a regular
 				// user. Two revokes block that: delete the Authula user
 				// (kills the credential and its sessions), and
-				// soft-delete the local projection.
-				// ponytail: both revokes are best-effort — the 403 below
-				// always rejects this response, and a deleted Authula
-				// user can no longer authenticate at all.
-				if derr := a.NewUserLookup().Delete(rc.Request.Context(), rc.Actor.ID); derr != nil {
-					log.Error("signup hook: revoke rejected signup (authula)", "err", derr)
+				// soft-delete the local projection. If Authula revocation
+				// fails, the local revoke is still attempted, then the hook
+				// returns a handled 503 instead of claiming full revocation.
+				revokeErr := a.NewUserLookup().Delete(rc.Request.Context(), rc.Actor.ID)
+				if revokeErr != nil {
+					log.Error("signup hook: revoke rejected signup (authula)", "err", revokeErr)
 				}
 				if err := usersSvc.RejectSignup(rc.Request.Context(), user.ID); err != nil {
 					log.Error("signup hook: revoke rejected signup (local)", "err", err)
+				}
+				if revokeErr != nil {
+					return failSignupRevocation(rc, "revoke rejected signup (authula)", revokeErr)
 				}
 				log.Warn("signup hook: rejected non-first signup", "email", authulaUser.Email)
 				rc.SetJSONResponse(nethttp.StatusForbidden, map[string]any{
@@ -99,4 +116,12 @@ func SignupMirrorHook(a *Auth, usersSvc *users.Service) models.Hook {
 			return nil
 		},
 	}
+}
+
+func failSignupRevocation(rc *models.RequestContext, operation string, err error) error {
+	rc.SetJSONResponse(nethttp.StatusServiceUnavailable, map[string]any{
+		"message": "signup could not be verified",
+	})
+	rc.Handled = true
+	return fmt.Errorf("signup hook: %s: %w", operation, err)
 }

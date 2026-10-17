@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"testing"
 
@@ -13,28 +12,15 @@ import (
 
 	"github.com/HouseCham/gps-tracker/backend/internal/app/users"
 	"github.com/HouseCham/gps-tracker/backend/internal/domain"
+	"github.com/HouseCham/gps-tracker/backend/internal/testutil/pgtest"
 )
 
-// bootstrapTestDB returns a pool against a dedicated, disposable
-// database identified by TEST_DATABASE_URL and resets the shared
-// users table (schema mirrors migrations 000002/000003 plus the
-// later column additions). Skips when the variable is unset so the
-// unit suite stays runnable without Postgres.
+// bootstrapTestDB returns a pool with a private schema for this test.
 func bootstrapTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("TEST_DATABASE_URL not set; skipping PostgreSQL integration test")
-	}
-	pool, err := pgxpool.New(context.Background(), dsn)
-	if err != nil {
-		t.Fatalf("connect: %v", err)
-	}
-	t.Cleanup(pool.Close)
+	pool := pgtest.NewSchemaPool(t)
 
 	for _, stmt := range []string{
-		`DROP TABLE IF EXISTS users CASCADE`,
-		`DROP TYPE IF EXISTS user_role CASCADE`,
 		`CREATE TYPE user_role AS ENUM ('user', 'super_admin')`,
 		`CREATE TABLE users (
 			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -54,7 +40,7 @@ func bootstrapTestDB(t *testing.T) *pgxpool.Pool {
 		`CREATE INDEX idx_users_active_email ON users (email) WHERE deleted_at IS NULL`,
 	} {
 		if _, err := pool.Exec(context.Background(), stmt); err != nil {
-			t.Fatalf("reset schema: %v", err)
+			t.Fatalf("create bootstrap test schema: %v", err)
 		}
 	}
 	return pool

@@ -137,9 +137,13 @@ func (a *DevicesAdapter) GetByIDForUser(ctx context.Context, userID, deviceID uu
 // password-reset and users-bootstrap locks).
 // ponytail: raw Exec instead of a sqlc query — one statement, avoids
 // sqlc regen churn.
-const createOwnerLockKey = "devices:create_owner"
+const createOwnerLockKey = "devices:create_owner:"
 
 const createOwnerLockSQL = `SELECT pg_advisory_xact_lock(hashtext($1)::bigint)`
+
+func createOwnerLockResource(ownerID uuid.UUID) string {
+	return createOwnerLockKey + ownerID.String()
+}
 
 // CreateWithOwnerLimit registers a new device and grants the caller owner
 // access atomically, enforcing that the owner does not already own
@@ -160,7 +164,7 @@ func (a *DevicesAdapter) CreateWithOwnerLimit(ctx context.Context, input devices
 	// is not actionable in the function's return value — discard it.
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if _, err := tx.Exec(ctx, createOwnerLockSQL, createOwnerLockKey); err != nil {
+	if _, err := tx.Exec(ctx, createOwnerLockSQL, createOwnerLockResource(input.OwnerID)); err != nil {
 		return nil, fmt.Errorf("acquire create-owner lock: %w", err)
 	}
 
