@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +30,12 @@ type Service struct {
 	reader    Reader
 	live      LiveReader
 	publisher LivePublisher
+	// publishMu guards publishLocks. Each device gets its own mutex
+	// serializing the live read-and-publish pair (BA-05 review:
+	// concurrent ingests could otherwise publish an older snapshot
+	// after a newer one).
+	publishMu    sync.Mutex
+	publishLocks map[uuid.UUID]*sync.Mutex
 }
 
 // New constructs a Service backed by a single adapter that satisfies
@@ -42,7 +49,13 @@ func New(w Writer, r Reader, publishers ...LivePublisher) *Service {
 	if len(publishers) > 0 {
 		publisher = publishers[0]
 	}
-	return &Service{writer: w, reader: r, live: live, publisher: publisher}
+	return &Service{
+		writer:       w,
+		reader:       r,
+		live:         live,
+		publisher:    publisher,
+		publishLocks: make(map[uuid.UUID]*sync.Mutex),
+	}
 }
 
 const (
@@ -74,13 +87,43 @@ func (s *Service) Ingest(ctx context.Context, loc domain.Location) error {
 	if err := s.writer.Insert(ctx, loc); err != nil {
 		return fmt.Errorf("Service.Ingest: %w", err)
 	}
-	if s.publisher != nil && s.live != nil {
-		now := time.Now().UTC()
-		if snapshot, err := s.live.GetLive(ctx, loc.DeviceID, now, LivePresenceTimeout, MovingSpeedThresholdMPS); err == nil {
-			s.publisher.Publish(loc.DeviceID, "location", snapshot)
-		}
-	}
+	s.publishLive(ctx, loc.DeviceID)
 	return nil
+}
+
+// publishLive reads a fresh snapshot from committed state and hands it
+// to the hub. Best-effort: a read failure is swallowed so the ingest
+// response never fails because the live push did. The snapshot comes
+// from GetLive (DB state after commit), so it never contains a
+// rejected point. Read-and-publish is serialized per device: the hub
+// preserves call order, not location freshness, so without the lock a
+// slow request could publish an older snapshot after a newer one.
+func (s *Service) publishLive(ctx context.Context, deviceID uuid.UUID) {
+	if s.publisher == nil || s.live == nil {
+		return
+	}
+	mu := s.publishLockFor(deviceID)
+	mu.Lock()
+	defer mu.Unlock()
+	snapshot, err := s.live.GetLive(ctx, deviceID, time.Now().UTC(), LivePresenceTimeout, MovingSpeedThresholdMPS)
+	if err != nil {
+		return
+	}
+	s.publisher.Publish(deviceID, "location", snapshot)
+}
+
+// publishLockFor returns the mutex serializing live read-and-publish
+// for the device. ponytail: one mutex per device kept for the
+// process lifetime — fine at the fleet sizes this API serves.
+func (s *Service) publishLockFor(deviceID uuid.UUID) *sync.Mutex {
+	s.publishMu.Lock()
+	defer s.publishMu.Unlock()
+	mu, ok := s.publishLocks[deviceID]
+	if !ok {
+		mu = &sync.Mutex{}
+		s.publishLocks[deviceID] = mu
+	}
+	return mu
 }
 
 type BatchRejection struct {
@@ -111,6 +154,13 @@ func (s *Service) IngestBatch(ctx context.Context, items []domain.Location) ([]u
 	accepted, err := writer.InsertBatch(ctx, valid)
 	if err != nil {
 		return nil, rejected, fmt.Errorf("Service.IngestBatch: %w", err)
+	}
+	// BA-05: the batch path is the primary firmware route; without
+	// this push, batch-only devices never move the SSE stream. Runs
+	// only after commit (InsertBatch returned nil) and only when
+	// something was eligible — a fully-invalid batch changed nothing.
+	if len(valid) > 0 {
+		s.publishLive(ctx, valid[0].DeviceID)
 	}
 	return accepted, rejected, nil
 }

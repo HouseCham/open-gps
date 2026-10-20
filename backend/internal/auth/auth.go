@@ -25,9 +25,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/log"
 
 	authula "github.com/Authula/authula"
 	authulaconfig "github.com/Authula/authula/config"
@@ -289,11 +291,39 @@ func (c authulaUserCreator) CreateUserWithPassword(ctx context.Context, name, em
 	}
 	user, err := c.userService.Create(ctx, name, email, true, nil, nil)
 	if err != nil {
-		return fmt.Errorf("auth: create user: %w", err)
+		// BA-09: Authula's user+account writes are not transactional
+		// with each other. A prior attempt that created the user but
+		// died before the account existed would make every retry fail
+		// here, leaving a credential-less account forever. Authula
+		// exposes no sentinel type for this, so match its message; any
+		// other error still fails fast. On match we fall through to the
+		// reconciliation path below instead of failing.
+		if !strings.Contains(err.Error(), "email already in use") {
+			return fmt.Errorf("auth: create user: %w", err)
+		}
+		user, err = c.userService.GetByEmail(ctx, email)
+		if err != nil {
+			return fmt.Errorf("auth: get existing user: %w", err)
+		}
 	}
-	_, err = c.accountService.Create(ctx, user.ID, email, models.AuthProviderEmail.String(), &hash)
+	existing, err := c.accountService.GetByUserIDAndProvider(ctx, user.ID, models.AuthProviderEmail.String())
 	if err != nil {
-		return fmt.Errorf("auth: create account: %w", err)
+		return fmt.Errorf("auth: get account: %w", err)
+	}
+	if existing == nil {
+		if _, err := c.accountService.Create(ctx, user.ID, email, models.AuthProviderEmail.String(), &hash); err != nil {
+			return fmt.Errorf("auth: create account: %w", err)
+		}
+		return nil
+	}
+	// The account already exists (a retry after a later failure, or an
+	// admin re-creating an existing email — the endpoint is
+	// super_admin-only). Refresh the password so the temporary
+	// password handed back to the caller actually works.
+	if existing.Password == nil || *existing.Password != hash {
+		if err := c.accountService.UpdateFields(ctx, user.ID, map[string]any{"password": hash}); err != nil {
+			return fmt.Errorf("auth: update account password: %w", err)
+		}
 	}
 	return nil
 }
@@ -436,6 +466,25 @@ var timeNow = func() time.Time { return time.Now().UTC() }
 // via a single env var without code changes.
 func IsProduction() bool {
 	return parseAppEnv() == "production"
+}
+
+// ValidateAppEnv checks APP_ENV at startup. An unset value defaults to
+// development — the process starts, but loudly, because a silent
+// development fallback in production disables Secure cookies (BA-02).
+// An unknown value is a hard error: a typo like "prodcution" must not
+// silently fall back to development either.
+func ValidateAppEnv() error {
+	v := os.Getenv("APP_ENV")
+	if v == "" {
+		log.Warn("APP_ENV is not set, defaulting to development (session cookies will not be Secure)")
+		return nil
+	}
+	switch lower(v) {
+	case "development", "production", "test":
+		return nil
+	default:
+		return fmt.Errorf("APP_ENV must be development, production or test, got %q", v)
+	}
 }
 
 // parseAppEnv returns the lower-cased APP_ENV value, defaulting to

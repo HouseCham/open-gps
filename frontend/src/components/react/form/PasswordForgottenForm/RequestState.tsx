@@ -11,7 +11,7 @@ import { AlertCircle, ArrowLeft, Send } from 'lucide-react';
 //-- Utils
 //-- Constants
 import { LOGIN_PATH } from '@/constants/auth';
-import { APP_ORIGIN, REPO_ENVIRONMENT } from '@/constants';
+import { REPO_ENVIRONMENT } from '@/constants';
 //-- Lazy components
 const ApiInspector = lazy(() =>
     import('@/components/react/form/shared/ApiInspector').then(module => ({
@@ -126,7 +126,6 @@ export function RequestState({
                     body={{
                         email: email || strings.apiInspectorBody.email,
                         locale,
-                        reset_password_url: `${APP_ORIGIN}${strings.apiInspectorBody.redirectPath}`,
                     }}
                     title={strings.badge}
                     cookieNote={strings.rateLimitNote}

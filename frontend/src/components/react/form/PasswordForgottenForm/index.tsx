@@ -27,24 +27,22 @@ const SentState = lazy(() =>
  * @interface PasswordForgottenFormProps
  * @prop {PasswordForgottenFormStrings} strings - i18n strings.
  * @prop {Language} locale - Locale code forwarded to the recovery API.
- * @prop {string} resetPasswordUrlPrefix - URL prefix for the reset link (the backend appends `?token=…`). Built by the .astro page.
  */
 export interface PasswordForgottenFormProps {
     strings: PasswordForgottenFormStrings;
     locale: Language;
-    resetPasswordUrlPrefix: string;
 }
 
 /**
  * PasswordForgottenForm — request a password-reset email, then show the
  * "check your inbox" confirmation card with a 60s resend cooldown.
- * @param {PasswordForgottenFormProps} props
+ * The reset link is built server-side; the form only sends email+locale.
+ * @param {PasswordForgottenFormProps} props - Component props.
  * @returns {JSX.Element}
  */
 export function PasswordForgottenForm({
     strings,
     locale,
-    resetPasswordUrlPrefix,
 }: PasswordForgottenFormProps): JSX.Element {
     const { requestPasswordRecovery } = useAuthService();
     const [phase, setPhase] = useState<PasswordRecoveryPhase>('request');
@@ -87,7 +85,6 @@ export function PasswordForgottenForm({
             await requestPasswordRecovery({
                 email: trimmed,
                 locale,
-                reset_password_url: resetPasswordUrlPrefix,
             });
             setEmail(trimmed);
             setResent(false);
@@ -111,7 +108,6 @@ export function PasswordForgottenForm({
             await requestPasswordRecovery({
                 email,
                 locale,
-                reset_password_url: resetPasswordUrlPrefix,
             });
             setResent(true);
             setCooldown(PASSWORD_RECOVERY_RESEND_COOLDOWN_SECONDS);

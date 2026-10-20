@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"math"
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
@@ -12,6 +13,27 @@ const (
 	defaultPageSize = 20
 	maxPageSize     = 100
 )
+
+// clampPage caps page so (page-1)*pageSize stays within int32 — the
+// type sqlc/PostgreSQL receive for OFFSET (BA-14). An extreme page
+// number then yields the last addressable page (effectively empty)
+// instead of an overflowing offset. The cap is computed in int64 and
+// bounded to the platform's largest int, so it is overflow-safe even
+// on 32-bit platforms where int == int32.
+func clampPage(page, pageSize int) int {
+	if pageSize < 1 {
+		pageSize = 1
+	}
+	maxPage64 := int64(math.MaxInt32)/int64(pageSize) + 1
+	if maxInt := int64(^uint(0) >> 1); maxPage64 > maxInt {
+		maxPage64 = maxInt
+	}
+	maxPage := int(maxPage64)
+	if page > maxPage {
+		return maxPage
+	}
+	return page
+}
 
 // parsePagination reads ?page and ?page_size from the request, falling
 // back to defaults on missing/invalid input and clamping page_size to
@@ -41,5 +63,5 @@ func parsePagination(c fiber.Ctx, defaultSize int) (page, pageSize int) {
 		pageSize = defaultSize
 	}
 
-	return page, pageSize
+	return clampPage(page, pageSize), pageSize
 }

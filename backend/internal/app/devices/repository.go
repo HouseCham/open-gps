@@ -42,7 +42,13 @@ type Getter interface {
 
 // Writer is the write port for device mutations.
 type Writer interface {
-	Create(ctx context.Context, input CreateInput) (*domain.Device, error)
+	// CreateWithOwnerLimit registers a device and grants the caller owner
+	// access, atomically enforcing that the owner does not already own
+	// maxOwned devices. The repository serializes the count and the insert
+	// (e.g. under a per-user advisory lock) so concurrent creates cannot
+	// exceed the cap. Returns domain.ErrDeviceLimitReached when the owner
+	// already owns maxOwned devices.
+	CreateWithOwnerLimit(ctx context.Context, input CreateInput, maxOwned int) (*domain.Device, error)
 	Update(ctx context.Context, deviceID uuid.UUID, input UpdateInput) (*domain.Device, error)
 	SoftDelete(ctx context.Context, deviceID uuid.UUID) error
 }

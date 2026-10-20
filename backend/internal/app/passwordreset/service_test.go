@@ -15,36 +15,56 @@ import (
 
 // fakeRepo is an in-memory TokenStore + RateLimitCounter good enough
 // to exercise the service's branching. It does NOT enforce SQL-level
-// semantics (atomic MarkUsed, etc.) — that's the postgres adapter's
-// job. The service-level rules are what this file tests.
+// semantics (advisory locks, atomic MarkUsed, etc.) — that's the
+// postgres adapter's job. The service-level rules are what this file
+// tests.
 type fakeRepo struct {
 	tokens       map[string]passwordreset.Token // key = tokenHash
 	byUser       map[uuid.UUID][]passwordreset.Token
-	recentByUser map[uuid.UUID]int
-	recentByIP   map[string]int
+	issuedByUser map[uuid.UUID]int
+	attemptsByIP map[string]int
 }
 
 func newFakeRepo() *fakeRepo {
 	return &fakeRepo{
 		tokens:       map[string]passwordreset.Token{},
 		byUser:       map[uuid.UUID][]passwordreset.Token{},
-		recentByUser: map[uuid.UUID]int{},
-		recentByIP:   map[string]int{},
+		issuedByUser: map[uuid.UUID]int{},
+		attemptsByIP: map[string]int{},
 	}
 }
 
-func (f *fakeRepo) Insert(_ context.Context, userID uuid.UUID, tokenHash, _ string, expiresAt time.Time) (passwordreset.Token, error) {
+func (f *fakeRepo) InsertIfUnderLimit(_ context.Context, userID uuid.UUID, tokenHash, _ string, expiresAt time.Time, _ time.Duration, max int) (bool, error) {
+	if f.issuedByUser[userID] >= max {
+		return false, nil
+	}
+	now := time.Now()
+	for k, t := range f.tokens {
+		if t.UserID != userID || t.UsedAt != nil || !t.ExpiresAt.After(now) {
+			continue
+		}
+		t.UsedAt = &now
+		f.tokens[k] = t
+	}
 	t := passwordreset.Token{
 		ID:        uuid.New(),
 		UserID:    userID,
 		TokenHash: tokenHash,
 		ExpiresAt: expiresAt,
-		CreatedAt: time.Now(),
+		CreatedAt: now,
 	}
 	f.tokens[tokenHash] = t
 	f.byUser[userID] = append(f.byUser[userID], t)
-	f.recentByUser[userID]++
-	return t, nil
+	f.issuedByUser[userID]++
+	return true, nil
+}
+
+func (f *fakeRepo) RegisterIPAttempt(_ context.Context, ip string, _ time.Duration, max int) (bool, error) {
+	if f.attemptsByIP[ip] >= max {
+		return false, nil
+	}
+	f.attemptsByIP[ip]++
+	return true, nil
 }
 
 func (f *fakeRepo) GetByHash(_ context.Context, tokenHash string) (passwordreset.Token, error) {
@@ -74,29 +94,6 @@ func (f *fakeRepo) MarkUsed(_ context.Context, id uuid.UUID) error {
 		}
 	}
 	return domain.ErrNotFound
-}
-
-func (f *fakeRepo) CountRecentForUser(_ context.Context, userID uuid.UUID, _ time.Duration) (int, error) {
-	return f.recentByUser[userID], nil
-}
-
-func (f *fakeRepo) CountRecentForIP(_ context.Context, ip string, _ time.Duration) (int, error) {
-	return f.recentByIP[ip], nil
-}
-
-func (f *fakeRepo) InvalidateOutstanding(_ context.Context, userID uuid.UUID) error {
-	for k, t := range f.tokens {
-		if t.UserID != userID || t.UsedAt != nil {
-			continue
-		}
-		if !t.ExpiresAt.After(time.Now()) {
-			continue
-		}
-		now := time.Now()
-		t.UsedAt = &now
-		f.tokens[k] = t
-	}
-	return nil
 }
 
 // stubUsers is the slice of users.Service the reset flow consumes.
@@ -131,17 +128,30 @@ type stubMailer struct {
 	mid       string
 	calls     int
 	resetURLs []string
+	err       error
 }
 
 func (s *stubMailer) SendPasswordReset(_ context.Context, in email.ResetInput) (string, error) {
 	s.calls++
 	s.resetURLs = append(s.resetURLs, in.ResetURL)
+	if s.err != nil {
+		return "", s.err
+	}
 	return s.mid, nil
+}
+
+// testOrigin is the configured public origin every test service is
+// built with; reset links must be prefixed with it.
+const testOrigin = "https://app.example.com"
+const testClientIP = "192.0.2.10"
+
+func testResetURLPrefix(locale string) string {
+	return testOrigin + "/" + locale + "/reset-password?token="
 }
 
 func newSvc(t *testing.T, repo *fakeRepo, users *stubUsers, reset *stubResetter, mail *stubMailer) *passwordreset.Service {
 	t.Helper()
-	return passwordreset.New(repo, repo, users, reset, mail, nil)
+	return passwordreset.New(repo, repo, users, reset, mail, testOrigin, nil)
 }
 
 func TestRequest_HappyPath_DispatchesAndReturnsMessageID(t *testing.T) {
@@ -155,7 +165,7 @@ func TestRequest_HappyPath_DispatchesAndReturnsMessageID(t *testing.T) {
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
 		Email:    "u@x.com",
 		Language: "en",
-		ResetURL: "https://app/reset?token=",
+		ClientIP: testClientIP,
 	})
 	if err != nil {
 		t.Fatalf("Request: unexpected err: %v", err)
@@ -169,9 +179,68 @@ func TestRequest_HappyPath_DispatchesAndReturnsMessageID(t *testing.T) {
 	if mail.calls != 1 {
 		t.Errorf("mailer.calls = %d, want 1", mail.calls)
 	}
-	// The mailer must have received the raw token appended to the URL.
-	if got := mail.resetURLs[0]; len(got) <= len("https://app/reset?token=") {
-		t.Errorf("ResetURL = %q, expected raw token suffix", got)
+	// The mailer must have received a URL built from the configured
+	// origin + locale + fixed path, with the raw token appended.
+	prefix := testResetURLPrefix("en")
+	got := mail.resetURLs[0]
+	if len(got) <= len(prefix) || got[:len(prefix)] != prefix {
+		t.Errorf("ResetURL = %q, want prefix %q with token suffix", got, prefix)
+	}
+}
+
+func TestRequest_ResetURLIsBuiltServerSide_PerLocale(t *testing.T) {
+	cases := []struct {
+		locale string
+		prefix string
+	}{
+		{"en", testResetURLPrefix("en")},
+		{"es", testResetURLPrefix("es")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.locale, func(t *testing.T) {
+			repo := newFakeRepo()
+			users := &stubUsers{byEmail: map[string]*domain.User{
+				"u@x.com": {ID: uuid.New(), Email: "u@x.com", Name: "Ana"},
+			}}
+			mail := &stubMailer{mid: "m"}
+
+			svc := newSvc(t, repo, users, &stubResetter{}, mail)
+			if _, err := svc.Request(context.Background(), passwordreset.RequestInput{
+				Email:    "u@x.com",
+				Language: tc.locale,
+				ClientIP: testClientIP,
+			}); err != nil {
+				t.Fatalf("Request: unexpected err: %v", err)
+			}
+			got := mail.resetURLs[0]
+			if len(got) <= len(tc.prefix) || got[:len(tc.prefix)] != tc.prefix {
+				t.Errorf("ResetURL = %q, want prefix %q", got, tc.prefix)
+			}
+		})
+	}
+}
+
+func TestRequest_MailerFailure_ReturnsErrEmailDispatch(t *testing.T) {
+	repo := newFakeRepo()
+	users := &stubUsers{byEmail: map[string]*domain.User{
+		"u@x.com": {ID: uuid.New(), Email: "u@x.com", Name: "Ana"},
+	}}
+	mail := &stubMailer{err: errors.New("resend down")}
+
+	svc := newSvc(t, repo, users, &stubResetter{}, mail)
+	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
+		Email:    "u@x.com",
+		Language: "en",
+		ClientIP: testClientIP,
+	})
+	if !errors.Is(err, passwordreset.ErrEmailDispatch) {
+		t.Fatalf("err = %v, want ErrEmailDispatch", err)
+	}
+	if res.Dispatched {
+		t.Error("Dispatched=true despite mailer failure")
+	}
+	if res.MessageID != "" {
+		t.Errorf("MessageID = %q, want empty", res.MessageID)
 	}
 }
 
@@ -184,7 +253,7 @@ func TestRequest_UnknownEmail_ReturnsSilently(t *testing.T) {
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
 		Email:    "nobody@x.com",
 		Language: "en",
-		ResetURL: "https://app/reset?token=",
+		ClientIP: testClientIP,
 	})
 	if err != nil {
 		t.Fatalf("Request: unexpected err: %v", err)
@@ -202,12 +271,28 @@ func TestRequest_RateLimitedByEmail_ReturnsSilently(t *testing.T) {
 	users := &stubUsers{byEmail: map[string]*domain.User{
 		"u@x.com": {ID: uuid.New(), Email: "u@x.com", Name: "Ana"},
 	}}
-	repo.recentByUser[users.byEmail["u@x.com"].ID] = 3 // at the cap
-	mail := &stubMailer{}
+	mail := &stubMailer{mid: "m"}
 
 	svc := newSvc(t, repo, users, &stubResetter{}, mail)
+	// Issue tokens until the per-email cap is reached.
+	for i := 0; i < 3; i++ { // maxRequestsPerEmail = 3
+		res, err := svc.Request(context.Background(), passwordreset.RequestInput{
+			Email:    "u@x.com",
+			Language: "en",
+			ClientIP: "9.9.9.9",
+		})
+		if err != nil || !res.Dispatched {
+			t.Fatalf("setup request %d: err=%v dispatched=%v", i, err, res.Dispatched)
+		}
+	}
+	if mail.calls != 3 {
+		t.Fatalf("setup: mailer.calls = %d, want 3", mail.calls)
+	}
+
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
-		Email: "u@x.com", Language: "en", ResetURL: "https://app/reset?token=",
+		Email:    "u@x.com",
+		Language: "en",
+		ClientIP: "9.9.9.9",
 	})
 	if err != nil {
 		t.Fatalf("Request: unexpected err: %v", err)
@@ -215,8 +300,8 @@ func TestRequest_RateLimitedByEmail_ReturnsSilently(t *testing.T) {
 	if res.Dispatched {
 		t.Error("Dispatched=true under rate-limit — leaks that the email exists")
 	}
-	if mail.calls != 0 {
-		t.Error("mailer was called under rate-limit")
+	if mail.calls != 3 {
+		t.Errorf("mailer.calls = %d, want 3 (no dispatch under rate-limit)", mail.calls)
 	}
 }
 
@@ -225,14 +310,13 @@ func TestRequest_RateLimitedByIP_ReturnsSilently(t *testing.T) {
 	users := &stubUsers{byEmail: map[string]*domain.User{
 		"u@x.com": {ID: uuid.New(), Email: "u@x.com", Name: "Ana"},
 	}}
-	repo.recentByIP["1.2.3.4"] = 10 // at the cap
+	repo.attemptsByIP["1.2.3.4"] = 10 // at the cap
 	mail := &stubMailer{}
 
 	svc := newSvc(t, repo, users, &stubResetter{}, mail)
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
 		Email:    "u@x.com",
 		Language: "en",
-		ResetURL: "https://app/reset?token=",
 		ClientIP: "1.2.3.4",
 	})
 	if err != nil {
@@ -246,6 +330,84 @@ func TestRequest_RateLimitedByIP_ReturnsSilently(t *testing.T) {
 	}
 }
 
+// BA-07: unknown-email requests must consume the same per-IP budget as
+// real ones, so probing random addresses from one host exhausts the cap.
+func TestRequest_UnknownEmail_ConsumesIPBudget(t *testing.T) {
+	repo := newFakeRepo()
+	users := &stubUsers{byEmail: map[string]*domain.User{
+		"u@x.com": {ID: uuid.New(), Email: "u@x.com", Name: "Ana"},
+	}}
+	mail := &stubMailer{mid: "m"}
+
+	svc := newSvc(t, repo, users, &stubResetter{}, mail)
+	// Burn the whole per-IP budget with unknown emails.
+	for i := 0; i < 10; i++ { // maxRequestsPerIP = 10
+		res, err := svc.Request(context.Background(), passwordreset.RequestInput{
+			Email:    "nobody@x.com",
+			Language: "en",
+			ClientIP: "5.6.7.8",
+		})
+		if err != nil || res.Dispatched {
+			t.Fatalf("probe %d: err=%v dispatched=%v", i, err, res.Dispatched)
+		}
+	}
+	if mail.calls != 0 {
+		t.Fatal("mailer was called for unknown emails")
+	}
+
+	// A legitimate request from the same IP is now dropped too.
+	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
+		Email:    "u@x.com",
+		Language: "en",
+		ClientIP: "5.6.7.8",
+	})
+	if err != nil {
+		t.Fatalf("Request: unexpected err: %v", err)
+	}
+	if res.Dispatched {
+		t.Error("Dispatched=true after the IP budget was consumed by unknown emails")
+	}
+	if mail.calls != 0 {
+		t.Error("mailer was called for a known email after the IP budget was exhausted")
+	}
+}
+
+func TestRequestRequiresAndCanonicalizesClientIP(t *testing.T) {
+	t.Run("missing IP fails before user lookup or rate-limit write", func(t *testing.T) {
+		repo := newFakeRepo()
+		users := &stubUsers{byEmail: map[string]*domain.User{}}
+		svc := newSvc(t, repo, users, &stubResetter{}, &stubMailer{})
+
+		_, err := svc.Request(context.Background(), passwordreset.RequestInput{
+			Email:    "nobody@x.com",
+			Language: "en",
+		})
+		if !errors.Is(err, passwordreset.ErrClientIPRequired) {
+			t.Fatalf("err = %v, want ErrClientIPRequired", err)
+		}
+		if len(repo.attemptsByIP) != 0 {
+			t.Fatalf("attempts recorded without an IP: %v", repo.attemptsByIP)
+		}
+	})
+
+	t.Run("IPv6 spellings share one budget key", func(t *testing.T) {
+		repo := newFakeRepo()
+		users := &stubUsers{byEmail: map[string]*domain.User{}}
+		svc := newSvc(t, repo, users, &stubResetter{}, &stubMailer{})
+
+		_, err := svc.Request(context.Background(), passwordreset.RequestInput{
+			Email: "nobody@x.com", Language: "en",
+			ClientIP: "2001:0db8:0000:0000:0000:0000:0000:0001",
+		})
+		if err != nil {
+			t.Fatalf("Request: %v", err)
+		}
+		if got := repo.attemptsByIP["2001:db8::1"]; got != 1 {
+			t.Errorf("canonical IPv6 attempt count=%d, want 1; keys=%v", got, repo.attemptsByIP)
+		}
+	})
+}
+
 func TestConsume_HappyPath_RotatesAndClearsFlag(t *testing.T) {
 	repo := newFakeRepo()
 	users := &stubUsers{byEmail: map[string]*domain.User{
@@ -253,15 +415,16 @@ func TestConsume_HappyPath_RotatesAndClearsFlag(t *testing.T) {
 	}}
 	reset := &stubResetter{}
 	mail := &stubMailer{mid: "x"}
-	svc := passwordreset.New(repo, repo, users, reset, mail, nil)
+	svc := passwordreset.New(repo, repo, users, reset, mail, testOrigin, nil)
 
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
-		Email: "u@x.com", Language: "en", ResetURL: "https://app/reset?token=",
+		Email: "u@x.com", Language: "en", ClientIP: testClientIP,
 	})
 	if err != nil || !res.Dispatched {
 		t.Fatalf("setup: Request failed (err=%v, dispatched=%v)", err, res.Dispatched)
 	}
-	rawToken := mail.resetURLs[0][len("https://app/reset?token="):]
+	prefix := testResetURLPrefix("en")
+	rawToken := mail.resetURLs[0][len(prefix):]
 	if rawToken == "" {
 		t.Fatal("setup: empty raw token")
 	}
@@ -294,14 +457,14 @@ func TestConsume_SecondUseOfSameToken_ReturnsErrInvalidResetToken(t *testing.T) 
 		"u@x.com": {ID: uuid.New(), Email: "u@x.com", Name: "Ana"},
 	}}
 	mail := &stubMailer{mid: "x"}
-	svc := passwordreset.New(repo, repo, users, &stubResetter{}, mail, nil)
+	svc := passwordreset.New(repo, repo, users, &stubResetter{}, mail, testOrigin, nil)
 	res, err := svc.Request(context.Background(), passwordreset.RequestInput{
-		Email: "u@x.com", Language: "en", ResetURL: "https://app/reset?token=",
+		Email: "u@x.com", Language: "en", ClientIP: testClientIP,
 	})
 	if err != nil || !res.Dispatched {
 		t.Fatalf("setup: Request failed (err=%v, dispatched=%v)", err, res.Dispatched)
 	}
-	rawToken := mail.resetURLs[0][len("https://app/reset?token="):]
+	rawToken := mail.resetURLs[0][len(testResetURLPrefix("en")):]
 
 	if err := svc.Consume(context.Background(), passwordreset.ConsumeInput{Token: rawToken, NewPassword: "newsecret"}); err != nil {
 		t.Fatalf("first Consume: unexpected err: %v", err)

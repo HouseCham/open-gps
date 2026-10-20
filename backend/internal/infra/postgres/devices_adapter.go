@@ -131,9 +131,28 @@ func (a *DevicesAdapter) GetByIDForUser(ctx context.Context, userID, deviceID uu
 	}, nil
 }
 
-// Create registers a new device and grants the caller owner access atomically.
-// On unique-constraint violation against uuid_firmware, returns domain.ErrConflict.
-func (a *DevicesAdapter) Create(ctx context.Context, input devices.CreateInput) (*domain.Device, error) {
+// createOwnerLockKey namespaces the per-user advisory lock that
+// serializes a user's device registrations so the owner-count cap and
+// the insert land atomically (same hashtext convention as the
+// password-reset and users-bootstrap locks).
+// ponytail: raw Exec instead of a sqlc query — one statement, avoids
+// sqlc regen churn.
+const createOwnerLockKey = "devices:create_owner:"
+
+const createOwnerLockSQL = `SELECT pg_advisory_xact_lock(hashtext($1)::bigint)`
+
+func createOwnerLockResource(ownerID uuid.UUID) string {
+	return createOwnerLockKey + ownerID.String()
+}
+
+// CreateWithOwnerLimit registers a new device and grants the caller owner
+// access atomically, enforcing that the owner does not already own
+// maxOwned devices. The per-user advisory lock serializes concurrent
+// creates for the same user, so two racing requests cannot both pass the
+// count and exceed the cap. Exceeding the cap returns
+// domain.ErrDeviceLimitReached. On unique-constraint violation against
+// uuid_firmware, returns domain.ErrConflict.
+func (a *DevicesAdapter) CreateWithOwnerLimit(ctx context.Context, input devices.CreateInput, maxOwned int) (*domain.Device, error) {
 	tx, err := a.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin tx: %w", err)
@@ -145,7 +164,18 @@ func (a *DevicesAdapter) Create(ctx context.Context, input devices.CreateInput) 
 	// is not actionable in the function's return value — discard it.
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if _, err := tx.Exec(ctx, createOwnerLockSQL, createOwnerLockResource(input.OwnerID)); err != nil {
+		return nil, fmt.Errorf("acquire create-owner lock: %w", err)
+	}
+
 	queries := New(tx)
+	owned, err := queries.CountOwnedDevicesForUser(ctx, PgtypeUUID(input.OwnerID))
+	if err != nil {
+		return nil, WrapPgError(err)
+	}
+	if int(owned) >= maxOwned {
+		return nil, domain.ErrDeviceLimitReached
+	}
 
 	row, err := queries.CreateDevice(ctx, CreateDeviceParams{
 		UuidFirmware: input.UuidFirmware,

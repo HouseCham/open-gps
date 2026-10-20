@@ -25,8 +25,9 @@ type WelcomeInput struct {
 }
 
 // ResetInput is the handler-facing payload for a password-reset email.
-// ResetURL is the full URL the user clicks (the caller already embedded
-// the token); we forward it to Resend verbatim.
+// ResetURL is the full URL the user clicks; the passwordreset service
+// builds it server-side (public origin + locale + fixed path + raw
+// token) and we forward it to Resend verbatim.
 type ResetInput struct {
 	To        string
 	FirstName string

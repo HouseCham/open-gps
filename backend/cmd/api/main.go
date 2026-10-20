@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -30,6 +31,13 @@ import (
 
 func main() {
 	config.LoadEnv()
+	// Fail fast on an unknown APP_ENV (a typo must not silently fall
+	// back to development and drop Secure from the session cookie);
+	// unset only warns.
+	if err := auth.ValidateAppEnv(); err != nil {
+		log.Error("validate APP_ENV", "err", err)
+		os.Exit(1)
+	}
 	log.Info("Starting server...")
 	addr := ""
 	if v := os.Getenv("API_PORT"); v != "" {
@@ -140,6 +148,18 @@ func main() {
 	})
 
 	//-- password recovery
+	// PUBLIC_APP_ORIGIN is the bare public origin reset links are
+	// built from (server-side; clients cannot influence it). Must be
+	// https whenever APP_ENV=production.
+	publicOrigin, err := config.LoadPublicOrigin()
+	if err != nil {
+		log.Error("load public origin", "err", err)
+		os.Exit(1)
+	}
+	if auth.IsProduction() && !strings.HasPrefix(publicOrigin, "https://") {
+		log.Error("PUBLIC_APP_ORIGIN must use https in production", "origin", publicOrigin)
+		os.Exit(1)
+	}
 	passwordResetTokens := postgres.NewPasswordResetTokensAdapter(pool)
 	passwordResetService := passwordreset.New(
 		passwordResetTokens,
@@ -147,6 +167,7 @@ func main() {
 		usersService,
 		authInstance.NewPasswordUpdater(),
 		emailService,
+		publicOrigin,
 		nil, // default clock = time.Now
 	)
 
@@ -155,7 +176,7 @@ func main() {
 	queries := postgres.New(pool)
 
 	//-- handlers
-	healthHandler := handlers.NewHealthHandler()
+	healthHandler := handlers.NewHealthHandler(pool.Ping)
 	devicesHandler := handlers.NewDevicesHandler(devicesService, accessService)
 	passwordUpdater := authInstance.NewPasswordUpdater()
 	sessionManager := authInstance.NewSessionManager()
@@ -163,7 +184,7 @@ func main() {
 	accessHandler := handlers.NewAccessHandler(accessService)
 	shareLinksHandler := handlers.NewShareLinksHandler(shareLinksService)
 	apiKeysHandler := handlers.NewAPIKeysHandler(apiKeysService)
-	locationsHandler := handlers.NewLocationsHandler(locationsService, liveHub)
+	locationsHandler := handlers.NewLocationsHandler(locationsService, liveHub, accessService, authInstance.NewSessionAuthenticator(), authInstance.CookieName())
 	guestShareHandler := handlers.NewGuestShareHandler(shareLinksService, locationsService, liveHub, auth.IsProduction())
 	reportsHandler := handlers.NewReportsHandler(reportsService)
 	emailHandler := handlers.NewEmailHandler(emailService)

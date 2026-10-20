@@ -328,13 +328,12 @@ export const useAuthService = (): useAuthService => {
     /**
      * Calls POST /api/v1/auth/generate-pwd-recovery-token to email the
      * user a single-use reset link. The endpoint always answers 202 —
-     * unknown emails and rate-limited requests are indistinguishable
-     * from a successful dispatch — so this function never throws on
-     * the "address doesn't exist" path. Returns the envelope's `data`
-     * (with Resend's `message_id`, or empty when the request was
-     * dropped silently) so the calling screen can show its own
-     * confirmation copy.
-     * @param {RequestPasswordRecoveryDto} payload - Email, locale, and the URL prefix the reset link should land on.
+     * unknown emails, rate-limited requests and email-provider failures
+     * are indistinguishable from a successful dispatch — so this
+     * function never throws on the "address doesn't exist" path. The
+     * reset link itself is built server-side from the configured
+     * public origin; the payload only carries email + locale.
+     * @param {RequestPasswordRecoveryDto} payload - Email and locale.
      * @returns {Promise<RequestPasswordRecoveryResponse['data'] | null>}
      */
     async function requestPasswordRecovery(

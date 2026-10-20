@@ -217,7 +217,7 @@ Cookie: authula.session_token=<cookie>
 
 ### POST /api/v1/users
 
-Creates a new user account. The user is provisioned in **both** Authula (credentials) and the local `users` table (role, FK relationships). Admin-created users get a temporary password and `must_change_password = true`; they must hit `POST /api/v1/auth/change-password` before any other endpoint becomes reachable.
+Creates a new user account. The user is provisioned in **both** Authula (credentials) and the local `users` table (role, FK relationships). Admin-created users get a temporary password and `must_change_password = true`; they must hit `POST /api/v1/auth/change-password` before any other endpoint becomes reachable. Retrying this call after a partially completed earlier attempt repairs the existing account in place and returns a fresh temporary password instead of failing on the duplicate email. If no administrator exists yet, the created user becomes the `super_admin` regardless of the requested role.
 
 **Authorization:** Requires `super_admin` role.
 

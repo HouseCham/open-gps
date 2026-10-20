@@ -40,13 +40,11 @@ FROM password_reset_tokens
 WHERE user_id = $1
   AND created_at > NOW() - $2::interval;
 
--- name: CountRecentPasswordResetTokensForIP :one
--- Per-IP sibling of CountRecentPasswordResetTokensForUser. Counts every
--- token issued from the same IP within the lookback window.
-SELECT COUNT(*)::bigint AS count
-FROM password_reset_tokens
-WHERE ip_address = $1
-  AND created_at > NOW() - $2::interval;
+-- name: LockPasswordResetUser :exec
+-- Transaction-scoped advisory lock keyed on hashtext of the user id.
+-- Held by InsertIfUnderLimit so concurrent issuances for the same user
+-- serialize and the per-user cap cannot be overshot by racing requests.
+SELECT pg_advisory_xact_lock(hashtext($1::text)::bigint);
 
 -- name: InvalidateOutstandingPasswordResetTokens :exec
 -- On a fresh request, mark every still-outstanding (not used, not

@@ -67,7 +67,11 @@ func (a *Adapter) Insert(ctx context.Context, loc domain.Location) error {
 	return postgres.WrapPgError(tx.Commit(ctx))
 }
 
-// InsertBatch writes a batch of location rows.
+// InsertBatch writes a batch of location rows. Per-item idempotency keys
+// live in location_ingest_keys with a 30-day retention (pruned nightly by
+// migration 000024); replays within that window are ACKed without writing,
+// and counter resets (same sequence_id, different recorded_at) rebind the
+// key and store the new point.
 func (a *Adapter) InsertBatch(ctx context.Context, locations []domain.Location) ([]uint64, error) {
 	tx, err := a.pool.Begin(ctx)
 	if err != nil {
@@ -76,14 +80,27 @@ func (a *Adapter) InsertBatch(ctx context.Context, locations []domain.Location) 
 	defer tx.Rollback(ctx)
 	accepted := make([]uint64, 0, len(locations))
 	for _, loc := range locations {
-		result, err := tx.Exec(ctx, `INSERT INTO location_ingest_keys (device_id, sequence_id, recorded_at) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-			postgres.PgtypeUUID(loc.DeviceID), loc.SequenceID, postgres.PgtypeTimestamptz(loc.RecordedAt))
-		if err != nil {
-			return nil, postgres.WrapPgError(err)
-		}
-		if result.RowsAffected() == 0 {
+		// BA-08: distinguish replay from counter reset. A key with the same
+		// recorded_at is a firmware replay (the DO UPDATE predicate is false,
+		// so no row returns) → ACK without inserting. The same sequence_id
+		// with a different recorded_at means the firmware reset its counter
+		// → rebind the key to the new timestamp and store the point, instead
+		// of silently dropping it.
+		var one int
+		err := tx.QueryRow(ctx, `INSERT INTO location_ingest_keys (device_id, sequence_id, recorded_at)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (device_id, sequence_id)
+			DO UPDATE SET recorded_at = EXCLUDED.recorded_at, created_at = CURRENT_TIMESTAMP
+			WHERE location_ingest_keys.recorded_at IS DISTINCT FROM EXCLUDED.recorded_at
+			RETURNING 1`,
+			postgres.PgtypeUUID(loc.DeviceID), loc.SequenceID, postgres.PgtypeTimestamptz(loc.RecordedAt)).Scan(&one)
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Replay of an already-accepted (device_id, sequence_id, recorded_at).
 			accepted = append(accepted, loc.SequenceID)
 			continue
+		}
+		if err != nil {
+			return nil, postgres.WrapPgError(err)
 		}
 		_, err = tx.Exec(ctx, `INSERT INTO locations (device_id, recorded_at, latitude, longitude, altitude, speed, accuracy, battery_voltage, signal_strength) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (device_id, recorded_at) DO NOTHING`,
 			postgres.PgtypeUUID(loc.DeviceID), postgres.PgtypeTimestamptz(loc.RecordedAt), loc.Latitude, loc.Longitude, loc.Altitude, loc.Speed, loc.Accuracy, loc.BatteryVoltage, loc.SignalStrength)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/HouseCham/gps-tracker/backend/internal/app/devices"
 	"github.com/HouseCham/gps-tracker/backend/internal/domain"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/dto"
 )
@@ -190,6 +191,53 @@ func TestDevicesCreate(t *testing.T) {
 		}
 		if httpResp.Message != "device created" {
 			t.Errorf("expected message 'device created', got %q", httpResp.Message)
+		}
+	})
+
+	t.Run("403 - device limit reached when user already owns the cap", func(t *testing.T) {
+		ta := NewTestApp()
+
+		ta.SetupUser("token-user", "authula-1", "user@test.com", "User", domain.UserRoleUser)
+
+		// Fill the per-user cap through the real create path, then the
+		// next create must be rejected with 403.
+		for i := 0; i < devices.MaxDevicesPerUser; i++ {
+			okBody := map[string]string{
+				"uuid_firmware": uuid.New().String(),
+				"name":          "Filler",
+				"vehicle_type":  "car",
+			}
+			resp, err := ta.Request("POST", "/api/v1/devices", "token-user", okBody)
+			if err != nil {
+				t.Fatalf("filler request error: %v", err)
+			}
+			if resp.StatusCode != http.StatusCreated {
+				t.Fatalf("filler create: expected 201, got %d", resp.StatusCode)
+			}
+		}
+
+		body := map[string]string{
+			"uuid_firmware": uuid.New().String(),
+			"name":          "One Too Many",
+			"vehicle_type":  "car",
+		}
+
+		resp, err := ta.Request("POST", "/api/v1/devices", "token-user", body)
+		if err != nil {
+			t.Fatalf("request error: %v", err)
+		}
+
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("expected status 403, got %d", resp.StatusCode)
+		}
+
+		httpResp, err := ParseResponse(resp)
+		if err != nil {
+			t.Fatalf("parse error: %v", err)
+		}
+		want := "device limit reached (max 10 devices per user)"
+		if httpResp.Message != want {
+			t.Errorf("expected message %q, got %q", want, httpResp.Message)
 		}
 	})
 

@@ -3,6 +3,7 @@ package httptest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Authula/authula/models"
@@ -11,8 +12,10 @@ import (
 
 	"github.com/HouseCham/gps-tracker/backend/internal/app/access"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/devices"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/locations"
 	"github.com/HouseCham/gps-tracker/backend/internal/app/users"
 	"github.com/HouseCham/gps-tracker/backend/internal/domain"
+	"github.com/HouseCham/gps-tracker/backend/internal/infra/live"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/dto"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/handlers"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/http/middleware"
@@ -29,12 +32,15 @@ type TestApp struct {
 	DevicesRepo       *MockDevicesRepository
 	UsersRepo         *MockUsersRepository
 	AccessRepo        *MockAccessRepository
+	LocationsRepo     *MockLocationsRepository
 	DevicesService    *devices.Service
 	UsersService      *users.Service
 	AccessService     *access.AccessService
 	DevicesHandler    *handlers.DevicesHandler
 	UsersHandler      *handlers.UsersHandler
 	AccessHandler     *handlers.AccessHandler
+	LocationsHandler  *handlers.LocationsHandler
+	LiveHub           *live.Hub
 	SessionCookieName string
 }
 
@@ -67,6 +73,8 @@ func NewTestApp(opts ...TestAppOption) *TestApp {
 		DevicesRepo:       NewMockDevicesRepository(),
 		UsersRepo:         NewMockUsersRepository(),
 		AccessRepo:        NewMockAccessRepository(),
+		LocationsRepo:     NewMockLocationsRepository(),
+		LiveHub:           live.NewHub(),
 		SessionCookieName: "authula.session_token",
 	}
 
@@ -79,8 +87,12 @@ func NewTestApp(opts ...TestAppOption) *TestApp {
 	ta.AccessService = access.NewAccessService(ta.AccessRepo, ta.UsersRepo)
 
 	ta.App = fiber.New(fiber.Config{
-		AppName:      "gps-tracker-test",
-		ErrorHandler: httpErrorHandler,
+		AppName:            "gps-tracker-test",
+		ErrorHandler:       httpErrorHandler,
+		TrustProxy:         true,
+		ProxyHeader:        "X-Real-IP",
+		EnableIPValidation: true,
+		TrustProxyConfig:   fiber.TrustProxyConfig{Private: true},
 	})
 
 	ta.registerRoutes()
@@ -88,8 +100,9 @@ func NewTestApp(opts ...TestAppOption) *TestApp {
 }
 
 func (ta *TestApp) registerRoutes() {
-	ta.HealthHandler = handlers.NewHealthHandler()
+	ta.HealthHandler = handlers.NewHealthHandler(nil)
 	ta.App.Get("/health", ta.HealthHandler.Handle)
+	ta.App.Get("/health/ready", ta.HealthHandler.Ready)
 
 	authSession := middleware.AuthSession(ta.SessionCookieName, ta.SessionAuth, ta, ta.UsersService)
 
@@ -144,6 +157,14 @@ func (ta *TestApp) registerRoutes() {
 		requirePasswordChanged,
 		middleware.RequireDeviceRole(domain.AccessRoleOwner, ta.AccessService),
 		ta.getAccessHandler().Revoke,
+	)
+	// Mirrors the production router's SSE stream route: session +
+	// password gate + viewer RBAC in front of the handler (BA-11).
+	devicesGroup.Get("/:id/locations/stream",
+		authSession,
+		requirePasswordChanged,
+		middleware.RequireDeviceRole(domain.AccessRoleViewer, ta.AccessService),
+		ta.getLocationsHandler().Stream,
 	)
 
 	usersGroup := apiV1.Group("/users")
@@ -201,6 +222,19 @@ func (ta *TestApp) getAccessHandler() *handlers.AccessHandler {
 	return ta.AccessHandler
 }
 
+func (ta *TestApp) getLocationsHandler() *handlers.LocationsHandler {
+	if ta.LocationsHandler == nil {
+		ta.LocationsHandler = handlers.NewLocationsHandler(
+			locations.New(ta.LocationsRepo, ta.LocationsRepo, ta.LiveHub),
+			ta.LiveHub,
+			ta.AccessService,
+			ta.SessionAuth,
+			ta.SessionCookieName,
+		)
+	}
+	return ta.LocationsHandler
+}
+
 func httpErrorHandler(c fiber.Ctx, err error) error {
 	code := fiber.StatusInternalServerError
 	message := "internal server error"
@@ -227,6 +261,9 @@ func httpErrorHandler(c fiber.Ctx, err error) error {
 	} else if errors.Is(err, domain.ErrValidation) {
 		code = fiber.StatusBadRequest
 		message = "validation error"
+	} else if errors.Is(err, domain.ErrDeviceLimitReached) {
+		code = fiber.StatusForbidden
+		message = fmt.Sprintf("device limit reached (max %d devices per user)", devices.MaxDevicesPerUser)
 	}
 
 	return c.Status(code).JSON(response.HTTPResponse[bool]{

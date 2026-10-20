@@ -2,8 +2,10 @@ package http
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/devices"
 	"github.com/HouseCham/gps-tracker/backend/internal/domain"
 	"github.com/HouseCham/gps-tracker/backend/internal/transport/response"
 )
@@ -39,6 +41,8 @@ func mapDomainError(err error) (status int, message string) {
 		return fiber.StatusBadRequest, "validation error"
 	case errors.Is(err, domain.ErrMustChangePassword):
 		return fiber.StatusForbidden, "must change password"
+	case errors.Is(err, domain.ErrDeviceLimitReached):
+		return fiber.StatusForbidden, fmt.Sprintf("device limit reached (max %d devices per user)", devices.MaxDevicesPerUser)
 	}
 
 	return fiber.StatusInternalServerError, "internal server error"

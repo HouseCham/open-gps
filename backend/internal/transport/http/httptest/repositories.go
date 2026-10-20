@@ -7,23 +7,29 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/HouseCham/gps-tracker/backend/internal/app/devices"
+	"github.com/HouseCham/gps-tracker/backend/internal/app/users"
 	"github.com/HouseCham/gps-tracker/backend/internal/domain"
 )
 
 type MockDevicesRepository struct {
 	Devices           map[uuid.UUID]*domain.Device
 	DevicesWithAccess map[uuid.UUID][]domain.DeviceWithAccess
-	CreateErr         error
-	ListErr           error
-	GetErr            error
-	UpdateErr         error
-	DeleteErr         error
+	// ownedByUser tracks how many devices each user already owns, so the
+	// mock can enforce the per-user registration cap the same way the real
+	// adapter does (count + insert under one lock).
+	ownedByUser map[uuid.UUID]int
+	CreateErr   error
+	ListErr     error
+	GetErr      error
+	UpdateErr   error
+	DeleteErr   error
 }
 
 func NewMockDevicesRepository() *MockDevicesRepository {
 	return &MockDevicesRepository{
 		Devices:           make(map[uuid.UUID]*domain.Device),
 		DevicesWithAccess: make(map[uuid.UUID][]domain.DeviceWithAccess),
+		ownedByUser:       make(map[uuid.UUID]int),
 	}
 }
 
@@ -80,9 +86,14 @@ func (m *MockDevicesRepository) GetByIDForUser(ctx context.Context, userID, devi
 	return nil, domain.ErrNotFound
 }
 
-func (m *MockDevicesRepository) Create(ctx context.Context, input devices.CreateInput) (*domain.Device, error) {
+// CreateWithOwnerLimit mirrors the real adapter: it enforces that the owner
+// does not already own maxOwned devices, then inserts and records the grant.
+func (m *MockDevicesRepository) CreateWithOwnerLimit(ctx context.Context, input devices.CreateInput, maxOwned int) (*domain.Device, error) {
 	if m.CreateErr != nil {
 		return nil, m.CreateErr
+	}
+	if m.ownedByUser[input.OwnerID] >= maxOwned {
+		return nil, domain.ErrDeviceLimitReached
 	}
 	device := &domain.Device{
 		ID:           uuid.New(),
@@ -92,6 +103,11 @@ func (m *MockDevicesRepository) Create(ctx context.Context, input devices.Create
 		CreatedAt:    time.Now(),
 	}
 	m.Devices[device.ID] = device
+	m.DevicesWithAccess[input.OwnerID] = append(m.DevicesWithAccess[input.OwnerID], domain.DeviceWithAccess{
+		Device:     *device,
+		AccessRole: domain.AccessRoleOwner,
+	})
+	m.ownedByUser[input.OwnerID]++
 	return device, nil
 }
 
@@ -124,23 +140,25 @@ type MockUsersRepository struct {
 	Users        map[uuid.UUID]*domain.User
 	UsersByEmail map[string]*domain.User
 	Count        int
-	CreateErr    error
-	GetErr       error
-	UpdateErr    error
-	DeleteErr    error
-	ListErr      error
-	CountErr     error
+	// CreateErr is returned from CreateUser when non-nil.
+	CreateErr error
+	GetErr    error
+	UpdateErr error
+	DeleteErr error
+	ListErr   error
+	CountErr  error
 	// HasSuperAdminResult is read only when HasSuperAdminResultSet
-	// is true. When false, HasSuperAdmin returns true by default so
-	// that pre-loaded users retain the role SetupUser assigned them
-	// (the long-standing test assumption that the first-user rule
-	// has already been satisfied by some prior state).
+	// is true. When false, the emulated bootstrap decision sees an
+	// existing super_admin by default so that pre-loaded users retain
+	// the role SetupUser assigned them (the long-standing test
+	// assumption that the first-user rule has already been satisfied
+	// by some prior state).
 	HasSuperAdminResult    bool
 	HasSuperAdminResultSet bool
 	HasSuperAdminErr       error
-	// PromoteToSuperAdminErr is returned from PromoteToSuperAdmin
+	// PromoteIfFirstUserErr is returned from PromoteIfFirstUser
 	// when non-nil.
-	PromoteToSuperAdminErr error
+	PromoteIfFirstUserErr error
 }
 
 func NewMockUsersRepository() *MockUsersRepository {
@@ -185,10 +203,31 @@ func (m *MockUsersRepository) GetByEmail(ctx context.Context, email string) (*do
 	return user, nil
 }
 
-func (m *MockUsersRepository) CreateUser(ctx context.Context, email, name, lastname string, role domain.UserRole, mustChangePassword, emailVerified bool) (*domain.User, error) {
+// CreateUser emulates the adapter: the hasSuperAdmin read happens
+// inside the repository, then the decision runs, then the write (or
+// the in-place repair when the email already exists).
+func (m *MockUsersRepository) CreateUser(ctx context.Context, email, name, lastname string, emailVerified bool, decide users.DecisionFunc) (*domain.User, error) {
 	if m.CreateErr != nil {
 		return nil, m.CreateErr
 	}
+	hasSuperAdmin, err := m.hasSuperAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	role, mustChangePassword := decide(hasSuperAdmin)
+
+	if existing, ok := m.UsersByEmail[email]; ok {
+		existing.Name = name
+		existing.Lastname = lastname
+		if role == domain.UserRoleSuperAdmin {
+			existing.Role = domain.UserRoleSuperAdmin
+			existing.MustChangePassword = false
+		} else {
+			existing.MustChangePassword = mustChangePassword
+		}
+		return existing, nil
+	}
+
 	user := &domain.User{
 		ID:                 uuid.New(),
 		Email:              email,
@@ -245,7 +284,9 @@ func (m *MockUsersRepository) CountUsers(ctx context.Context) (int, error) {
 	return m.Count, nil
 }
 
-func (m *MockUsersRepository) HasSuperAdmin(ctx context.Context) (bool, error) {
+// hasSuperAdmin backs the CreateUser/PromoteIfFirstUser emulation
+// (the adapter performs this read inside its transaction).
+func (m *MockUsersRepository) hasSuperAdmin(ctx context.Context) (bool, error) {
 	if m.HasSuperAdminErr != nil {
 		return false, m.HasSuperAdminErr
 	}
@@ -266,13 +307,20 @@ func (m *MockUsersRepository) HasSuperAdmin(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (m *MockUsersRepository) PromoteToSuperAdmin(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
-	if m.PromoteToSuperAdminErr != nil {
-		return nil, m.PromoteToSuperAdminErr
+func (m *MockUsersRepository) PromoteIfFirstUser(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
+	if m.PromoteIfFirstUserErr != nil {
+		return nil, m.PromoteIfFirstUserErr
 	}
 	user, ok := m.Users[userID]
 	if !ok {
 		return nil, domain.ErrNotFound
+	}
+	hasSuperAdmin, err := m.hasSuperAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if hasSuperAdmin {
+		return user, nil
 	}
 	user.Role = domain.UserRoleSuperAdmin
 	user.MustChangePassword = false
@@ -340,4 +388,32 @@ type MockUserCreator struct {
 
 func (m *MockUserCreator) CreateUserWithPassword(ctx context.Context, name, email, password string) error {
 	return m.CreateErr
+}
+
+// MockLocationsRepository satisfies the locations Writer/Reader/LiveReader
+// ports for router-level stream tests (BA-11). GetLive reports the
+// requested device with no presence deadline, so the stream's presence
+// timer stays parked at its hourly default.
+type MockLocationsRepository struct{}
+
+func NewMockLocationsRepository() *MockLocationsRepository {
+	return &MockLocationsRepository{}
+}
+
+func (m *MockLocationsRepository) Insert(context.Context, domain.Location) error { return nil }
+
+func (m *MockLocationsRepository) GetLatest(_ context.Context, deviceID uuid.UUID) (domain.Location, error) {
+	return domain.Location{DeviceID: deviceID, RecordedAt: time.Now().UTC()}, nil
+}
+
+func (m *MockLocationsRepository) GetHistory(context.Context, uuid.UUID, time.Time, time.Time, int, int) ([]domain.Location, int, error) {
+	return nil, 0, nil
+}
+
+func (m *MockLocationsRepository) GetRoute(context.Context, uuid.UUID, time.Time, time.Time, int) ([]domain.Location, int, bool, error) {
+	return nil, 0, false, nil
+}
+
+func (m *MockLocationsRepository) GetLive(_ context.Context, deviceID uuid.UUID, _ time.Time, _ time.Duration, _ float64) (domain.LiveLocation, error) {
+	return domain.LiveLocation{DeviceID: deviceID}, nil
 }

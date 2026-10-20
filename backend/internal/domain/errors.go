@@ -17,6 +17,11 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrCannotRevokeSelf   = errors.New("cannot revoke your own device access")
 	ErrMustChangePassword = errors.New("must change password")
+	// ErrDeviceLimitReached is returned when a user tries to register a
+	// device beyond the per-user registration cap. Distinct from
+	// ErrForbidden so the transport layer can surface a descriptive
+	// message instead of a generic "forbidden".
+	ErrDeviceLimitReached = errors.New("device limit reached")
 	// ErrInvalidResetToken is returned by the password-reset consume path
 	// when the token is unknown, expired, or already used. The single
 	// error avoids leaking which condition failed.

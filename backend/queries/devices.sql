@@ -120,6 +120,18 @@ INNER JOIN user_device_access uda
 WHERE uda.user_id = $1
   AND d.deleted_at IS NULL;
 
+-- name: CountOwnedDevicesForUser :one
+-- Returns the count of devices the user OWNS (owner role) — the basis
+-- for the per-user registration cap. Shared devices where the user is
+-- editor/viewer do NOT count against the cap: the cap bounds what a
+-- user registers, not what others share with them.
+SELECT COUNT(*)::bigint AS count
+FROM devices d
+INNER JOIN user_device_access uda
+  ON d.id = uda.device_id AND uda.deleted_at IS NULL AND uda.role = 'owner'
+WHERE uda.user_id = $1
+  AND d.deleted_at IS NULL;
+
 -- name: ListDevicesForUserWithAccessPaginated :many
 -- Returns paginated devices the given user has access to, with the access role.
 -- Used by the device list endpoint with pagination.

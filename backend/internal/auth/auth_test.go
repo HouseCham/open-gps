@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -85,5 +86,36 @@ func TestAuthulaPasswordUpdaterResetPasswordRejectsMissingEmailAccount(t *testin
 
 	if err := updater.ResetPassword(context.Background(), "missing-user", "new-password"); err == nil {
 		t.Fatal("ResetPassword returned nil for a missing email account")
+	}
+}
+
+func TestValidateAppEnv(t *testing.T) {
+	cases := []struct {
+		value   string
+		wantErr bool
+	}{
+		{value: "", wantErr: false}, // unset: warns, defaults to development
+		{value: "development", wantErr: false},
+		{value: "production", wantErr: false},
+		{value: "Production", wantErr: false}, // case-insensitive
+		{value: "test", wantErr: false},
+		{value: "staging", wantErr: true},
+		{value: "prodcution", wantErr: true}, // typo must not fall back to development
+	}
+	for _, tc := range cases {
+		t.Run("APP_ENV="+tc.value, func(t *testing.T) {
+			t.Setenv("APP_ENV", tc.value)
+			err := ValidateAppEnv()
+			if tc.wantErr && err == nil {
+				t.Fatal("ValidateAppEnv() = nil, want error")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("ValidateAppEnv() = %v, want nil", err)
+			}
+			// IsProduction must agree with the validation rules.
+			if got, want := IsProduction(), strings.EqualFold(tc.value, "production"); got != want {
+				t.Errorf("IsProduction() = %v, want %v", got, want)
+			}
+		})
 	}
 }

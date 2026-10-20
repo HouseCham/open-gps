@@ -50,8 +50,15 @@ type RouterDeps struct {
 // NewRouter creates a new fiber app and registers the routes and handlers.
 func NewRouter(deps RouterDeps) *fiber.App {
 	app := fiber.New(fiber.Config{
-		AppName:      "gps-tracker-api",
-		ErrorHandler: httpErrorHandler,
+		AppName:            "gps-tracker-api",
+		ErrorHandler:       httpErrorHandler,
+		TrustProxy:         true,
+		ProxyHeader:        "X-Real-IP",
+		EnableIPValidation: true,
+		// The API is not published to the host; Compose routes public
+		// traffic through nginx on the private service network. nginx
+		// overwrites X-Real-IP with its normalized client address.
+		TrustProxyConfig: fiber.TrustProxyConfig{Private: true},
 	})
 
 	// CORS is opt-in: only mounted when origins are configured.
@@ -66,6 +73,7 @@ func NewRouter(deps RouterDeps) *fiber.App {
 	}
 
 	app.Get("/health", deps.HealthHandler.Handle)
+	app.Get("/health/ready", deps.HealthHandler.Ready)
 
 	// Single session-cookie auth middleware. Replaces the old
 	// (AuthJWT -> LazyUser) pair: cookie lookup + actor resolution

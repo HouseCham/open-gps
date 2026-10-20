@@ -16,8 +16,12 @@ type ReportsAdapter struct{ pool *pgxpool.Pool }
 
 func NewReportsAdapter(pool *pgxpool.Pool) *ReportsAdapter { return &ReportsAdapter{pool: pool} }
 
-func (a *ReportsAdapter) GetDataset(ctx context.Context, userID uuid.UUID, filter reports.Filter, limit int) (reports.Dataset, error) {
-	devices, err := a.getDevices(ctx, userID, filter)
+// GetDataset loads the authorized devices and points under the caller's
+// read caps: a positive limit/deviceLimit becomes a SQL LIMIT, letting the
+// service pass budget+1 and detect an over-budget dataset without
+// materializing it fully; non-positive means unbounded.
+func (a *ReportsAdapter) GetDataset(ctx context.Context, userID uuid.UUID, filter reports.Filter, limit, deviceLimit int) (reports.Dataset, error) {
+	devices, err := a.getDevices(ctx, userID, filter, deviceLimit)
 	if err != nil {
 		return reports.Dataset{}, WrapPgError(err)
 	}
@@ -28,9 +32,13 @@ func (a *ReportsAdapter) GetDataset(ctx context.Context, userID uuid.UUID, filte
 	return reports.Dataset{Devices: devices, Points: points}, nil
 }
 
-func (a *ReportsAdapter) getDevices(ctx context.Context, userID uuid.UUID, filter reports.Filter) ([]reports.Device, error) {
+func (a *ReportsAdapter) getDevices(ctx context.Context, userID uuid.UUID, filter reports.Filter, limit int) ([]reports.Device, error) {
 	query, args := deviceQuery(filter)
 	args = append([]any{userID}, args...)
+	if limit > 0 {
+		args = append(args, limit)
+		query += fmt.Sprintf(" LIMIT $%d", len(args))
+	}
 	rows, err := a.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err

@@ -61,32 +61,35 @@ func (s *Service) GetByID(ctx context.Context, requestingUserID, targetUserID uu
 	return nil, domain.ErrForbidden
 }
 
-func (s *Service) CreateUser(ctx context.Context, email, name, lastname string, role domain.UserRole) (*CreateUserResult, error) {
-	hasSuperAdmin, err := s.repo.HasSuperAdmin(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Single source of truth for the "first user" rule, shared with
-	// GetOrCreate:
-	//   * role: very first user is super_admin; everyone else is
-	//     forced to user (the caller's requested role is ignored
-	//     once a super_admin exists).
-	//   * must_change_password: false for the super_admin (no temp
-	//     password involved — they signed up themselves), true for
-	//     everyone else (admin-assigned temp password must be
-	//     rotated on first login).
-	//   * email_verified: always false at the application layer.
-	//     The local projection tracks signup state, not inbox
-	//     verification. The DB-level partial unique index on
-	//     role='super_admin' is the belt-and-braces guard.
-	role = domain.UserRoleUser
-	mustChangePassword := true
+// FirstUserRule is the single source of truth for the "first user"
+// rule, shared by admin creation (CreateUser) and the signup mirror
+// hook (GetOrCreate). The repository invokes it under the bootstrap
+// advisory lock so the decision is atomic with the write it drives
+// (BA-12):
+//   - role: very first user is super_admin; everyone else is user
+//     (the caller's requested role is always ignored).
+//   - must_change_password: false for the first super_admin (they
+//     signed up themselves), true for everyone else (admin-assigned
+//     temp password must be rotated on first login).
+//   - email_verified: always false at the application layer; the
+//     local projection tracks signup state, not inbox verification.
+//
+// The DB-level partial unique index on role='super_admin' remains
+// the belt-and-braces guard if the lock key ever drifts.
+func FirstUserRule(hasSuperAdmin bool) (domain.UserRole, bool) {
 	if !hasSuperAdmin {
-		role = domain.UserRoleSuperAdmin
-		mustChangePassword = false
+		return domain.UserRoleSuperAdmin, false
 	}
+	return domain.UserRoleUser, true
+}
 
+// CreateUser registers a brand-new user through Authula and the local
+// projection. The role argument is ignored: FirstUserRule decides
+// (BA-12). Authula runs first and is idempotent on retry (BA-09
+// compensation in authulaUserCreator); the local write then lands
+// atomically, repairing any partial prior state — including the
+// shared-table row Authula just inserted.
+func (s *Service) CreateUser(ctx context.Context, email, name, lastname string, role domain.UserRole) (*CreateUserResult, error) {
 	password, err := generateRandomPassword()
 	if err != nil {
 		return nil, fmt.Errorf("generate password: %w", err)
@@ -96,7 +99,7 @@ func (s *Service) CreateUser(ctx context.Context, email, name, lastname string, 
 		return nil, fmt.Errorf("create authula user: %w", err)
 	}
 
-	user, err := s.repo.CreateUser(ctx, email, name, lastname, role, mustChangePassword, false)
+	user, err := s.repo.CreateUser(ctx, email, name, lastname, false, FirstUserRule)
 	if err != nil {
 		return nil, err
 	}
@@ -109,13 +112,17 @@ func (s *Service) CreateUser(ctx context.Context, email, name, lastname string, 
 //
 // Authula's email-password signup inserts the user into the shared
 // `users` table with role='user' (the SQL DEFAULT) before our
-// SignupMirrorHook fires. By the time we get here the row already
-// exists, so the GetByEmail fast-path is the common case for the
-// first signup. The "promote if first user" check (HasSuperAdmin +
-// PromoteToSuperAdmin) covers both branches — the row Authula just
-// created, and a brand-new row inserted below — so the
-// super_admin invariants are enforced regardless of which path
-// Authula takes.
+// SignupMirrorHook fires, so the GetByEmail fast-path is the common
+// case for the first signup. Both branches route the first-user
+// decision through the repository, where it runs under the bootstrap
+// advisory lock (BA-12): PromoteIfFirstUser for the existing row,
+// CreateUser's DecisionFunc for a brand-new one.
+//
+// This is the *materialization* path, shared by signup (SignupMirrorHook)
+// and session login (AuthSession middleware). The invitation-only
+// signup gate (BA-15) lives in the hook, NOT here: a legitimate
+// existing user who signs in must still be able to materialize their
+// local projection.
 func (s *Service) GetOrCreate(ctx context.Context, email, name string) (*domain.User, error) {
 	if email == "" {
 		return nil, fmt.Errorf("%w: email is required", domain.ErrUnauthorized)
@@ -124,26 +131,16 @@ func (s *Service) GetOrCreate(ctx context.Context, email, name string) (*domain.
 	existing, err := s.repo.GetByEmail(ctx, email)
 	if err == nil {
 		// Row exists (typically because Authula inserted it during
-		// the same request). Honor the first-user promotion rule.
-		return s.promoteIfFirstUser(ctx, existing)
+		// the same request). Honor the first-user promotion rule
+		// atomically inside the repository.
+		return s.repo.PromoteIfFirstUser(ctx, existing.ID)
 	}
 	if !errors.Is(err, domain.ErrNotFound) {
 		return nil, err
 	}
 
-	// No row yet: insert with the same first-user rule, then return.
-	hasSuperAdmin, err := s.repo.HasSuperAdmin(ctx)
-	if err != nil {
-		return nil, err
-	}
-	role := domain.UserRoleUser
-	mustChangePassword := true
-	if !hasSuperAdmin {
-		role = domain.UserRoleSuperAdmin
-		mustChangePassword = false
-	}
-
-	created, err := s.repo.CreateUser(ctx, email, name, "", role, mustChangePassword, false)
+	// No row yet: insert atomically with the same first-user rule.
+	created, err := s.repo.CreateUser(ctx, email, name, "", false, FirstUserRule)
 	if err == nil {
 		return created, nil
 	}
@@ -155,22 +152,6 @@ func (s *Service) GetOrCreate(ctx context.Context, email, name string) (*domain.
 		return nil, domain.ErrUnauthorized
 	}
 	return nil, err
-}
-
-// promoteIfFirstUser applies the "very first user becomes super_admin"
-// rule to an already-fetched user. If no super_admin exists in the
-// system yet and the user is not already one, it issues an UPDATE
-// via PromoteToSuperAdmin and returns the refreshed row. Otherwise it
-// returns the user as-is.
-func (s *Service) promoteIfFirstUser(ctx context.Context, user *domain.User) (*domain.User, error) {
-	hasSuperAdmin, err := s.repo.HasSuperAdmin(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if hasSuperAdmin || user.Role == domain.UserRoleSuperAdmin {
-		return user, nil
-	}
-	return s.repo.PromoteToSuperAdmin(ctx, user.ID)
 }
 
 func (s *Service) UpdateUser(ctx context.Context, userID uuid.UUID, name, lastname string) (*domain.User, error) {
@@ -204,6 +185,16 @@ func (s *Service) SoftDeleteUser(ctx context.Context, requestingUserID, targetUs
 	}
 
 	return s.repo.SoftDeleteUser(ctx, targetUserID)
+}
+
+// RejectSignup revokes a self-service signup that the invitation-only
+// gate (BA-15) turned away: the Authula credentials already exist, so
+// the only lever we have is to soft-delete the local projection. The
+// AuthSession barrier denies a session to any non-super_admin, so the
+// orphaned credential cannot authenticate either way; this just avoids
+// leaving a live row behind. Called only from the signup mirror hook.
+func (s *Service) RejectSignup(ctx context.Context, userID uuid.UUID) error {
+	return s.repo.SoftDeleteUser(ctx, userID)
 }
 
 // generateRandomPassword generates a cryptographically random

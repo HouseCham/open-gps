@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,9 +34,26 @@ const maxRequestsPerEmail = 3
 // within the rate-limit window, regardless of email.
 const maxRequestsPerIP = 10
 
+// resetPasswordPath is the fixed frontend path the reset link lands
+// on. Combined server-side with the configured public origin and the
+// request locale: {origin}/{locale}/reset-password?token={rawToken}.
+const resetPasswordPath = "/reset-password"
+
 // ErrInvalidResetToken is re-exported so callers don't have to reach
 // into the domain package for this single error.
 var ErrInvalidResetToken = domain.ErrInvalidResetToken
+
+// ErrEmailDispatch marks a failure to hand the reset email to the
+// upstream provider. The token was already persisted, so the failure
+// is not terminal for the user (they can retry), but the handler must
+// answer the same 202 as every other path — a distinct status would
+// let callers probe which emails exist (the Resend call only happens
+// for known addresses).
+var ErrEmailDispatch = errors.New("password recovery email dispatch failed")
+
+// ErrClientIPRequired prevents a caller from silently bypassing the
+// per-IP recovery budget with an empty or malformed client address.
+var ErrClientIPRequired = errors.New("password recovery requires a valid client IP")
 
 // userResolver is the slice of users.Service the password-reset flow
 // needs: lookup by email (to resolve the recipient's userID) and the
@@ -66,49 +85,51 @@ type emailSender interface {
 // Authula password. All public methods are safe for concurrent use;
 // the underlying TokenStore is responsible for the SQL race semantics.
 type Service struct {
-	tokens          TokenStore
-	rateLimit       RateLimitCounter
-	users           userResolver
-	reset           passwordResetter
-	mailer          emailSender
-	now             func() time.Time // injected for tests
+	tokens       TokenStore
+	rateLimit    RateLimitCounter
+	users        userResolver
+	reset        passwordResetter
+	mailer       emailSender
+	publicOrigin string           // bare origin used to build reset links
+	now          func() time.Time // injected for tests
 }
 
-// New wires a Service. now is optional — pass nil to default to
-// time.Now. Returning a *Service (not an error) because the wiring is
-// infallible at construction; failures happen at request time.
-func New(tokens TokenStore, rateLimit RateLimitCounter, users userResolver, reset passwordResetter, mailer emailSender, now func() time.Time) *Service {
+// New wires a Service. publicOrigin is the bare public origin
+// (scheme + host) reset links are built from; now is optional — pass
+// nil to default to time.Now. Returning a *Service (not an error)
+// because the wiring is infallible at construction; failures happen
+// at request time.
+func New(tokens TokenStore, rateLimit RateLimitCounter, users userResolver, reset passwordResetter, mailer emailSender, publicOrigin string, now func() time.Time) *Service {
 	if now == nil {
 		now = time.Now
 	}
-	return &Service{tokens: tokens, rateLimit: rateLimit, users: users, reset: reset, mailer: mailer, now: now}
+	return &Service{tokens: tokens, rateLimit: rateLimit, users: users, reset: reset, mailer: mailer, publicOrigin: publicOrigin, now: now}
 }
 
 // RequestInput is what the handler passes to Request — the email the
-// user typed, the locale they want the template in, and the full
-// reset URL the frontend already built (the caller embeds the token
-// once Service returns it).
+// user typed and the locale they want the template in. The reset URL
+// is built by the service from its configured public origin; the
+// caller cannot influence the destination.
 type RequestInput struct {
-	Email       string
-	Language    string
-	ResetURL    string
-	ClientIP    string // used for the per-IP rate limit; optional, "" disables
+	Email    string
+	Language string
+	ClientIP string // validated client IP used for the per-IP rate limit
 }
 
-// RequestResult is what the handler gets back. The MessageID lets the
-// API echo Resend's id (for support correlation), the same shape as
-// /email/welcome. On the rate-limited / unknown-email paths the
-// returned values are zero — the handler still answers 202 to avoid
-// leaking which path was taken.
+// RequestResult is what the handler gets back. The MessageID is for
+// server-side logging/support correlation only — it is never put on
+// the wire. On the rate-limited / unknown-email paths the returned
+// values are zero; the handler answers the same 202 regardless, so
+// the response cannot be used to enumerate accounts.
 type RequestResult struct {
 	MessageID string
 	// Dispatched is false when the request was rate-limited or the
-	// user didn't exist; the handler should still answer 202.
+	// user didn't exist; the handler still answers 202.
 	Dispatched bool
 }
 
-// Request validates the rate limit, finds the user, issues a token,
-// and dispatches the reset email. Two anti-enumeration rules live
+// Request records the attempt, finds the user, issues a token, and
+// dispatches the reset email. Three anti-enumeration rules live
 // here:
 //
 //  1. A non-existent email is treated identically to a successful
@@ -116,26 +137,29 @@ type RequestResult struct {
 //     outside, dispatched=false. We log internally so abuse is still
 //     visible.
 //  2. A rate-limited request is treated identically too.
+//  3. An upstream email failure returns ErrEmailDispatch so the
+//     handler can log it but still answer the same 202 — a distinct
+//     status would only ever be reachable for known emails.
 //
-// In both cases the function returns nil error and Dispatched=false.
+// In cases 1 and 2 the function returns nil error and Dispatched=false.
 func (s *Service) Request(ctx context.Context, in RequestInput) (RequestResult, error) {
-	// Per-IP cap first: cheaper (no DB row to compare against) and
-	// protects against an attacker hammering random emails from one
-	// host. Done unconditionally regardless of email validity.
-	if in.ClientIP != "" {
-		count, err := s.rateLimit.CountRecentForIP(ctx, in.ClientIP, rateLimitWindow)
-		if err != nil {
-			return RequestResult{}, fmt.Errorf("passwordreset.Request: rate-limit ip: %w", err)
-		}
-		if count >= maxRequestsPerIP {
-			return RequestResult{Dispatched: false}, nil
-		}
+	parsedIP := net.ParseIP(strings.TrimSpace(in.ClientIP))
+	if parsedIP == nil {
+		return RequestResult{}, ErrClientIPRequired
+	}
+	clientIP := parsedIP.String()
+
+	// Per-IP cap first, and it counts the attempt itself — known or
+	// unknown email — so probing random addresses burns the same
+	// budget as real requests (BA-07).
+	allowed, err := s.rateLimit.RegisterIPAttempt(ctx, clientIP, rateLimitWindow, maxRequestsPerIP)
+	if err != nil {
+		return RequestResult{}, fmt.Errorf("passwordreset.Request: rate-limit ip: %w", err)
+	}
+	if !allowed {
+		return RequestResult{Dispatched: false}, nil
 	}
 
-	// Per-email cap is the natural lookup: only counted once we have
-	// a user to count against. If the email doesn't resolve, the
-	// call falls through to the "unknown user" branch and we don't
-	// even bother incrementing anything.
 	user, err := s.users.GetByEmail(ctx, in.Email)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
@@ -144,38 +168,42 @@ func (s *Service) Request(ctx context.Context, in RequestInput) (RequestResult, 
 		return RequestResult{}, fmt.Errorf("passwordreset.Request: lookup user: %w", err)
 	}
 
-	count, err := s.rateLimit.CountRecentForUser(ctx, user.ID, rateLimitWindow)
-	if err != nil {
-		return RequestResult{}, fmt.Errorf("passwordreset.Request: rate-limit user: %w", err)
-	}
-	if count >= maxRequestsPerEmail {
-		return RequestResult{Dispatched: false}, nil
-	}
-
 	rawToken, tokenHash, err := GenerateRawToken()
 	if err != nil {
 		return RequestResult{}, fmt.Errorf("passwordreset.Request: generate token: %w", err)
 	}
 
-	if err := s.tokens.InvalidateOutstanding(ctx, user.ID); err != nil {
-		return RequestResult{}, fmt.Errorf("passwordreset.Request: invalidate outstanding: %w", err)
+	// Per-email cap is enforced here: count + invalidate + insert run
+	// in one transaction behind a per-user lock, so concurrent
+	// requests cannot overshoot the cap (BA-07).
+	issued, err := s.tokens.InsertIfUnderLimit(ctx, user.ID, tokenHash, clientIP, s.now().Add(tokenTTL), rateLimitWindow, maxRequestsPerEmail)
+	if err != nil {
+		return RequestResult{}, fmt.Errorf("passwordreset.Request: issue token: %w", err)
+	}
+	if !issued {
+		return RequestResult{Dispatched: false}, nil
 	}
 
-	if _, err := s.tokens.Insert(ctx, user.ID, tokenHash, in.ClientIP, s.now().Add(tokenTTL)); err != nil {
-		return RequestResult{}, fmt.Errorf("passwordreset.Request: insert token: %w", err)
-	}
+	// The destination is built entirely server-side: configured
+	// origin + locale + fixed path. The raw token is appended last so
+	// the client never sees or chooses it.
+	resetURL := s.publicOrigin + "/" + in.Language + resetPasswordPath + "?token=" + rawToken
 
 	messageID, err := s.mailer.SendPasswordReset(ctx, email.ResetInput{
 		To:        user.Email,
 		FirstName: user.Name,
-		ResetURL:  in.ResetURL + rawToken,
+		ResetURL:  resetURL,
 		Language:  in.Language,
 	})
 	if err != nil {
-		// The token row is in place; if dispatch fails the user can
-		// retry within the TTL. We propagate the error so the handler
-		// can surface 502 — the client built the URL and should know.
-		return RequestResult{}, fmt.Errorf("passwordreset.Request: send reset email: %w", err)
+		// Token row is in place; a retry within the TTL issues a fresh
+		// one. Marked with ErrEmailDispatch so the handler can answer
+		// the same 202 as every other path (anti-enumeration) instead
+		// of surfacing a status that only reachable for known emails.
+		if errors.Is(err, email.ErrInvalidLanguage) {
+			return RequestResult{}, fmt.Errorf("passwordreset.Request: send reset email: %w", err)
+		}
+		return RequestResult{}, fmt.Errorf("passwordreset.Request: send reset email: %w: %w", ErrEmailDispatch, err)
 	}
 
 	return RequestResult{MessageID: messageID, Dispatched: true}, nil

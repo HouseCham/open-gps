@@ -240,6 +240,8 @@ Creates a new device and grants the requesting user `owner` access to it.
 
 **Authorization:** Any authenticated user.
 
+**Registration limit:** A user may own at most **10 devices**. Devices shared with the user (as `editor` or `viewer`) do not count against this cap — only devices the user registered as `owner`. Attempting to register an 11th owned device returns `403` with `device limit reached (max 10 devices per user)`.
+
 **Request**
 
 ```
@@ -280,6 +282,7 @@ Content-Type: application/json
 **Error Responses**
 - `400` — Invalid request body or validation failure
 - `401` — Unauthorized
+- `403` — Device limit reached (max 10 devices per user)
 - `409` — A device with the given `uuid_firmware` already exists
 
 ---

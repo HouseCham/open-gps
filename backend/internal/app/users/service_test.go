@@ -20,7 +20,7 @@ type mockRepo struct {
 	setMustChangePasswordFn func(ctx context.Context, userID uuid.UUID, mustChange bool) error
 	countUsersFn            func(ctx context.Context) (int, error)
 	hasSuperAdminFn         func(ctx context.Context) (bool, error)
-	promoteToSuperAdminFn   func(ctx context.Context, userID uuid.UUID) (*domain.User, error)
+	promoteIfFirstUserFn    func(ctx context.Context, userID uuid.UUID) (*domain.User, error)
 }
 
 func (m *mockRepo) ListUsers(ctx context.Context, excludeUserID uuid.UUID) ([]domain.User, error) {
@@ -35,7 +35,19 @@ func (m *mockRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 	return m.getByEmailFn(ctx, email)
 }
 
-func (m *mockRepo) CreateUser(ctx context.Context, email, name, lastname string, role domain.UserRole, mustChangePassword, emailVerified bool) (*domain.User, error) {
+// CreateUser emulates the adapter contract: the hasSuperAdmin read
+// happens inside the repository under the bootstrap lock, then the
+// decision runs, then the write. Tests keep configuring the read via
+// hasSuperAdminFn and observe the decided values through createUserFn.
+func (m *mockRepo) CreateUser(ctx context.Context, email, name, lastname string, emailVerified bool, decide DecisionFunc) (*domain.User, error) {
+	has, err := m.HasSuperAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if m.createUserFn == nil {
+		return nil, errors.New("mockRepo.CreateUser: not configured")
+	}
+	role, mustChangePassword := decide(has)
 	return m.createUserFn(ctx, email, name, lastname, role, mustChangePassword, emailVerified)
 }
 
@@ -55,6 +67,9 @@ func (m *mockRepo) CountUsers(ctx context.Context) (int, error) {
 	return m.countUsersFn(ctx)
 }
 
+// HasSuperAdmin backs the CreateUser emulation above (the adapter
+// performs this read inside its transaction; the service never calls
+// it directly).
 func (m *mockRepo) HasSuperAdmin(ctx context.Context) (bool, error) {
 	if m.hasSuperAdminFn == nil {
 		return false, nil
@@ -62,11 +77,11 @@ func (m *mockRepo) HasSuperAdmin(ctx context.Context) (bool, error) {
 	return m.hasSuperAdminFn(ctx)
 }
 
-func (m *mockRepo) PromoteToSuperAdmin(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
-	if m.promoteToSuperAdminFn == nil {
-		return &domain.User{ID: userID, Role: domain.UserRoleSuperAdmin, MustChangePassword: false}, nil
+func (m *mockRepo) PromoteIfFirstUser(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
+	if m.promoteIfFirstUserFn == nil {
+		return nil, errors.New("mockRepo.PromoteIfFirstUser: not configured")
 	}
-	return m.promoteToSuperAdminFn(ctx, userID)
+	return m.promoteIfFirstUserFn(ctx, userID)
 }
 
 type mockUserCreator struct {
@@ -248,10 +263,15 @@ func TestGetOrCreate(t *testing.T) {
 				}
 				return existing, nil
 			},
-			// Pretend a super_admin already exists so the existing
-			// user is never re-promoted (the user is set up as
-			// UserRoleUser and the test expects that role to stick).
-			hasSuperAdminFn: func(_ context.Context) (bool, error) { return true, nil },
+			// The existing row is set up as UserRoleUser and the test
+			// expects that role to stick: the repository's promotion
+			// decision returns it unchanged.
+			promoteIfFirstUserFn: func(_ context.Context, id uuid.UUID) (*domain.User, error) {
+				if id != existing.ID {
+					t.Errorf("repo received %v, want %v", id, existing.ID)
+				}
+				return existing, nil
+			},
 			createUserFn: func(_ context.Context, _, _, _ string, _ domain.UserRole, _, _ bool) (*domain.User, error) {
 				created = true
 				return nil, nil
@@ -354,7 +374,7 @@ func TestGetOrCreate(t *testing.T) {
 		// Simulates the real production path: Authula's email-password
 		// signup inserts the user with role='user' (SQL DEFAULT) before
 		// our hook fires. GetByEmail returns that row, then
-		// GetOrCreate must promote it to super_admin.
+		// GetOrCreate must ask the repository to promote it.
 		authulaInserted := &domain.User{
 			ID:                 uuid.New(),
 			Email:              "first@test.com",
@@ -369,8 +389,9 @@ func TestGetOrCreate(t *testing.T) {
 			getByEmailFn: func(_ context.Context, _ string) (*domain.User, error) {
 				return authulaInserted, nil
 			},
-			hasSuperAdminFn: func(_ context.Context) (bool, error) { return false, nil },
-			promoteToSuperAdminFn: func(_ context.Context, id uuid.UUID) (*domain.User, error) {
+			// The repository runs this decision under the bootstrap
+			// lock; the service only forwards the existing row's ID.
+			promoteIfFirstUserFn: func(_ context.Context, id uuid.UUID) (*domain.User, error) {
 				promoted = true
 				promotedID = id
 				return &domain.User{
@@ -388,7 +409,7 @@ func TestGetOrCreate(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if !promoted {
-			t.Fatal("expected repository PromoteToSuperAdmin to be called")
+			t.Fatal("expected repository PromoteIfFirstUser to be called")
 		}
 		if promotedID != authulaInserted.ID {
 			t.Errorf("promoted id %v, want %v", promotedID, authulaInserted.ID)
@@ -401,7 +422,11 @@ func TestGetOrCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("does not promote when a super_admin already exists", func(t *testing.T) {
+	t.Run("returns existing user with role untouched when repository declines the promotion", func(t *testing.T) {
+		// The repository declines when a super_admin already exists or
+		// when the row already is one — both states are decided inside
+		// the adapter under its lock, so at the service level they are
+		// indistinguishable: it must forward the returned row as-is.
 		existingUser := &domain.User{
 			ID:    uuid.New(),
 			Email: "second@test.com",
@@ -411,10 +436,11 @@ func TestGetOrCreate(t *testing.T) {
 			getByEmailFn: func(_ context.Context, _ string) (*domain.User, error) {
 				return existingUser, nil
 			},
-			hasSuperAdminFn: func(_ context.Context) (bool, error) { return true, nil },
-			promoteToSuperAdminFn: func(_ context.Context, _ uuid.UUID) (*domain.User, error) {
-				t.Error("PromoteToSuperAdmin must not be called when a super_admin already exists")
-				return nil, nil
+			promoteIfFirstUserFn: func(_ context.Context, id uuid.UUID) (*domain.User, error) {
+				if id != existingUser.ID {
+					t.Errorf("repo received %v, want %v", id, existingUser.ID)
+				}
+				return existingUser, nil
 			},
 		}, &mockUserCreator{})
 		got, err := svc.GetOrCreate(ctx, "second@test.com", "")
@@ -426,31 +452,6 @@ func TestGetOrCreate(t *testing.T) {
 		}
 		if got.Role != domain.UserRoleUser {
 			t.Errorf("got role %v, want user (untouched)", got.Role)
-		}
-	})
-
-	t.Run("does not promote when existing user is already super_admin", func(t *testing.T) {
-		existingAdmin := &domain.User{
-			ID:    uuid.New(),
-			Email: "admin@test.com",
-			Role:  domain.UserRoleSuperAdmin,
-		}
-		svc := NewService(&mockRepo{
-			getByEmailFn: func(_ context.Context, _ string) (*domain.User, error) {
-				return existingAdmin, nil
-			},
-			hasSuperAdminFn: func(_ context.Context) (bool, error) { return false, nil },
-			promoteToSuperAdminFn: func(_ context.Context, _ uuid.UUID) (*domain.User, error) {
-				t.Error("PromoteToSuperAdmin must not be called when the existing row is already super_admin")
-				return nil, nil
-			},
-		}, &mockUserCreator{})
-		got, err := svc.GetOrCreate(ctx, "admin@test.com", "")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got.Role != domain.UserRoleSuperAdmin {
-			t.Errorf("got role %v, want super_admin (untouched)", got.Role)
 		}
 	})
 
@@ -478,21 +479,6 @@ func TestGetOrCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("propagates HasSuperAdmin error on existing row", func(t *testing.T) {
-		expected := errors.New("db closed")
-		existingUser := &domain.User{ID: uuid.New(), Email: "a@b.com", Role: domain.UserRoleUser}
-		svc := NewService(&mockRepo{
-			getByEmailFn: func(_ context.Context, _ string) (*domain.User, error) {
-				return existingUser, nil
-			},
-			hasSuperAdminFn: func(_ context.Context) (bool, error) { return false, expected },
-		}, &mockUserCreator{})
-		_, err := svc.GetOrCreate(ctx, "a@b.com", "")
-		if !errors.Is(err, expected) {
-			t.Errorf("expected %v, got %v", expected, err)
-		}
-	})
-
 	t.Run("propagates HasSuperAdmin error on new row", func(t *testing.T) {
 		expected := errors.New("db closed")
 		svc := NewService(&mockRepo{
@@ -507,15 +493,14 @@ func TestGetOrCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("propagates promote error on existing row", func(t *testing.T) {
+	t.Run("propagates PromoteIfFirstUser error on existing row", func(t *testing.T) {
 		expected := errors.New("db closed")
 		existingUser := &domain.User{ID: uuid.New(), Email: "a@b.com", Role: domain.UserRoleUser}
 		svc := NewService(&mockRepo{
 			getByEmailFn: func(_ context.Context, _ string) (*domain.User, error) {
 				return existingUser, nil
 			},
-			hasSuperAdminFn: func(_ context.Context) (bool, error) { return false, nil },
-			promoteToSuperAdminFn: func(_ context.Context, _ uuid.UUID) (*domain.User, error) {
+			promoteIfFirstUserFn: func(_ context.Context, _ uuid.UUID) (*domain.User, error) {
 				return nil, expected
 			},
 		}, &mockUserCreator{})
@@ -643,7 +628,11 @@ func TestCreateUser(t *testing.T) {
 		expected := errors.New("db closed")
 		svc := NewService(&mockRepo{
 			hasSuperAdminFn: func(_ context.Context) (bool, error) { return false, expected },
-		}, &mockUserCreator{})
+		}, &mockUserCreator{
+			// Authula creation succeeds; the failure comes from the
+			// repository's hasSuperAdmin read below it.
+			createFn: func(_ context.Context, _, _, _ string) error { return nil },
+		})
 		_, err := svc.CreateUser(ctx, "a@b.com", "A", "B", domain.UserRoleUser)
 		if !errors.Is(err, expected) {
 			t.Errorf("expected %v, got %v", expected, err)
