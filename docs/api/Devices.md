@@ -6,7 +6,7 @@ Base URL: `/api/v1`
 
 All `/api/v1/devices/*` endpoints require an active session cookie (`authula.session_token`). The cookie is set by Authula on sign-in / sign-up and sent automatically by the browser via `credentials: 'include'`. The middleware (`AuthSession`) reads the cookie, resolves the Authula actor, and materialises the local `domain.User` projection before any handler runs.
 
-See [Authentication.md](./Authentication.md) for the full auth flow (sign-in/sign-up, OAuth2, password change, sign-out, etc.).
+See [Authentication.md](./Authentication.md) for the full auth flow (sign-in/sign-up, password change, sign-out, etc.).
 
 ## Response Envelope
 

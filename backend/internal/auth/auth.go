@@ -37,8 +37,6 @@ import (
 	"github.com/Authula/authula/models"
 	emailpasswordplugin "github.com/Authula/authula/plugins/email-password"
 	emailpasswordplugintypes "github.com/Authula/authula/plugins/email-password/types"
-	oauth2plugin "github.com/Authula/authula/plugins/oauth2"
-	oauth2plugintypes "github.com/Authula/authula/plugins/oauth2/types"
 	sessionplugin "github.com/Authula/authula/plugins/session"
 	authulaservices "github.com/Authula/authula/services"
 
@@ -68,25 +66,11 @@ type Config struct {
 	// used by the main app; Authula will create its own tables on
 	// first init.
 	DatabaseURL string
-	// GoogleOAuth holds the Google OAuth2 provider credentials. When
-	// non-nil, the OAuth2 plugin is enabled and registered for the
-	// "google" provider. The RedirectURL is built automatically as
-	// <BaseURL><BasePath>/oauth2/callback/google when empty.
-	GoogleOAuth *GoogleOAuthConfig
 	// SecureCookies overrides the `secure` flag on the session
 	// cookie. When nil, Authula's config.toml value is used. When
 	// non-nil, true forces Secure=true regardless of environment
 	// (use this in production deployments).
 	SecureCookies *bool
-}
-
-// GoogleOAuthConfig carries the credentials for the Google OAuth2
-// provider. Mirrors the field names expected by Authula's oauth2
-// plugin.
-type GoogleOAuthConfig struct {
-	ClientID     string
-	ClientSecret string
-	RedirectURL  string
 }
 
 // Auth is the composition root for Authula. It exposes the bits of
@@ -102,7 +86,7 @@ type Auth struct {
 }
 
 // Bootstrap initializes Authula: it runs core + plugin migrations
-// (idempotent) and registers the email-password, session, and OAuth2
+// (idempotent) and registers the email-password and session
 // plugins. The returned *Auth is safe to call Handler() /
 // NewSessionAuthenticator() / NewUserLookup() on for the rest of the
 // process lifetime.
@@ -125,33 +109,6 @@ func Bootstrap(ctx context.Context, cfg Config) (*Auth, error) {
 	// config, so we set it here to keep wiring in one place.
 	if err := setEnvIfEmpty(env.EnvDatabaseURL, cfg.DatabaseURL); err != nil {
 		return nil, fmt.Errorf("auth: failed to set %s: %w", env.EnvDatabaseURL, err)
-	}
-
-	// Build the OAuth2 plugin config only when Google is wired. The
-	// plugin is intentionally opt-in: leaving GoogleOAuth nil keeps
-	// the surface area exactly what it was before and means existing
-	// deployments don't get extra routes mounted.
-	var oauth2Cfg *oauth2plugintypes.OAuth2PluginConfig
-	if cfg.GoogleOAuth != nil {
-		redirectURL := cfg.GoogleOAuth.RedirectURL
-		if redirectURL == "" {
-			base := cfg.BaseURL
-			if base == "" {
-				base = "http://localhost:8080"
-			}
-			redirectURL = base + BasePath + "/oauth2/callback/google"
-		}
-		oauth2Cfg = &oauth2plugintypes.OAuth2PluginConfig{
-			Enabled: true,
-			Providers: map[string]oauth2plugintypes.ProviderConfig{
-				"google": {
-					Enabled:      true,
-					ClientID:     cfg.GoogleOAuth.ClientID,
-					ClientSecret: cfg.GoogleOAuth.ClientSecret,
-					RedirectURL:  redirectURL,
-				},
-			},
-		}
 	}
 
 	authulaCfg := authulaconfig.NewConfig(
@@ -189,10 +146,6 @@ func Bootstrap(ctx context.Context, cfg Config) (*Auth, error) {
 			Enabled: true,
 		}),
 	}
-	if oauth2Cfg != nil {
-		plugins = append(plugins, oauth2plugin.New(*oauth2Cfg))
-	}
-
 	instance := authula.New(&authula.AuthConfig{
 		Config:  authulaCfg,
 		Plugins: plugins,

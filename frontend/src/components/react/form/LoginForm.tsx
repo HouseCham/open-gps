@@ -14,11 +14,7 @@ import { REPO_ENVIRONMENT } from '@/constants';
 import { Alert } from '@/components/react/ui/Alert';
 import { Button } from '@/components/react/ui/button';
 import { Checkbox, Field, Input } from '@/components/react/form/ui';
-import {
-    GoogleLogo,
-    OrDivider,
-    PasswordField,
-} from '@/components/react/form/shared';
+import { PasswordField } from '@/components/react/form/shared';
 //-- Icons
 import { AlertCircle, ArrowRight, Mail } from 'lucide-react';
 //-- Lazy components
@@ -40,7 +36,7 @@ export interface LoginFormProps {
 }
 
 /**
- * LoginForm — email + password sign-in with remember me and Google OAuth.
+ * LoginForm — email + password sign-in with remember me.
  * @param {LoginFormProps} props
  * @returns {JSX.Element}
  */
@@ -154,23 +150,6 @@ export function LoginForm({ strings, firstUser }: LoginFormProps): JSX.Element {
                 >
                     {isLoading ? strings.loggingIn : strings.login}
                 </Button>
-
-                <OrDivider label={strings.orContinueWith} />
-
-                <button
-                    disabled
-                    type="button"
-                    className="btn btn-google btn-block"
-                    aria-label={strings.signInWithGoogle}
-                    onClick={() => {
-                        window.location.assign(
-                            '/api/auth/oauth2/authorize/google'
-                        );
-                    }}
-                >
-                    <GoogleLogo />
-                    {strings.signInWithGoogle}
-                </button>
             </form>
 
             {/* Dev API inspector */}

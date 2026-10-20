@@ -17,8 +17,6 @@ import { Badge } from '@/components/react/ui/Badge';
 import { Button } from '@/components/react/ui/button';
 import { Checkbox, Field, Input } from '@/components/react/form/ui';
 import {
-    GoogleLogo,
-    OrDivider,
     PasswordField,
     PasswordStrength,
     strengthScore,
@@ -235,21 +233,6 @@ export function SignupForm({
                 >
                     {isLoading ? strings.creatingAccount : strings.signup}
                 </Button>
-
-                <OrDivider label={strings.orDivider} />
-
-                <button
-                    type="button"
-                    className="btn btn-google btn-block"
-                    onClick={() => {
-                        window.location.assign(
-                            '/api/auth/oauth2/authorize/google'
-                        );
-                    }}
-                >
-                    <GoogleLogo />
-                    {strings.continueWithGoogle}
-                </button>
 
                 <div className="alt">
                     {strings.haveAccount}{' '}

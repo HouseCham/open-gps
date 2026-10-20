@@ -2,7 +2,7 @@
 app_name = "gps-tracker-api"
 
 # Base URL for the application. Used as the base url of the API and for
-# redirects, emails, OAuth callback URLs, etc. In local dev this is the
+# redirects and emails. In local dev this is the
 # public origin of the app (the nginx reverse proxy), NOT the api
 # container's internal address. In production point it at the public
 # hostname where the api is served.

@@ -285,29 +285,6 @@ button {
     animation: spin 0.7s linear infinite;
 }
 
-.btn-google {
-    background: #fff;
-    border: 1px solid #dadce0;
-    color: #3c4043;
-    min-height: 38px;
-}
-
-.btn-google:hover {
-    background: #f7f8f8;
-    border-color: #dadce0;
-}
-
-.btn-google:focus-visible {
-    outline: none;
-    box-shadow:
-        0 0 0 1px #fff,
-        0 0 0 4px rgba(66, 133, 244, 0.3);
-}
-
-[data-theme='dark'] .btn-google {
-    background: #fff;
-}
-
 /* =====================================================================
    Field / Input
    ===================================================================== */
@@ -677,6 +654,31 @@ textarea.textarea {
     font-family: var(--gp-mono);
     border-top: 1px solid var(--gp-border-soft);
     padding-top: 14px;
+}
+
+.auth-brand .footer > span:last-child {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    text-align: right;
+}
+
+.auth-brand .footer > span:last-child p {
+    margin: 0;
+}
+
+.auth-brand .footer > span:last-child p:first-child {
+    color: var(--gp-text-mute);
+    font-family: var(--gp-sans);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.auth-brand .footer > span:last-child .right {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
 }
 
 .auth-brand .footer a:hover {

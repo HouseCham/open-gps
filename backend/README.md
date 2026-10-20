@@ -64,8 +64,7 @@ go run ./cmd/api
 ## API Endpoints
 
 `/api/auth/*` is served by Authula except for the custom `GET /api/auth/me` and
-`POST /api/auth/sign-out` handlers. The OAuth2 routes are available for Google
-only when both Google OAuth credentials are configured. See
+`POST /api/auth/sign-out` handlers. See
 [`docs/api/Authentication.md`](../docs/api/Authentication.md) for Authula's
 additional endpoints and authentication details.
 
@@ -80,8 +79,6 @@ additional endpoints and authentication details.
 | POST | `/api/auth/email-password/change-password` | Authula; session required. |
 | GET | `/api/auth/.well-known/jwks.json` | Authula public signing keys. |
 | POST | `/api/auth/token/refresh` | Authula token refresh. |
-| GET | `/api/auth/oauth2/authorize/:provider` | Authula; Google when configured. |
-| GET | `/api/auth/oauth2/callback/:provider` | Authula; Google when configured. |
 | GET | `/api/auth/me` | Authenticated session; custom user projection. |
 | GET | `/api/v1/system/bootstrap` | Public; reports whether the local user table is empty. |
 | POST | `/api/v1/guest/share-links/consume` | Public link-token exchange for a temporary guest cookie. |

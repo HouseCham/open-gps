@@ -17,7 +17,7 @@ The frontend communicates with a Go + Fiber backend and PostgreSQL database to p
 | State           | [Nano Stores](https://nanostores.dev)                                                     |
 | Icons           | [Lucide](https://lucide.dev) (`@lucide/astro` + `lucide-react`)                           |
 | HTTP            | [`@better-fetch/fetch`](https://github.com/better-fetch/fetch)                            |
-| Auth            | [`Authula`](https://github.com/Authula/authula) (HTTP-only session cookie) + Google OAuth |
+| Auth            | [`Authula`](https://github.com/Authula/authula) (HTTP-only session cookie) |
 | Fonts           | [`@fontsource`](https://fontsource.org) (Inter, JetBrains Mono)                           |
 | Testing         | [Vitest](https://vitest.dev) + Testing Library (happy-dom)                                |
 | Package manager | [pnpm](https://pnpm.io)                                                                   |
@@ -37,7 +37,7 @@ The frontend communicates with a Go + Fiber backend and PostgreSQL database to p
 - **User Administration** — Manage users, roles, and temporary-password handoff (super admin)
 - **Profile** — View/edit profile, device count, change password
 - **Settings** — Theme, language, and password preferences
-- **Authentication** — Email/password login (remember me), Google OAuth, first-admin signup, forgot/reset password flows, and route guards (protected, public-only, admin-only, forced password change)
+- **Authentication** — Email/password login (remember me), first-admin signup, forgot/reset password flows, and route guards (protected, public-only, admin-only, forced password change)
 - **No Access Notice** — Guidance screen for authenticated users without permissions
 - **Internationalization** — English and Spanish locale support
 - **Dark/Light Theme** — Full design system with CSS custom properties
@@ -131,7 +131,7 @@ src/
 
 - `/` — Language detection, redirects to `/[lan]/` (runs the first-run bootstrap gate)
 - `/[lan]/` — Home; **placeholder pending the dashboard view**
-- `/[lan]/login` — Authentication (email/password + Google OAuth)
+- `/[lan]/login` — Authentication (email/password)
 - `/[lan]/signup` — First admin registration
 - `/[lan]/forgot-password` — Password recovery request
 - `/[lan]/reset-password?token=...` — Password reset
@@ -263,7 +263,7 @@ Services are exposed as React hooks with their own loading/error state (e.g.
 
 | Service             | Responsibility                                                   |
 | ------------------- | ---------------------------------------------------------------- |
-| `authService`       | Sign in/up/out, me, change password, password recovery, OAuth    |
+| `authService`       | Sign in/up/out, me, change password, password recovery           |
 | `deviceService`     | Device CRUD + access control (grant, list, revoke)               |
 | `userService`       | User CRUD with pagination                                        |
 | `apiKeyService`     | Per-device API keys (create, list, revoke)                       |

@@ -22,13 +22,6 @@ type AuthConfig struct {
 	BaseURL     string `json:"baseURL"`
 	Secret      string `json:"-"`
 	DatabaseURL string `json:"-"`
-	GoogleOAuth *GoogleOAuthConfig
-}
-
-type GoogleOAuthConfig struct {
-	ClientID     string `json:"clientId"`
-	ClientSecret string `json:"-"`
-	RedirectURL  string `json:"redirectUrl"`
 }
 
 func LoadAuthConfig() (AuthConfig, error) {
@@ -37,15 +30,6 @@ func LoadAuthConfig() (AuthConfig, error) {
 		BaseURL:     os.Getenv("AUTHULA_BASE_URL"),
 		Secret:      os.Getenv("AUTHULA_SECRET"),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
-	}
-	if googleClientID := os.Getenv("GOOGLE_CLIENT_ID"); googleClientID != "" {
-		googleClientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
-		if googleClientSecret != "" {
-			cfg.GoogleOAuth = &GoogleOAuthConfig{
-				ClientID:     googleClientID,
-				ClientSecret: googleClientSecret,
-			}
-		}
 	}
 	if cfg.Secret == "" {
 		return AuthConfig{}, fmt.Errorf("authula_secret is required")

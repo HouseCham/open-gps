@@ -10,8 +10,6 @@ import type {
     ConsumePasswordRecoveryDto,
     Envelope,
     MeResponse,
-    OAuthAuthorizeResponse,
-    OAuthProvider,
     RequestPasswordRecoveryDto,
     RequestPasswordRecoveryResponse,
     SignInCredentials,
@@ -50,8 +48,6 @@ import { redirectTo } from '@/lib';
  * @method changePassword - Calls POST /api/v1/auth/change-password and refreshes the local profile.
  * @method requestPasswordRecovery - Calls POST /api/v1/auth/generate-pwd-recovery-token to email a single-use reset link.
  * @method consumePasswordRecovery - Calls POST /api/v1/auth/consume-pwd-recovery-token to rotate the password.
- * @method fetchOAuthAuthorizeUrl - Resolves the OAuth provider's authorization URL.
- * @method signInOAuth - Kicks off the OAuth2 sign-in flow.
  */
 interface useAuthService {
     isLoading: boolean;
@@ -60,10 +56,6 @@ interface useAuthService {
     signOut: () => Promise<void>;
     fetchMe: (showToast?: boolean) => Promise<AuthUser | null>;
     fetchProfile: () => Promise<User | null>;
-    fetchOAuthAuthorizeUrl: (
-        provider: OAuthProvider,
-        callbackUrl: string
-    ) => Promise<string>;
     getSession: (showToast?: boolean) => Promise<AuthUser | null>;
     changePassword: (payload: ChangePasswordDto) => Promise<void>;
     requestPasswordRecovery: (
@@ -72,7 +64,6 @@ interface useAuthService {
     consumePasswordRecovery: (
         payload: ConsumePasswordRecoveryDto
     ) => Promise<void>;
-    signInOAuth: (provider: OAuthProvider) => Promise<void>;
 }
 
 /**
@@ -250,36 +241,6 @@ export const useAuthService = (): useAuthService => {
         }
     }
     /**
-     * Asks Authula for the provider's authorization URL. The backend
-     * @param {OAuthProvider} provider - The provider identifier (e.g. "google").
-     * @param {string} callbackUrl - Absolute URL the backend should redirect to after the callback.
-     * @returns {Promise<string>} The authorization URL to send the browser to.
-     */
-    async function fetchOAuthAuthorizeUrl(
-        provider: OAuthProvider,
-        callbackUrl: string
-    ): Promise<string> {
-        try {
-            const { data } = await withApiErrorToast(() =>
-                authClient<OAuthAuthorizeResponse | null>(
-                    `/oauth2/authorize/${provider}?redirect_to=${encodeURIComponent(callbackUrl)}`,
-                    { method: 'GET' }
-                )
-            );
-            if (!data || !data.authUrl) {
-                reportEmptyResponse(
-                    'oauth authorize returned an empty response',
-                    true
-                );
-            }
-            return data.authUrl;
-        } catch (_err) {
-            // withApiErrorToast already pushed a toast; the caller falls
-            // back to an empty string so the OAuth redirect is a no-op.
-            return '';
-        }
-    }
-    /**
      * Retrieves the authenticated user from the backend and updates and returns the `$user` atom.
      * @param {boolean | undefined} showToast - Whether to show a toast on error.
      * @returns {Promise<AuthUser | null>} The authenticated user, or null.
@@ -367,40 +328,6 @@ export const useAuthService = (): useAuthService => {
             )
         );
     }
-    /**
-     * Kicks off the OAuth flow by asking Authula for the provider's
-     * authorize URL, then hands the browser off to it. The callback URL
-     * is the current page's origin; the backend redirects back there
-     * after the provider handshake.
-     * @param {OAuthProvider} provider - The provider identifier (e.g. "google").
-     * @returns {Promise<void>} Resolves once the navigation is dispatched.
-     * @throws {ApiError} When the authorize call fails (the toast has
-     *   already been pushed by `withApiErrorToast`).
-     */
-    async function signInOAuth(provider: OAuthProvider): Promise<void> {
-        setAuthLoading(true);
-        try {
-            const { data } = await withApiErrorToast(() =>
-                authClient<OAuthAuthorizeResponse | null>(
-                    `/oauth2/authorize/${provider}?redirect_to=${encodeURIComponent(window.location.origin)}`,
-                    { method: 'GET' }
-                )
-            );
-            if (!data?.authUrl) {
-                throw new Error('oauth authorize returned an empty response');
-            }
-            // Success path deliberately skips the `finally` reset: the page
-            // navigates away, so the loading flag is moot in production.
-            window.location.href = data.authUrl;
-        } catch (err) {
-            // withApiErrorToast already pushed a toast (or this is the
-            // empty-response throw above). Reset the loading flag here —
-            // the success path skips this reset because the page navigates.
-            setAuthLoading(false);
-            throw err;
-        }
-    }
-
     return {
         isLoading,
         signIn,
@@ -408,11 +335,9 @@ export const useAuthService = (): useAuthService => {
         signOut,
         fetchMe,
         fetchProfile,
-        fetchOAuthAuthorizeUrl,
         getSession,
         changePassword,
         requestPasswordRecovery,
         consumePasswordRecovery,
-        signInOAuth,
     };
 };

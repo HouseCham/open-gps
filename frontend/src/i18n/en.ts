@@ -133,8 +133,6 @@ export const en = {
         loginSubtitle: 'Sign in to your Open GPS account',
         signupTitle: 'Create an account',
         signupSubtitle: 'Start tracking your devices in minutes',
-        signInWithGoogle: 'Sign in with Google',
-        orContinueWith: 'Or continue with email',
 
         // Brand panel (AuthLayout)
         appName: 'Open GPS',
@@ -186,8 +184,6 @@ export const en = {
         termsLabel: 'Terms',
         privacyLabel: 'Privacy Policy',
         creatingAccount: 'Creating account…',
-        orDivider: 'or',
-        continueWithGoogle: 'Continue with Google',
         firstAdminWelcome: "Welcome — you'll be the first admin.",
         createAccountBadge: 'Create your account',
         acceptTerms: 'Please accept the terms to continue.',
@@ -506,7 +502,7 @@ export const en = {
                     { label: 'Languages', value: 'EN / ES' },
                     { label: 'Theme modes', value: 'LIGHT / DARK' },
                     { label: 'Ingestion', value: 'DEVICE API KEYS' },
-                    { label: 'Auth', value: 'PASSWORD / GOOGLE' },
+                    { label: 'Auth', value: 'PASSWORD' },
                 ],
             },
             footer: {

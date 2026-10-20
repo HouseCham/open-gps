@@ -6,7 +6,7 @@ Base URL: `/api/v1`
 
 All `/api/v1/email/*` endpoints require an active session cookie (`authula.session_token`) and the caller's `role` must be `super_admin`. The `AuthSession` middleware also enforces `must_change_password = false` (same gate as every other authenticated route).
 
-See [Authentication.md](./Authentication.md) for the full auth flow (sign-in/sign-up, OAuth2, password change, sign-out, etc.).
+See [Authentication.md](./Authentication.md) for the full auth flow (sign-in/sign-up, password change, sign-out, etc.).
 
 ## Response Envelope
 

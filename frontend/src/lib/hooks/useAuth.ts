@@ -23,7 +23,7 @@ import { useAuthService } from '@/lib/api/services';
  * @returns {UseAuthResult} The current auth snapshot and actions.
  */
 export function useAuth(): UseAuthResult {
-    const { signIn, signUp, signInOAuth, signOut } = useAuthService();
+    const { signIn, signUp, signOut } = useAuthService();
     const user = useStore($user);
     const isAuthenticated = useStore($isAuthenticated);
     const isAuthLoading = useStore($isAuthLoading);
@@ -38,7 +38,6 @@ export function useAuth(): UseAuthResult {
         isRoleLoaded,
         signIn: signIn,
         signUp: signUp,
-        signInOAuth: signInOAuth,
         signOut: signOut,
     };
 }
