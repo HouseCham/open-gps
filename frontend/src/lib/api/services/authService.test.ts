@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api/client', () => ({
     authClient: vi.fn(),
@@ -27,7 +27,6 @@ import type {
     ChangePasswordResponse,
     Envelope,
     MeResponse,
-    OAuthAuthorizeResponse,
     User,
 } from '@/types/api';
 import { useAuthService } from './authService';
@@ -125,59 +124,6 @@ describe('useAuthService.signUp', () => {
         );
         expect($user.get()).toEqual(user);
         expect(redirectTo).toHaveBeenCalledWith('/');
-    });
-});
-
-describe('useAuthService.signInOAuth', () => {
-    let hrefSpy: ReturnType<typeof vi.fn>;
-    let originalDesc: PropertyDescriptor | undefined;
-
-    beforeEach(() => {
-        originalDesc = Object.getOwnPropertyDescriptor(window.location, 'href');
-        hrefSpy = vi.fn();
-        // happy-dom lets us substitute the setter on window.location.href so
-        // we can observe the `window.location.href = authUrl` line without
-        // letting a real navigation mutate `window.location.origin` for
-        // later assertions.
-        Object.defineProperty(window.location, 'href', {
-            set: hrefSpy,
-            get: () => '',
-            configurable: true,
-        });
-    });
-
-    afterEach(() => {
-        if (originalDesc) {
-            Object.defineProperty(window.location, 'href', originalDesc);
-        }
-    });
-
-    it('hits /oauth2/authorize with the right path and assigns the resolved authUrl to location.href', async () => {
-        const body: OAuthAuthorizeResponse = {
-            authUrl: 'https://provider.example/auth',
-        };
-        authClient.mockResolvedValue({ data: body });
-
-        await svc.signInOAuth('google');
-
-        const calledPath = (authClient.mock.calls[0]?.[0] as string) ?? '';
-        expect(
-            calledPath.startsWith('/oauth2/authorize/google?redirect_to=')
-        ).toBe(true);
-        expect(hrefSpy).toHaveBeenCalledWith('https://provider.example/auth');
-        // Note: the happy path does NOT clear `$isAuthLoading` — the page
-        // navigates away, making the flag moot in production. The catch
-        // branch is the only path that resets it, covered separately.
-    });
-
-    it('re-throws and clears isAuthLoading when the authorize call fails', async () => {
-        authClient.mockRejectedValue(new Error('nope'));
-
-        await expect(svc.signInOAuth('google')).rejects.toEqual({
-            status: 0,
-            message: 'nope',
-        });
-        expect($isAuthLoading.get()).toBe(false);
     });
 });
 

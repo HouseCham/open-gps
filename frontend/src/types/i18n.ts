@@ -24,8 +24,6 @@ export interface LoginStrings {
     loginSubtitle: string;
     signupTitle: string;
     signupSubtitle: string;
-    signInWithGoogle: string;
-    orContinueWith: string;
     appName: string;
     version: string;
     tagline: string;

@@ -4,12 +4,13 @@ import (
 	"context"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/Authula/authula/models"
+	authulaservices "github.com/Authula/authula/services"
 )
 
 type resetAccountService struct {
+	authulaservices.AccountService
 	account     *models.Account
 	updated     *models.Account
 	gotUserID   string
@@ -28,10 +29,6 @@ func (s *resetAccountService) Update(_ context.Context, account *models.Account)
 }
 
 func (s *resetAccountService) Create(context.Context, string, string, string, *string) (*models.Account, error) {
-	return nil, nil
-}
-
-func (s *resetAccountService) CreateOAuth2(context.Context, string, string, string, string, *string, *time.Time, *time.Time, *string) (*models.Account, error) {
 	return nil, nil
 }
 

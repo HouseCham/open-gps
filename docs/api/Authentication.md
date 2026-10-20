@@ -44,15 +44,6 @@ All `/api/auth/*` routes are served by Authula's net/http handler mounted as a F
 }
 ```
 
-### OAuth2 (Google)
-
-Only mounted when both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set.
-
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/api/auth/oauth2/authorize/google` | Start the Google OAuth2 flow. |
-| GET | `/api/auth/oauth2/callback/google` | OAuth2 callback. Sets the session cookie on success. |
-
 ### `/api/auth/me` (custom Fiber handler)
 
 Authula's built-in `/me` route registers its session-validation hook under `PluginID: "session.auth"`, but the core `/me` route carries no plugin metadata, so the hook never fires and the route always 401s. We override it with a Fiber handler that reads the actor and local user already materialised by `AuthSession` and returns the same `{ user: { id, email, name } }` shape the frontend expects:
@@ -82,7 +73,7 @@ For the request/response shapes on each Authula route, see the [Authula docs](ht
 
 1. Read `authula.session_token` from the request cookies.
 2. Hash the cookie value, look up the matching session in Authula's `sessions` table, and build the actor (`*authula.Actor`).
-3. Materialise the local `domain.User` projection. The very first time a given email is seen, a row is inserted into the app's `users` table (linked by email). If no active `super_admin` exists at that moment, the row gets `role = super_admin`; otherwise `role = user`. This is what makes the "first user is super_admin" invariant work for both email-password sign-ups and OAuth2 sign-ins. The check and the write run in one transaction behind a Postgres advisory lock, so simultaneous first sign-ups elect exactly one administrator (the partial unique index on `role = 'super_admin'` is a second guard). When a retry follows a partially completed earlier attempt, the existing row is repaired in place (name, role, password requirement) instead of failing on the duplicate email. This materialisation step is shared by the sign-up mirror hook and the login path — it does not itself reject non-first sign-ups; the invitation-only gate lives in the sign-up hook (see the Sign-up section above).
+3. Materialise the local `domain.User` projection. The very first time a given email is seen, a row is inserted into the app's `users` table (linked by email). If no active `super_admin` exists at that moment, the row gets `role = super_admin`; otherwise `role = user`. This is what makes the "first user is super_admin" invariant work for email-password sign-ups and sign-ins. The check and the write run in one transaction behind a Postgres advisory lock, so simultaneous first sign-ups elect exactly one administrator (the partial unique index on `role = 'super_admin'` is a second guard). When a retry follows a partially completed earlier attempt, the existing row is repaired in place (name, role, password requirement) instead of failing on the duplicate email. This materialisation step is shared by the sign-up mirror hook and the login path — it does not itself reject non-first sign-ups; the invitation-only gate lives in the sign-up hook (see the Sign-up section above).
 
 After `AuthSession` populates the locals, downstream middlewares can run:
 
@@ -171,11 +162,10 @@ Invalidates the session in Authula's `sessions` table and clears the cookie. Ide
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `AUTHULA_SECRET` | Yes | — | 32-byte hex string. `openssl rand -hex 32`. |
-| `AUTHULA_BASE_URL` | No | `https://localhost` (from `config.toml`) | Public origin. Used in redirect/email links and OAuth callback URL. |
+| `AUTHULA_BASE_URL` | No | `https://localhost` (from `config.toml`) | Public origin. Used in Authula redirects and email links. |
 | `DATABASE_URL` | Yes | — | Postgres URL. Authula uses the same database and creates its own tables on first init. |
 | `APP_ENV` | No | `development` | Set to `production` to flip the session cookie's `Secure` flag on. |
 | `APP_NAME` | No | `gps-tracker-api` | Display name in Authula logs and emails. |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | No | — | When both are set, the Google OAuth2 plugin is enabled and `/api/auth/oauth2/*` routes become live. |
 | `CORS_ALLOWED_ORIGINS` | No | empty | Comma-separated origins. When non-empty, the CORS middleware is enabled with `credentials: true`. Required when the frontend and API live on different origins. |
 
 ---

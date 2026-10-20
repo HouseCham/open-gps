@@ -20,8 +20,6 @@ export interface LoginFormData {
  * @property {string} passwordRequired - The error message to display if the password is required.
  * @property {string} loginTitle - The title for the login form.
  * @property {string} loginSubtitle - The subtitle for the login form.
- * @property {string} signInWithGoogle - The label for the Google sign-in button.
- * @property {string} orContinueWith - The label for the divider between OAuth and email/password.
  */
 export interface LoginFormStrings {
     email: string;
@@ -35,8 +33,6 @@ export interface LoginFormStrings {
     passwordRequired: string;
     loginTitle: string;
     loginSubtitle: string;
-    signInWithGoogle: string;
-    orContinueWith: string;
     rememberDevice: string;
     forgotPassword: string;
     resetPassword: string;
@@ -113,8 +109,6 @@ export interface SignupFormStrings {
     termsLabel: string;
     privacyLabel: string;
     creatingAccount: string;
-    orDivider: string;
-    continueWithGoogle: string;
     firstAdminWelcome: string;
     createAccountBadge: string;
     emailPasswordRequired: string;

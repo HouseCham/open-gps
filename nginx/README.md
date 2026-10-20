@@ -139,7 +139,6 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml restart nginx
 | `host not found in upstream "api"` | `docker compose ps api` | nginx started before the api container — restart it: `docker compose … restart nginx` |
 | `502 Bad Gateway` on `/api/*` | `docker compose logs api` | api container is down or crashing — check logs |
 | Cookie not set on sign-in | DevTools → Network → check `Set-Cookie` header | `AUTHULA_BASE_URL` must match the public origin nginx exposes (`https://localhost` in dev) |
-| OAuth redirect 404 at `/api/auth/oauth2/callback/google` | Same as above | Authula's redirect URL in Google Cloud Console must match `AUTHULA_BASE_URL` + `/api/auth/oauth2/callback/google` |
 | Self-signed warning in Chrome/Firefox | — | See *Option B* above (mkcert) |
 
 ## Common operations

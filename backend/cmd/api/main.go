@@ -77,13 +77,6 @@ func main() {
 		log.Error("load auth config", "err", err)
 		os.Exit(1)
 	}
-	var googleOAuth *auth.GoogleOAuthConfig
-	if authCfg.GoogleOAuth != nil {
-		googleOAuth = &auth.GoogleOAuthConfig{
-			ClientID:     authCfg.GoogleOAuth.ClientID,
-			ClientSecret: authCfg.GoogleOAuth.ClientSecret,
-		}
-	}
 	// Flip the session cookie's `secure` flag on whenever we're
 	// running in production. APP_ENV=development (the default) keeps
 	// it off so contributors running without HTTPS can still sign in.
@@ -93,7 +86,6 @@ func main() {
 		BaseURL:       authCfg.BaseURL,
 		Secret:        authCfg.Secret,
 		DatabaseURL:   authCfg.DatabaseURL,
-		GoogleOAuth:   googleOAuth,
 		SecureCookies: &secure,
 	})
 	if err != nil {

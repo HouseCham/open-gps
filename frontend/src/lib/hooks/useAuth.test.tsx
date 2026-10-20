@@ -50,7 +50,6 @@ describe('useAuth', () => {
 
         expect(typeof result.current.signIn).toBe('function');
         expect(typeof result.current.signUp).toBe('function');
-        expect(typeof result.current.signInOAuth).toBe('function');
         expect(typeof result.current.signOut).toBe('function');
     });
 });

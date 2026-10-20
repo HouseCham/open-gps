@@ -138,8 +138,6 @@ export const es: Translation = {
         loginSubtitle: 'Inicia sesión en tu cuenta Open GPS',
         signupTitle: 'Crear una cuenta',
         signupSubtitle: 'Empieza a rastrear tus dispositivos en minutos',
-        signInWithGoogle: 'Iniciar sesión con Google',
-        orContinueWith: 'O continúa con tu correo',
 
         // Panel de marca (AuthLayout)
         appName: 'Open GPS',
@@ -191,8 +189,6 @@ export const es: Translation = {
         termsLabel: 'Términos',
         privacyLabel: 'Política de Privacidad',
         creatingAccount: 'Creando cuenta…',
-        orDivider: 'o',
-        continueWithGoogle: 'Continuar con Google',
         firstAdminWelcome: 'Bienvenido — serás el primer admin.',
         createAccountBadge: 'Crea tu cuenta',
         acceptTerms: 'Acepta los términos para continuar.',
@@ -519,7 +515,7 @@ export const es: Translation = {
                     { label: 'Idiomas', value: 'EN / ES' },
                     { label: 'Modos de tema', value: 'CLARO / OSCURO' },
                     { label: 'Ingesta', value: 'CLAVES DE API' },
-                    { label: 'Autenticación', value: 'CONTRASEÑA / GOOGLE' },
+                    { label: 'Autenticación', value: 'CONTRASEÑA' },
                 ],
             },
             footer: {
