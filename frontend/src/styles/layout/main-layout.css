@@ -656,6 +656,31 @@ textarea.textarea {
     padding-top: 14px;
 }
 
+.auth-brand .footer > span:last-child {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    text-align: right;
+}
+
+.auth-brand .footer > span:last-child p {
+    margin: 0;
+}
+
+.auth-brand .footer > span:last-child p:first-child {
+    color: var(--gp-text-mute);
+    font-family: var(--gp-sans);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.auth-brand .footer > span:last-child .right {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
 .auth-brand .footer a:hover {
     color: var(--gp-text);
     text-decoration: none;

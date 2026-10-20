@@ -13,7 +13,7 @@ import {
 import { LanguageToggle, ToastProvider } from '@/components/react/ui';
 import { ThemeToggle } from '@/components/react/ui/ThemeToggle';
 import { MapSVG, RecoveryPipelineSVG } from '@/components/react';
-import { REPO_ENVIRONMENT } from '@/constants';
+import { OWNER_GITHUB_URL, OWNER_NAME, REPO_ENVIRONMENT } from '@/constants';
 
 /**
  * Brand-panel variants. `default` keeps the fleet-route visual used by
@@ -151,10 +151,30 @@ const brand = isRecovery
                                     <span class="lbl">{brand.step3}</span>
                                 </div>
                             )}
-
+                            <!-- Footer -->
                             <div class="footer">
+                                <!-- Host -->
                                 <span>{t.auth.footerHost}</span>
-                                <span>{isRecovery ? brand.footerSection : t.auth.footerTech}</span>
+                                <!-- Ownership -->
+                                <span>
+                                    {
+                                        isRecovery ? 
+                                            brand.footerSection : 
+                                            <>
+                                                <p>{t.auth.footerTech}</p>
+                                                <p class="right">
+                                                    {locale === 'en' ? 'by' : 'por'}
+                                                    <a
+                                                        href={OWNER_GITHUB_URL}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                    >
+                                                        {OWNER_NAME}
+                                                    </a>
+                                                </p>
+                                            </>
+                                    }
+                                </span>
                             </div>
                         </aside>
 

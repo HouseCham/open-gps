@@ -16,6 +16,16 @@ export * from './settings';
  */
 export const REPOSITORY_URL = 'https://github.com/HouseCham/open-gps';
 /**
+ * @constant OWNER_GITHUB_URL
+ * @description GitHub URL for the project owner - Ramsés Ramírez Vallejo
+ */
+export const OWNER_GITHUB_URL = 'https://github.com/HouseCham';
+/**
+ * @constant OWNER_NAME
+ * @description Name of the project owner - Ramsés Ramírez Vallejo
+ */
+export const OWNER_NAME = 'Ramsés Ramírez Vallejo';
+/**
  * @constant REPO_ENVIRONMENT
  * @description The environment in which the repository is running (e.g., development, production).
  * This value is derived from the `PUBLIC_ENV` environment variable.
